@@ -1,0 +1,16 @@
+entities:
+	name: player
+	pos: 300, 300
+	size: 100, 100
+
+triggers:
+	name: button_pressed
+	actions:
+		name: portal
+		type: animate_once
+		pos: 200, 200
+
+		name: portal2
+		type: create_item
+		pos: 200, 200	
+		depends_on: portal

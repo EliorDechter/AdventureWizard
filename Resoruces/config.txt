@@ -1,0 +1,4 @@
+entities:
+	name: player
+	pos: 300, 300
+	size: 100, 100

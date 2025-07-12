@@ -1,0 +1,2 @@
+name: sprite_sheet
+num_sprites: 3, 3
