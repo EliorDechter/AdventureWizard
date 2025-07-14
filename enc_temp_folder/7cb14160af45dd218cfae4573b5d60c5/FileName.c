@@ -2609,7 +2609,7 @@ typedef enum EditorTab { EditorTab_Entities, EditorTab_Events, EditorTab_Areas, 
 EditorWindow editor_window;
 EditorTab editor_tab;
 
-Widget* GetWidget(char* id, const char* str) {
+Widget* GetWidget(char* id, const char *str) {
 	int index = GetHashTableElement(editor.widgets_hashtable, id);
 	if (index == 0) {
 		assert(editor.num_widgets < MAX_NUM_WIDGETS);
@@ -3112,7 +3112,7 @@ void InitEditor() {
 
 void MyWindow() {
 	Rectangle rect = (Rectangle){ 50, 50, 200, 200 };
-
+	
 	if (GuiWindowBox(rect, "modify!")) {
 		editor.show_modify_entity_box = false;
 		return;
@@ -3280,8 +3280,10 @@ void DoEditor() {
 					EditorEndOffset();
 
 					// draw panel with delete and modify options
-					Rectangle entity_text_rect = (Rectangle){ editor.current_pos.x, editor.current_pos.y, 256, EDITOR_BUTTON_SIZE_Y};
-					if (EditorBeginDropDownPanel(entity_system.entities[i].name, entity_text_rect)) {
+					if (EditorBeginDropDownPanel(entity_system.entities[i].name,
+						(Rectangle) {
+						editor.current_pos.x, editor.current_pos.y, 256, EDITOR_BUTTON_SIZE_Y
+					})) {
 
 						if (EditorLabelButton("Delete")) {
 							DestroyEntity(GetEntityByName(editor.drop_down_panel_id)->id);
