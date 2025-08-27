@@ -1,7 +1,3 @@
-#include <string.h>
-#include <stdio.h>
-
-
 /*******************************************************************************************
 *
 *   raygui v4.5-dev - A simple and easy-to-use immediate-mode gui library
@@ -400,6 +396,7 @@
 typedef enum { false, true } bool;
 #endif
 #endif
+
 
 // Vector2 type
 typedef struct Vector2 {
@@ -3021,8 +3018,6 @@ int GuiTextBox(Rectangle bounds, char* text, int textSize, bool editMode)
 	}
 	else if (state == STATE_FOCUSED) GuiTooltip(bounds);
 	//--------------------------------------------------------------------
-
-
 
 	return result;      // Mouse button pressed: result = 1
 }
@@ -5872,6 +5867,1361 @@ static Color GuiFade(Color color, float alpha)
 
 	return result;
 }
+
+/************************************************************/
+typedef enum WindowId { WindowId_Inherit, WindowId_Screen, WindowId_Window, WindowId_DropDown } WindowId;
+typedef enum PanelType { PanelType_Default, PanelType_Window } PanelType;
+
+typedef struct Panel {
+	Vector2 pos;
+	Vector2 size;
+	//Rectangle relative_rect;
+	Rectangle absolute_rect;
+	bool column_mode;
+	Vector2 padding;
+	PanelType type;
+	Color color;
+	int window_id;
+	int child_gap;
+} Panel;
+
+typedef struct Window {
+	Rectangle rect;
+	bool active;
+} Window;
+
+typedef struct Egui {
+	int window_width, window_height;
+
+	Window windows[32];
+	int num_windows;
+	int current_window;
+	int hot_window;
+
+	//Panel panels[32];
+
+	Panel panel_stack[32];
+	int num_panels;
+
+	Vector2 mouse_pos;
+	Vector2 previous_mouse_pos;
+
+	bool hot;
+
+	Vector2 current_pos;
+	bool column_mode;
+	int child_gap;
+
+} Egui;
+
+Egui egui;
+
+void EguiInit(int window_width, int window_height) {
+	egui.window_height = window_height;
+	egui.window_width = window_width;
+	egui.windows[WindowId_Screen] = (Window){ .active = true, .rect = (Rectangle) {.width = egui.window_width, .height = egui.window_height } };
+}
+
+
+typedef enum EguiDrawCommandType { EguiDrawCommandType_None, EguiDrawCommandType_Text, EguiDrawCommandType_Panel, EguiDrawCommandType_Rect } EguiDrawCommandType;
+
+typedef struct EguiDrawCommand {
+	EguiDrawCommandType type;
+	int z;
+	int num;
+	Rectangle rect;
+
+	union {
+		struct {
+			char text[32];
+			GuiState state;
+			Color color;
+			int alignment;
+		} text_data;
+
+		struct {
+			Color color;
+		} panel_data;
+
+		struct {
+			Color color;
+			Color border_color;
+			int border_width;
+		} rect_data;
+	};
+
+} EguiDrawCommand;
+
+EguiDrawCommand* draw_commands_buff;
+
+void EguiDrawPanel(Rectangle rect, Color color) {
+	EguiDrawCommand command = {
+		.type = EguiDrawCommandType_Panel,
+		.panel_data = {.color = color },
+		.rect = rect,
+		.num = arrlen(draw_commands_buff)
+	};
+
+	arrput(draw_commands_buff, command);
+}
+
+void EguiDrawText(const char* text, Rectangle bounds, int alignment, Color color) {
+	assert(text);
+
+	EguiDrawCommand command = {
+		.type = EguiDrawCommandType_Text,
+		.text_data = {
+			.alignment = alignment,
+			.color = color
+		},
+		.rect = bounds,
+		.num = arrlen(draw_commands_buff)
+	};
+
+	strcpy(command.text_data.text, text);
+
+	arrput(draw_commands_buff, command);
+}
+
+void EguiDrawRectangle(Rectangle rect, int border_width, Color border_color, Color color) {
+
+	EguiDrawCommand command = {
+		.type = EguiDrawCommandType_Rect,
+		.rect_data = {
+			 .border_color = border_color,
+			.border_width = border_width,
+			.color = color,
+			.border_color = border_color,
+		},
+		.rect = rect,
+		.num = arrlen(draw_commands_buff)
+	};
+
+	arrput(draw_commands_buff, command);
+}
+
+void EguiBeginPanel(Panel panel) {
+
+	Panel previous_panel = egui.panel_stack[egui.num_panels - 1];
+	egui.panel_stack[egui.num_panels] = panel;
+
+	egui.column_mode = panel.column_mode;
+	egui.child_gap = panel.child_gap;
+
+	// Set current window
+	if (panel.window_id > 0) {
+		if (panel.type == PanelType_Window) {
+			//if (!egui.windows[panel.window_id].active) {
+			egui.windows[panel.window_id] = (Window){ .rect = (Rectangle){panel.pos.x, panel.pos.y, panel.size.x, panel.size.y}, .active = true };
+			//}
+		}
+
+		egui.current_window = panel.window_id;
+
+		//set current position
+		egui.current_pos.x = panel.pos.x;
+		egui.current_pos.y = panel.pos.y;
+	}
+	else {
+		// Inherit window id
+		assert(egui.num_panels > 0);
+		egui.current_window = egui.panel_stack[egui.num_panels - 1].window_id;
+		egui.panel_stack[egui.num_panels].window_id = egui.current_window;
+
+		//set current position
+		egui.current_pos.x += panel.pos.x + panel.padding.x;
+		egui.current_pos.y += panel.pos.y + panel.padding.y;
+	}
+
+
+	egui.panel_stack[egui.num_panels].absolute_rect = (Rectangle){ egui.current_pos.x, egui.current_pos.y, panel.size.x, panel.size.y };
+
+	EguiDrawPanel(egui.panel_stack[egui.num_panels].absolute_rect, panel.color);
+
+	// Add gap
+	egui.current_pos.x += panel.child_gap;
+	egui.current_pos.y += panel.child_gap;
+
+	egui.num_panels++;
+}
+
+void EguiEndPanel() {
+	//set to previous panel
+	if (egui.num_panels > 1) {
+		Panel current_panel = egui.panel_stack[egui.num_panels - 1];
+		Panel previous_panel = egui.panel_stack[egui.num_panels - 2];
+
+		if (previous_panel.type == PanelType_Window) {
+
+		}
+
+		if (previous_panel.column_mode) {
+			egui.current_pos.y = current_panel.absolute_rect.y + current_panel.absolute_rect.height;
+			egui.current_pos.x = previous_panel.absolute_rect.x;
+		}
+		else {
+			egui.current_pos.x = current_panel.absolute_rect.x + current_panel.absolute_rect.width;
+			egui.current_pos.y = previous_panel.absolute_rect.y;
+		}
+
+		// Go to previous settings
+		egui.current_window = previous_panel.window_id;
+		egui.column_mode = previous_panel.column_mode;
+		egui.child_gap = previous_panel.child_gap;
+
+		egui.num_panels--;
+	}
+}
+
+typedef struct Window2 {
+	Panel panel_stack[32];
+	int num_panels;
+	Rectangle rect;
+	int z;
+} Window2;
+
+Window2 window_stack[32];
+int num_windows;
+
+EguiBeginWindow(int z, Rectangle rect) {
+	
+}
+
+EguiEndWindow() {
+	Window2 previous_window = window_stack[num_windows - 2];
+
+}
+
+void EguiBegin() {
+	egui.num_panels = 0;
+	egui.hot_window = 0;
+	egui.current_pos = (Vector2){ 0 };
+
+	arrfree(draw_commands_buff);
+
+	egui.mouse_pos = GetMousePosition();
+
+	// Get hot window
+
+
+	for (int i = 0; i < 32; ++i) {
+		if (!egui.windows[i].active) continue;
+		if (CheckCollisionPointRec(egui.mouse_pos, egui.windows[i].rect)) {
+			egui.hot_window = i;
+		}
+	}
+
+	if (egui.hot_window == 0) printf("why");
+
+	GuiEnableTooltip();
+
+	EguiBeginPanel((Panel) { .pos = (Vector2){0, 0}, .size = { egui.window_width, egui.window_height }, .type = PanelType_Window, .window_id = WindowId_Screen, .column_mode = true });
+}
+
+//int EguiBeginRow() {
+//	editor.column_mode = true;
+//
+//	return egui.current_pos.x;
+//}
+//
+//void EguiEndRow(int original_x) {
+//	editor.column_mode = false;
+//	egui.current_pos.x = original_x;
+//	EguiNext(EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y);
+//}
+
+int CompareDrawCalls(const void* element1, const void* element2) {
+	EguiDrawCommand* c1 = (EguiDrawCommand*)element1;
+	EguiDrawCommand* c2 = (EguiDrawCommand*)element2;
+
+	if (c1->z > c2->z) {
+		return 1;
+	}
+	if (c1->z < c2->z) {
+		return -1;
+	}
+	if (c1->z == c2->z) {
+		if (c1->num > c2->num) return 1;
+		if (c1->num < c2->num) return -1;
+		return 0;
+	}
+
+	return 0;
+}
+
+void EguiEnd() {
+
+	EguiEndPanel();
+
+	EguiDrawCommand* draw_commands_buff_ordered = 0;
+
+	for (int i = 0; i < arrlen(draw_commands_buff); ++i) {
+		arrput(draw_commands_buff_ordered, draw_commands_buff[i]);
+	}
+
+	int _x = arrlen(draw_commands_buff_ordered);
+	qsort(draw_commands_buff_ordered, arrlen(draw_commands_buff_ordered), sizeof(EguiDrawCommand), CompareDrawCalls);
+
+	for (int i = 0; i < _x - 1; ++i) {
+		assert(CompareDrawCalls(&draw_commands_buff_ordered[i], &draw_commands_buff_ordered[i + 1]) == -1);
+	}
+
+	for (int i = 0; i < arrlen(draw_commands_buff_ordered); ++i) {
+		EguiDrawCommand command = draw_commands_buff_ordered[i];
+
+		if (command.type == EguiDrawCommandType_Text) {
+			GuiDrawText(command.text_data.text, command.rect, command.text_data.alignment, command.text_data.color);
+		}
+		else if (command.type == EguiDrawCommandType_Panel) {
+			DrawRectangleRec(command.rect, command.panel_data.color);
+		}
+		else if (command.type == EguiDrawCommandType_Rect) {
+			GuiDrawRectangle(command.rect, command.rect_data.border_width, command.rect_data.border_color, command.rect_data.color);
+		}
+	}
+
+	arrfree(draw_commands_buff);
+
+	// Mouse position
+	egui.previous_mouse_pos = egui.mouse_pos;
+}
+
+void EguiNext(int w, int h) {
+	if (egui.column_mode) {
+		egui.current_pos.y += egui.child_gap + h;
+	}
+	else {
+		egui.current_pos.x += egui.child_gap + w;
+	}
+}
+
+
+void EguiBeginWindowBox(Panel panel, bool* active) {
+
+
+
+	panel.window_id = WindowId_Window;
+	panel.type = PanelType_Window;
+	EguiBeginPanel(panel);
+
+	if (EguiWindowBox(&egui.windows[WindowId_Window].rect, "modify!")) {
+		*active = false;
+		egui.windows[WindowId_Window] = (Window){ 0 };
+		return;
+	}
+	*active = true;
+
+}
+
+void EguiEndWindowBox() {
+	EguiEndPanel();
+}
+
+bool EguiBeginDropDownPanel(int id, Vector2 pos, Vector2 size) {
+	int z = 1;
+
+	Rectangle rect = { pos.x, pos.y, size.x, size.y };
+
+	if (!CheckCollisionPointRec(GetMousePosition(), rect) &&
+		(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))) {
+		egui.windows[WindowId_DropDown] = (Window){ 0 };
+		return false;
+	}
+
+	EguiBeginPanel((Panel) { .pos = pos, .size = size, .color = RAYWHITE, .column_mode = true, .window_id = WindowId_DropDown, .type = PanelType_Window });
+	//EguiBeginPosition((Vector2) { egui.drop_down_panel_rec.x, egui.drop_down_panel_rec.y });
+
+}
+
+void EguiEndDropDownPanel() {
+	EguiEndPanel();
+}
+
+
+// Draw tooltip using control bounds
+static void EguiTooltip(Rectangle controlRec)
+{
+	if (!guiLocked && guiTooltip && (guiTooltipPtr != NULL) && !guiControlExclusiveMode)
+	{
+		Vector2 textSize = MeasureTextEx(GuiGetFont(), guiTooltipPtr, (float)GuiGetStyle(DEFAULT, TEXT_SIZE), (float)GuiGetStyle(DEFAULT, TEXT_SPACING));
+
+		if ((controlRec.x + textSize.x + 16) > GetScreenWidth()) controlRec.x -= (textSize.x + 16 - controlRec.width);
+
+		Rectangle rect = RAYGUI_CLITERAL(Rectangle) { controlRec.x, controlRec.y + controlRec.height + 4, textSize.x + 16, GuiGetStyle(DEFAULT, TEXT_SIZE) + 8.0f };
+
+		EguiBeginPanel((Panel) { .pos = { rect.x, rect.y }, .size = {rect.width, rect.height}, .window_id = WindowId_DropDown, .type = PanelType_Window });
+		{
+			//EguiPanel(rect, NULL);
+
+			int textPadding = GuiGetStyle(LABEL, TEXT_PADDING);
+			int textAlignment = GuiGetStyle(LABEL, TEXT_ALIGNMENT);
+			GuiSetStyle(LABEL, TEXT_PADDING, 0);
+			GuiSetStyle(LABEL, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+			//EguiLabel(RAYGUI_CLITERAL(Rectangle) { controlRec.x, controlRec.y + controlRec.height + 4, textSize.x + 16, GuiGetStyle(DEFAULT, TEXT_SIZE) + 8.0f }, guiTooltipPtr);
+			GuiSetStyle(LABEL, TEXT_ALIGNMENT, textAlignment);
+			GuiSetStyle(LABEL, TEXT_PADDING, textPadding);
+		}
+		EguiEndPanel();
+	}
+}
+
+int EguiLabelButton(Rectangle bounds, const char* text)
+{
+	GuiState state = guiState;
+	bool pressed = false;
+
+	// NOTE: We force bounds.width to be all text
+	float textWidth = (float)GetTextWidth(text);
+	if ((bounds.width - 2 * GuiGetStyle(LABEL, BORDER_WIDTH) - 2 * GuiGetStyle(LABEL, TEXT_PADDING)) < textWidth) bounds.width = textWidth + 2 * GuiGetStyle(LABEL, BORDER_WIDTH) + 2 * GuiGetStyle(LABEL, TEXT_PADDING) + 2;
+
+	// Update control
+	//--------------------------------------------------------------------
+	if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
+	{
+		Vector2 mousePoint = GetMousePosition();
+
+		//check if below a panel
+
+		// Check checkbox state
+		if (CheckCollisionPointRec(mousePoint, bounds))
+		{
+			if (egui.hot_window == egui.current_window) {
+				if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
+				else state = STATE_FOCUSED;
+
+				if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) pressed = true;
+			}
+		}
+	}
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	//EguiDrawText(text, bounds, state, egui.panels[current_panel].z);
+	EguiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state * 3))));
+
+	//--------------------------------------------------------------------
+
+	return pressed;
+}
+
+// Panel control
+int EguiPanel(Rectangle bounds, const char* text)
+{
+#if !defined(RAYGUI_PANEL_BORDER_WIDTH)
+#define RAYGUI_PANEL_BORDER_WIDTH   1
+#endif
+
+	int result = 0;
+	GuiState state = guiState;
+
+	// Text will be drawn as a header bar (if provided)
+	Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
+	if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT * 2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT * 2.0f;
+
+	if (text != NULL)
+	{
+		// Move panel bounds after the header bar
+		bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+		bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+	}
+
+	// Draw control
+	//--------------------------------------------------------------------
+	if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar
+
+	EguiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED) ? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)),
+		GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED) ? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR)));
+	//--------------------------------------------------------------------
+
+	return result;
+}
+
+int EguiButton(Rectangle bounds, const char* text)
+{
+	int result = 0;
+	GuiState state = guiState;
+
+	// Update control
+	//--------------------------------------------------------------------
+	if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
+	{
+		Vector2 mousePoint = GetMousePosition();
+
+		// Check button state
+		if (CheckCollisionPointRec(mousePoint, bounds)) {
+			if (egui.hot_window == egui.current_window)
+			{
+				if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
+				else state = STATE_FOCUSED;
+
+				if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) result = 1;
+			}
+		}
+	}
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	EguiDrawRectangle(bounds, GuiGetStyle(BUTTON, BORDER_WIDTH),
+		GetColor(GuiGetStyle(BUTTON, BORDER + (state * 3))),
+		GetColor(GuiGetStyle(BUTTON, BASE + (state * 3))));
+	EguiDrawText(text, GetTextBounds(BUTTON, bounds), GuiGetStyle(BUTTON, TEXT_ALIGNMENT), GetColor(GuiGetStyle(BUTTON, TEXT + (state * 3))));
+
+	if (state == STATE_FOCUSED) EguiTooltip(bounds);
+	//------------------------------------------------------------------
+
+	return result;      // Button pressed: result = 1
+}
+
+int EguiToggle(Rectangle bounds, const char* text, bool* active)
+{
+	int result = 0;
+	GuiState state = guiState;
+
+	bool temp = false;
+	if (active == NULL) active = &temp;
+
+	// Update control
+	//--------------------------------------------------------------------
+	if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
+	{
+		Vector2 mousePoint = GetMousePosition();
+
+		// Check toggle button state
+		if (egui.hot_window == egui.current_window && CheckCollisionPointRec(mousePoint, bounds))
+		{
+			if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
+			else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+			{
+				state = STATE_NORMAL;
+				*active = !(*active);
+			}
+			else state = STATE_FOCUSED;
+		}
+	}
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	if (state == STATE_NORMAL)
+	{
+		EguiDrawRectangle(bounds, GuiGetStyle(TOGGLE, BORDER_WIDTH), GetColor(GuiGetStyle(TOGGLE, ((*active) ? BORDER_COLOR_PRESSED : (BORDER + state * 3)))), GetColor(GuiGetStyle(TOGGLE, ((*active) ? BASE_COLOR_PRESSED : (BASE + state * 3)))));
+		EguiDrawText(text, GetTextBounds(TOGGLE, bounds), GuiGetStyle(TOGGLE, TEXT_ALIGNMENT), GetColor(GuiGetStyle(TOGGLE, ((*active) ? TEXT_COLOR_PRESSED : (TEXT + state * 3)))));
+	}
+	else
+	{
+		EguiDrawRectangle(bounds, GuiGetStyle(TOGGLE, BORDER_WIDTH), GetColor(GuiGetStyle(TOGGLE, BORDER + state * 3)), GetColor(GuiGetStyle(TOGGLE, BASE + state * 3)));
+		EguiDrawText(text, GetTextBounds(TOGGLE, bounds), GuiGetStyle(TOGGLE, TEXT_ALIGNMENT), GetColor(GuiGetStyle(TOGGLE, TEXT + state * 3)));
+	}
+
+
+	if (state == STATE_FOCUSED) GuiTooltip(bounds);
+	//--------------------------------------------------------------------
+
+	return result;
+}
+
+int EguiTabBar(Rectangle bounds, const char** text, int count, int* active)
+{
+	//#define RAYGUI_TABBAR_ITEM_WIDTH    65
+
+	int result = -1;
+	//GuiState state = guiState;
+
+	Rectangle tabBounds = bounds;
+
+	if (*active < 0) *active = 0;
+	else if (*active > count - 1) *active = count - 1;
+
+	int offsetX = 0;    // Required in case tabs go out of screen
+	offsetX = (*active + 2) * RAYGUI_TABBAR_ITEM_WIDTH - GetScreenWidth();
+	if (offsetX < 0) offsetX = 0;
+
+	bool toggle = false;    // Required for individual toggles
+
+	// Draw control
+	//--------------------------------------------------------------------
+	for (int i = 0; i < count; i++)
+	{
+		//tabBounds.x = bounds.x + (RAYGUI_TABBAR_ITEM_WIDTH + 4) * i - offsetX;
+		tabBounds.x = bounds.x + bounds.width * i;
+
+		if (tabBounds.x < GetScreenWidth())
+		{
+			// Draw tabs as toggle controls
+			int textAlignment = GuiGetStyle(TOGGLE, TEXT_ALIGNMENT);
+			int textPadding = GuiGetStyle(TOGGLE, TEXT_PADDING);
+			GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+			GuiSetStyle(TOGGLE, TEXT_PADDING, 8);
+
+			if (i == (*active))
+			{
+				toggle = true;
+				EguiToggle(tabBounds, text[i], &toggle);
+			}
+			else
+			{
+				toggle = false;
+				EguiToggle(tabBounds, text[i], &toggle);
+				if (toggle) *active = i;
+			}
+
+			// Close tab with middle mouse button pressed
+			if (CheckCollisionPointRec(GetMousePosition(), tabBounds) && IsMouseButtonPressed(MOUSE_MIDDLE_BUTTON)) result = i;
+
+			GuiSetStyle(TOGGLE, TEXT_PADDING, textPadding);
+			GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, textAlignment);
+#if 0
+			// Draw tab close button
+			// NOTE: Only draw close button for current tab: if (CheckCollisionPointRec(mousePosition, tabBounds))
+			int tempBorderWidth = GuiGetStyle(BUTTON, BORDER_WIDTH);
+			int tempTextAlignment = GuiGetStyle(BUTTON, TEXT_ALIGNMENT);
+			GuiSetStyle(BUTTON, BORDER_WIDTH, 1);
+			GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+#if defined(RAYGUI_NO_ICONS)
+			if (GuiButton(RAYGUI_CLITERAL(Rectangle) { tabBounds.x + tabBounds.width - 14 - 5, tabBounds.y + 5, 14, 14 }, "x")) result = i;
+#else
+			if (GuiButton(RAYGUI_CLITERAL(Rectangle) { tabBounds.x + tabBounds.width - 14 - 5, tabBounds.y + 5, 14, 14 }, GuiIconText(ICON_CROSS_SMALL, NULL))) result = i;
+#endif
+			GuiSetStyle(BUTTON, BORDER_WIDTH, tempBorderWidth);
+			GuiSetStyle(BUTTON, TEXT_ALIGNMENT, tempTextAlignment);
+#endif
+
+		}
+	}
+
+	// Draw tab-bar bottom line
+	//GuiDrawRectangle(RAYGUI_CLITERAL(Rectangle) { bounds.x, bounds.y + bounds.height - 1, bounds.width, 1 }, 0, BLANK, GetColor(GuiGetStyle));
+	//--------------------------------------------------------------------
+
+	return result;     // Return as result the current TAB closing requested
+}
+
+
+// Dropdown Box control
+// NOTE: Returns mouse click
+int EguiDropDownBox(Rectangle bounds, const char* text, int* active, bool editMode)
+{
+	int result = 0;
+	GuiState state = guiState;
+
+	int temp = 0;
+	if (active == NULL) active = &temp;
+
+	int itemSelected = *active;
+	int itemFocused = -1;
+
+	int direction = 0; // Dropdown box open direction: down (default)
+	if (GuiGetStyle(DROPDOWNBOX, DROPDOWN_ROLL_UP) == 1) direction = 1; // Up
+
+	// Get substrings items from text (items pointers, lengths and count)
+	int itemCount = 0;
+	const char** items = GuiTextSplit(text, ';', &itemCount, NULL);
+
+	Rectangle boundsOpen = bounds;
+	boundsOpen.height = (itemCount + 1) * (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING));
+	if (direction == 1) boundsOpen.y -= itemCount * (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING)) + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING);
+
+	Rectangle itemBounds = bounds;
+
+	// Update control
+	//--------------------------------------------------------------------
+	if ((state != STATE_DISABLED) && (editMode || !guiLocked) && (itemCount > 1) && !guiControlExclusiveMode)
+	{
+		Vector2 mousePoint = GetMousePosition();
+
+		if (editMode)
+		{
+			state = STATE_PRESSED;
+
+			// Check if mouse has been pressed or released outside limits
+			if (egui.hot_window == egui.current_window && !CheckCollisionPointRec(mousePoint, boundsOpen))
+			{
+				if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) result = 1;
+			}
+
+			// Check if already selected item has been pressed again
+			if (egui.hot_window == egui.current_window && CheckCollisionPointRec(mousePoint, bounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) result = 1;
+
+			// Check focused and selected item
+			for (int i = 0; i < itemCount; i++)
+			{
+				// Update item rectangle y position for next item
+				if (direction == 0) itemBounds.y += (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING));
+				else itemBounds.y -= (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING));
+
+				if (CheckCollisionPointRec(mousePoint, itemBounds))
+				{
+					itemFocused = i;
+					if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+					{
+						itemSelected = i;
+						result = 1;         // Item selected
+					}
+					break;
+				}
+			}
+
+			itemBounds = bounds;
+		}
+		else
+		{
+			if (egui.hot_window == egui.current_window && CheckCollisionPointRec(mousePoint, bounds))
+			{
+				if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+				{
+					result = 1;
+					state = STATE_PRESSED;
+				}
+				else state = STATE_FOCUSED;
+			}
+		}
+	}
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+
+	if (editMode) EguiPanel(boundsOpen, NULL);
+
+	EguiDrawRectangle(bounds, GuiGetStyle(DROPDOWNBOX, BORDER_WIDTH), GetColor(GuiGetStyle(DROPDOWNBOX, BORDER + state * 3)), GetColor(GuiGetStyle(DROPDOWNBOX, BASE + state * 3)));
+	EguiDrawText(items[itemSelected], GetTextBounds(DROPDOWNBOX, bounds), GuiGetStyle(DROPDOWNBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(DROPDOWNBOX, TEXT + state * 3)));
+
+	if (!GuiGetStyle(DROPDOWNBOX, DROPDOWN_ARROW_HIDDEN))
+	{
+		// Draw arrows (using icon if available)
+#if defined(RAYGUI_NO_ICONS)
+		GuiDrawText("v", RAYGUI_CLITERAL(Rectangle){ bounds.x + bounds.width - GuiGetStyle(DROPDOWNBOX, ARROW_PADDING), bounds.y + bounds.height / 2 - 2, 10, 10 },
+			TEXT_ALIGN_CENTER, GetColor(GuiGetStyle(DROPDOWNBOX, TEXT + (state * 3))));
+#else
+		EguiDrawText(direction ? "#121#" : "#120#", RAYGUI_CLITERAL(Rectangle){ bounds.x + bounds.width - GuiGetStyle(DROPDOWNBOX, ARROW_PADDING), bounds.y + bounds.height / 2 - 6, 10, 10 },
+			TEXT_ALIGN_CENTER, GetColor(GuiGetStyle(DROPDOWNBOX, TEXT + (state * 3))));   // ICON_ARROW_DOWN_FILL
+#endif
+	}
+
+	if (editMode)
+	{
+		EguiBeginPanel((Panel) { .pos = { bounds.x, bounds.y + bounds.height }, .size = { bounds.width, bounds.height * itemCount }, .color = WHITE });
+
+		// Draw visible items
+		for (int i = 0; i < itemCount; i++)
+		{
+			// Update item rectangle y position for next item
+			if (direction == 0) itemBounds.y += (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING));
+			else itemBounds.y -= (bounds.height + GuiGetStyle(DROPDOWNBOX, DROPDOWN_ITEMS_SPACING));
+
+			if (i == itemSelected)
+			{
+				EguiDrawRectangle(itemBounds, GuiGetStyle(DROPDOWNBOX, BORDER_WIDTH), GetColor(GuiGetStyle(DROPDOWNBOX, BORDER_COLOR_PRESSED)), GetColor(GuiGetStyle(DROPDOWNBOX, BASE_COLOR_PRESSED)));
+				EguiDrawText(items[i], GetTextBounds(DROPDOWNBOX, itemBounds), GuiGetStyle(DROPDOWNBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(DROPDOWNBOX, TEXT_COLOR_PRESSED)));
+			}
+			else if (i == itemFocused)
+			{
+				EguiDrawRectangle(itemBounds, GuiGetStyle(DROPDOWNBOX, BORDER_WIDTH), GetColor(GuiGetStyle(DROPDOWNBOX, BORDER_COLOR_FOCUSED)), GetColor(GuiGetStyle(DROPDOWNBOX, BASE_COLOR_FOCUSED)));
+				EguiDrawText(items[i], GetTextBounds(DROPDOWNBOX, itemBounds), GuiGetStyle(DROPDOWNBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(DROPDOWNBOX, TEXT_COLOR_FOCUSED)));
+			}
+			else EguiDrawText(items[i], GetTextBounds(DROPDOWNBOX, itemBounds), GuiGetStyle(DROPDOWNBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(DROPDOWNBOX, TEXT_COLOR_NORMAL)));
+		}
+		EguiEndPanel();
+
+	}
+
+
+	//--------------------------------------------------------------------
+
+	*active = itemSelected;
+
+	// TODO: Use result to return more internal states: mouse-press out-of-bounds, mouse-press over selected-item...
+	return result;   // Mouse click: result = 1
+}
+
+
+// Text Box control
+// NOTE: Returns true on ENTER pressed (useful for data validation)
+int EguiTextBox(Rectangle bounds, char* text, int textSize, bool editMode)
+{
+#if !defined(RAYGUI_TEXTBOX_AUTO_CURSOR_COOLDOWN)
+#define RAYGUI_TEXTBOX_AUTO_CURSOR_COOLDOWN  30        // Frames to wait for autocursor movement
+#endif
+#if !defined(RAYGUI_TEXTBOX_AUTO_CURSOR_DELAY)
+#define RAYGUI_TEXTBOX_AUTO_CURSOR_DELAY      2        // Frames delay for autocursor movement
+#endif
+
+	int result = 0;
+	GuiState state = guiState;
+
+	bool multiline = false;     // TODO: Consider multiline text input
+	int wrapMode = GuiGetStyle(DEFAULT, TEXT_WRAP_MODE);
+
+	Rectangle textBounds = GetTextBounds(TEXTBOX, bounds);
+	int textLength = (text != NULL) ? (int)strlen(text) : 0; // Get current text length
+	int thisCursorIndex = textBoxCursorIndex;
+	if (thisCursorIndex > textLength) thisCursorIndex = textLength;
+	int textWidth = GetTextWidth(text) - GetTextWidth(text + thisCursorIndex);
+	int textIndexOffset = 0;    // Text index offset to start drawing in the box
+
+	// Cursor rectangle
+	// NOTE: Position X value should be updated
+	Rectangle cursor = {
+		textBounds.x + textWidth + GuiGetStyle(DEFAULT, TEXT_SPACING),
+		textBounds.y + textBounds.height / 2 - GuiGetStyle(DEFAULT, TEXT_SIZE),
+		2,
+		(float)GuiGetStyle(DEFAULT, TEXT_SIZE) * 2
+	};
+
+	if (cursor.height >= bounds.height) cursor.height = bounds.height - GuiGetStyle(TEXTBOX, BORDER_WIDTH) * 2;
+	if (cursor.y < (bounds.y + GuiGetStyle(TEXTBOX, BORDER_WIDTH))) cursor.y = bounds.y + GuiGetStyle(TEXTBOX, BORDER_WIDTH);
+
+	// Mouse cursor rectangle
+	// NOTE: Initialized outside of screen
+	Rectangle mouseCursor = cursor;
+	mouseCursor.x = -1;
+	mouseCursor.width = 1;
+
+	// Blink-cursor frame counter
+	//if (!autoCursorMode) blinkCursorFrameCounter++;
+	//else blinkCursorFrameCounter = 0;
+
+	// Update control
+	//--------------------------------------------------------------------
+	// WARNING: Text editing is only supported under certain conditions:
+	if ((state != STATE_DISABLED) &&                // Control not disabled
+		!GuiGetStyle(TEXTBOX, TEXT_READONLY) &&     // TextBox not on read-only mode
+		!guiLocked &&                               // Gui not locked
+		!guiControlExclusiveMode &&                       // No gui slider on dragging
+		(wrapMode == TEXT_WRAP_NONE))               // No wrap mode
+	{
+		Vector2 mousePosition = GetMousePosition();
+
+		if (editMode)
+		{
+			// GLOBAL: Auto-cursor movement logic
+			// NOTE: Keystrokes are handled repeatedly when button is held down for some time
+			if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_BACKSPACE) || IsKeyDown(KEY_DELETE)) autoCursorCounter++;
+			else autoCursorCounter = 0;
+
+			bool autoCursorShouldTrigger = (autoCursorCounter > RAYGUI_TEXTBOX_AUTO_CURSOR_COOLDOWN) && ((autoCursorCounter % RAYGUI_TEXTBOX_AUTO_CURSOR_DELAY) == 0);
+
+			state = STATE_PRESSED;
+
+			if (textBoxCursorIndex > textLength) textBoxCursorIndex = textLength;
+
+			// If text does not fit in the textbox and current cursor position is out of bounds,
+			// we add an index offset to text for drawing only what requires depending on cursor
+			while (textWidth >= textBounds.width)
+			{
+				int nextCodepointSize = 0;
+				GetCodepointNext(text + textIndexOffset, &nextCodepointSize);
+
+				textIndexOffset += nextCodepointSize;
+
+				textWidth = GetTextWidth(text + textIndexOffset) - GetTextWidth(text + textBoxCursorIndex);
+			}
+
+			int codepoint = GetCharPressed();       // Get Unicode codepoint
+			if (multiline && IsKeyPressed(KEY_ENTER)) codepoint = (int)'\n';
+
+			// Encode codepoint as UTF-8
+			int codepointSize = 0;
+			const char* charEncoded = CodepointToUTF8(codepoint, &codepointSize);
+
+			// Handle Paste action
+			if (IsKeyPressed(KEY_V) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)))
+			{
+				const char* pasteText = GetClipboardText();
+				if (pasteText != NULL)
+				{
+					int pasteLength = 0;
+					int pasteCodepoint;
+					int pasteCodepointSize;
+					// count how many codepoints to copy, stopping at the first unwanted control character
+					while (true)
+					{
+						pasteCodepoint = GetCodepointNext(pasteText + pasteLength, &pasteCodepointSize);
+						if (textLength + pasteLength + pasteCodepointSize >= textSize) break;
+						if (!(multiline && (pasteCodepoint == (int)'\n')) && !(pasteCodepoint >= 32)) break;
+						pasteLength += pasteCodepointSize;
+					}
+					if (pasteLength > 0)
+					{
+						// Move forward data from cursor position
+						for (int i = textLength + pasteLength; i > textBoxCursorIndex; i--) text[i] = text[i - pasteLength];
+
+						// Paste data in at cursor
+						for (int i = 0; i < pasteLength; i++) text[textBoxCursorIndex + i] = pasteText[i];
+
+						textBoxCursorIndex += pasteLength;
+						textLength += pasteLength;
+						text[textLength] = '\0';
+					}
+				}
+			}
+			// Add codepoint to text, at current cursor position
+			// NOTE: Make sure we do not overflow buffer size
+			else if (((multiline && (codepoint == (int)'\n')) || (codepoint >= 32)) && ((textLength + codepointSize) < textSize))
+			{
+				// Move forward data from cursor position
+				for (int i = (textLength + codepointSize); i > textBoxCursorIndex; i--) text[i] = text[i - codepointSize];
+
+				// Add new codepoint in current cursor position
+				for (int i = 0; i < codepointSize; i++) text[textBoxCursorIndex + i] = charEncoded[i];
+
+				textBoxCursorIndex += codepointSize;
+				textLength += codepointSize;
+
+				// Make sure text last character is EOL
+				text[textLength] = '\0';
+			}
+
+			// Move cursor to start
+			if ((textLength > 0) && IsKeyPressed(KEY_HOME)) textBoxCursorIndex = 0;
+
+			// Move cursor to end
+			if ((textLength > textBoxCursorIndex) && IsKeyPressed(KEY_END)) textBoxCursorIndex = textLength;
+
+			// Delete related codepoints from text, after current cursor position
+			if ((textLength > textBoxCursorIndex) && IsKeyPressed(KEY_DELETE) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)))
+			{
+				int offset = textBoxCursorIndex;
+				int accCodepointSize = 0;
+				int nextCodepointSize;
+				int nextCodepoint;
+				// Check characters of the same type to delete (either ASCII punctuation or anything non-whitespace)
+				// Not using isalnum() since it only works on ASCII characters
+				nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				bool puctuation = ispunct(nextCodepoint & 0xff);
+				while (offset < textLength)
+				{
+					if ((puctuation && !ispunct(nextCodepoint & 0xff)) || (!puctuation && (isspace(nextCodepoint & 0xff) || ispunct(nextCodepoint & 0xff))))
+						break;
+					offset += nextCodepointSize;
+					accCodepointSize += nextCodepointSize;
+					nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				}
+				// Check whitespace to delete (ASCII only)
+				while (offset < textLength)
+				{
+					if (!isspace(nextCodepoint & 0xff))
+						break;
+					offset += nextCodepointSize;
+					accCodepointSize += nextCodepointSize;
+					nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				}
+
+				// Move text after cursor forward (including final null terminator)
+				for (int i = offset; i <= textLength; i++) text[i - accCodepointSize] = text[i];
+
+				textLength -= accCodepointSize;
+			}
+			// Delete single codepoint from text, after current cursor position
+			else if ((textLength > textBoxCursorIndex) && (IsKeyPressed(KEY_DELETE) || (IsKeyDown(KEY_DELETE) && autoCursorShouldTrigger)))
+			{
+				int nextCodepointSize = 0;
+				GetCodepointNext(text + textBoxCursorIndex, &nextCodepointSize);
+
+				// Move text after cursor forward (including final null terminator)
+				for (int i = textBoxCursorIndex + nextCodepointSize; i <= textLength; i++) text[i - nextCodepointSize] = text[i];
+
+				textLength -= nextCodepointSize;
+			}
+
+			// Delete related codepoints from text, before current cursor position
+			if ((textBoxCursorIndex > 0) && IsKeyPressed(KEY_BACKSPACE) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)))
+			{
+				int offset = textBoxCursorIndex;
+				int accCodepointSize = 0;
+				int prevCodepointSize;
+				int prevCodepoint;
+
+				// Check whitespace to delete (ASCII only)
+				while (offset > 0)
+				{
+					prevCodepoint = GetCodepointPrevious(text + offset, &prevCodepointSize);
+					if (!isspace(prevCodepoint & 0xff)) break;
+
+					offset -= prevCodepointSize;
+					accCodepointSize += prevCodepointSize;
+				}
+				// Check characters of the same type to delete (either ASCII punctuation or anything non-whitespace)
+				// Not using isalnum() since it only works on ASCII characters
+				bool puctuation = ispunct(prevCodepoint & 0xff);
+				while (offset > 0)
+				{
+					prevCodepoint = GetCodepointPrevious(text + offset, &prevCodepointSize);
+					if ((puctuation && !ispunct(prevCodepoint & 0xff)) || (!puctuation && (isspace(prevCodepoint & 0xff) || ispunct(prevCodepoint & 0xff)))) break;
+
+					offset -= prevCodepointSize;
+					accCodepointSize += prevCodepointSize;
+				}
+
+				// Move text after cursor forward (including final null terminator)
+				for (int i = textBoxCursorIndex; i <= textLength; i++) text[i - accCodepointSize] = text[i];
+
+				textLength -= accCodepointSize;
+				textBoxCursorIndex -= accCodepointSize;
+			}
+			// Delete single codepoint from text, before current cursor position
+			else if ((textBoxCursorIndex > 0) && (IsKeyPressed(KEY_BACKSPACE) || (IsKeyDown(KEY_BACKSPACE) && autoCursorShouldTrigger)))
+			{
+				int prevCodepointSize = 0;
+
+				GetCodepointPrevious(text + textBoxCursorIndex, &prevCodepointSize);
+
+				// Move text after cursor forward (including final null terminator)
+				for (int i = textBoxCursorIndex; i <= textLength; i++) text[i - prevCodepointSize] = text[i];
+
+				textLength -= prevCodepointSize;
+				textBoxCursorIndex -= prevCodepointSize;
+			}
+
+			// Move cursor position with keys
+			if ((textBoxCursorIndex > 0) && IsKeyPressed(KEY_LEFT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)))
+			{
+				int offset = textBoxCursorIndex;
+				int accCodepointSize = 0;
+				int prevCodepointSize;
+				int prevCodepoint;
+
+				// Check whitespace to skip (ASCII only)
+				while (offset > 0)
+				{
+					prevCodepoint = GetCodepointPrevious(text + offset, &prevCodepointSize);
+					if (!isspace(prevCodepoint & 0xff)) break;
+
+					offset -= prevCodepointSize;
+					accCodepointSize += prevCodepointSize;
+				}
+
+				// Check characters of the same type to skip (either ASCII punctuation or anything non-whitespace)
+				// Not using isalnum() since it only works on ASCII characters
+				bool puctuation = ispunct(prevCodepoint & 0xff);
+				while (offset > 0)
+				{
+					prevCodepoint = GetCodepointPrevious(text + offset, &prevCodepointSize);
+					if ((puctuation && !ispunct(prevCodepoint & 0xff)) || (!puctuation && (isspace(prevCodepoint & 0xff) || ispunct(prevCodepoint & 0xff)))) break;
+
+					offset -= prevCodepointSize;
+					accCodepointSize += prevCodepointSize;
+				}
+
+				textBoxCursorIndex = offset;
+			}
+			else if ((textBoxCursorIndex > 0) && (IsKeyPressed(KEY_LEFT) || (IsKeyDown(KEY_LEFT) && autoCursorShouldTrigger)))
+			{
+				int prevCodepointSize = 0;
+				GetCodepointPrevious(text + textBoxCursorIndex, &prevCodepointSize);
+
+				textBoxCursorIndex -= prevCodepointSize;
+			}
+			else if ((textLength > textBoxCursorIndex) && IsKeyPressed(KEY_RIGHT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)))
+			{
+				int offset = textBoxCursorIndex;
+				int accCodepointSize = 0;
+				int nextCodepointSize;
+				int nextCodepoint;
+
+				// Check characters of the same type to skip (either ASCII punctuation or anything non-whitespace)
+				// Not using isalnum() since it only works on ASCII characters
+				nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				bool puctuation = ispunct(nextCodepoint & 0xff);
+				while (offset < textLength)
+				{
+					if ((puctuation && !ispunct(nextCodepoint & 0xff)) || (!puctuation && (isspace(nextCodepoint & 0xff) || ispunct(nextCodepoint & 0xff)))) break;
+
+					offset += nextCodepointSize;
+					accCodepointSize += nextCodepointSize;
+					nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				}
+
+				// Check whitespace to skip (ASCII only)
+				while (offset < textLength)
+				{
+					if (!isspace(nextCodepoint & 0xff)) break;
+
+					offset += nextCodepointSize;
+					accCodepointSize += nextCodepointSize;
+					nextCodepoint = GetCodepointNext(text + offset, &nextCodepointSize);
+				}
+
+				textBoxCursorIndex = offset;
+			}
+			else if ((textLength > textBoxCursorIndex) && (IsKeyPressed(KEY_RIGHT) || (IsKeyDown(KEY_RIGHT) && autoCursorShouldTrigger)))
+			{
+				int nextCodepointSize = 0;
+				GetCodepointNext(text + textBoxCursorIndex, &nextCodepointSize);
+
+				textBoxCursorIndex += nextCodepointSize;
+			}
+
+			// Move cursor position with mouse
+			if (egui.hot_window == egui.current_window && CheckCollisionPointRec(mousePosition, textBounds))     // Mouse hover text
+			{
+				float scaleFactor = (float)GuiGetStyle(DEFAULT, TEXT_SIZE) / (float)guiFont.baseSize;
+				int codepointIndex = 0;
+				float glyphWidth = 0.0f;
+				float widthToMouseX = 0;
+				int mouseCursorIndex = 0;
+
+				for (int i = textIndexOffset; i < textLength; i += codepointSize)
+				{
+					codepoint = GetCodepointNext(&text[i], &codepointSize);
+					codepointIndex = GetGlyphIndex(guiFont, codepoint);
+
+					if (guiFont.glyphs[codepointIndex].advanceX == 0) glyphWidth = ((float)guiFont.recs[codepointIndex].width * scaleFactor);
+					else glyphWidth = ((float)guiFont.glyphs[codepointIndex].advanceX * scaleFactor);
+
+					if (mousePosition.x <= (textBounds.x + (widthToMouseX + glyphWidth / 2)))
+					{
+						mouseCursor.x = textBounds.x + widthToMouseX;
+						mouseCursorIndex = i;
+						break;
+					}
+
+					widthToMouseX += (glyphWidth + (float)GuiGetStyle(DEFAULT, TEXT_SPACING));
+				}
+
+				// Check if mouse cursor is at the last position
+				int textEndWidth = GetTextWidth(text + textIndexOffset);
+				if (GetMousePosition().x >= (textBounds.x + textEndWidth - glyphWidth / 2))
+				{
+					mouseCursor.x = textBounds.x + textEndWidth;
+					mouseCursorIndex = textLength;
+				}
+
+				// Place cursor at required index on mouse click
+				if ((mouseCursor.x >= 0) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+				{
+					cursor.x = mouseCursor.x;
+					textBoxCursorIndex = mouseCursorIndex;
+				}
+			}
+			else mouseCursor.x = -1;
+
+			// Recalculate cursor position.y depending on textBoxCursorIndex
+			cursor.x = bounds.x + GuiGetStyle(TEXTBOX, TEXT_PADDING) + GetTextWidth(text + textIndexOffset) - GetTextWidth(text + textBoxCursorIndex) + GuiGetStyle(DEFAULT, TEXT_SPACING);
+			//if (multiline) cursor.y = GetTextLines()
+
+			// Finish text editing on ENTER or mouse click outside bounds
+			if ((!multiline && IsKeyPressed(KEY_ENTER)) ||
+				(!CheckCollisionPointRec(mousePosition, bounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)))
+			{
+				textBoxCursorIndex = 0;     // GLOBAL: Reset the shared cursor index
+				autoCursorCounter = 0;      // GLOBAL: Reset counter for repeated keystrokes
+				result = 1;
+			}
+		}
+		else
+		{
+			if (egui.hot_window == egui.current_window && CheckCollisionPointRec(mousePosition, bounds))
+			{
+				state = STATE_FOCUSED;
+
+				if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+				{
+					textBoxCursorIndex = textLength;   // GLOBAL: Place cursor index to the end of current text
+					autoCursorCounter = 0;             // GLOBAL: Reset counter for repeated keystrokes
+					result = 1;
+				}
+			}
+		}
+	}
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	if (state == STATE_PRESSED)
+	{
+		EguiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state * 3))), GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_PRESSED)));
+	}
+	else if (state == STATE_DISABLED)
+	{
+		EguiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state * 3))), GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_DISABLED)));
+	}
+	else EguiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state * 3))), BLANK);
+
+	// Draw text considering index offset if required
+	// NOTE: Text index offset depends on cursor position
+	EguiDrawText(text + textIndexOffset, textBounds, GuiGetStyle(TEXTBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(TEXTBOX, TEXT + (state * 3))));
+
+	// Draw cursor
+	if (editMode && !GuiGetStyle(TEXTBOX, TEXT_READONLY))
+	{
+		//if (autoCursorMode || ((blinkCursorFrameCounter/40)%2 == 0))
+		EguiDrawRectangle(cursor, 0, BLANK, GetColor(GuiGetStyle(TEXTBOX, BORDER_COLOR_PRESSED)));
+
+		// Draw mouse position cursor (if required)
+		if (mouseCursor.x >= 0) EguiDrawRectangle(mouseCursor, 0, BLANK, GetColor(GuiGetStyle(TEXTBOX, BORDER_COLOR_PRESSED)));
+	}
+	else if (state == STATE_FOCUSED) GuiTooltip(bounds);
+	//--------------------------------------------------------------------
+
+	return result;      // Mouse button pressed: result = 1
+}
+
+int EguiLine(Rectangle bounds, const char* text)
+{
+#if !defined(RAYGUI_LINE_MARGIN_TEXT)
+#define RAYGUI_LINE_MARGIN_TEXT  12
+#endif
+#if !defined(RAYGUI_LINE_TEXT_PADDING)
+#define RAYGUI_LINE_TEXT_PADDING  4
+#endif
+
+	int result = 0;
+	GuiState state = guiState;
+
+	Color color = GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED) ? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR));
+
+	// Draw control
+	//--------------------------------------------------------------------
+	if (text == NULL) GuiDrawRectangle(RAYGUI_CLITERAL(Rectangle) { bounds.x, bounds.y + bounds.height / 2, bounds.width, 1 }, 0, BLANK, color);
+	else
+	{
+		Rectangle textBounds = { 0 };
+		textBounds.width = (float)GetTextWidth(text) + 2;
+		textBounds.height = bounds.height;
+		textBounds.x = bounds.x + RAYGUI_LINE_MARGIN_TEXT;
+		textBounds.y = bounds.y;
+
+		// Draw line with embedded text label: "--- text --------------"
+		EguiDrawRectangle(RAYGUI_CLITERAL(Rectangle) { bounds.x, bounds.y + bounds.height / 2, RAYGUI_LINE_MARGIN_TEXT - RAYGUI_LINE_TEXT_PADDING, 1 }, 0, BLANK, color);
+		EguiDrawText(text, textBounds, TEXT_ALIGN_LEFT, color);
+		EguiDrawRectangle(RAYGUI_CLITERAL(Rectangle) { bounds.x + 12 + textBounds.width + 4, bounds.y + bounds.height / 2, bounds.width - textBounds.width - RAYGUI_LINE_MARGIN_TEXT - RAYGUI_LINE_TEXT_PADDING, 1 }, 0, BLANK, color);
+	}
+	//--------------------------------------------------------------------
+
+	return result;
+}
+
+
+// Status Bar control
+int EguiStatusBar(Rectangle bounds, const char* text)
+{
+	int result = 0;
+	GuiState state = guiState;
+
+	// Draw control
+	//--------------------------------------------------------------------
+	EguiDrawRectangle(bounds, GuiGetStyle(STATUSBAR, BORDER_WIDTH), GetColor(GuiGetStyle(STATUSBAR, BORDER + (state * 3))), GetColor(GuiGetStyle(STATUSBAR, BASE + (state * 3))));
+	EguiDrawText(text, GetTextBounds(STATUSBAR, bounds), GuiGetStyle(STATUSBAR, TEXT_ALIGNMENT), GetColor(GuiGetStyle(STATUSBAR, TEXT + (state * 3))));
+	//--------------------------------------------------------------------
+
+	return result;
+}
+
+int EguiWindowBox(Rectangle* rect, const char* title)
+{
+
+	Rectangle bounds = *rect;
+
+	// Window title bar height (including borders)
+	// NOTE: This define is also used by GuiMessageBox() and GuiTextInputBox()
+#if !defined(RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT)
+#define RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT        24
+#endif
+
+#if !defined(RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT)
+#define RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT      18
+#endif
+
+	int result = 0;
+	//GuiState state = guiState;
+
+	int statusBarHeight = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT;
+
+	Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)statusBarHeight };
+	if (bounds.height < statusBarHeight * 2.0f) bounds.height = statusBarHeight * 2.0f;
+
+	const float vPadding = statusBarHeight / 2.0f - RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT / 2.0f;
+	Rectangle windowPanel = { bounds.x, bounds.y + (float)statusBarHeight - 1, bounds.width, bounds.height - (float)statusBarHeight + 1 };
+	Rectangle closeButtonRec = { statusBar.x + statusBar.width - GuiGetStyle(STATUSBAR, BORDER_WIDTH) - RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT - vPadding,
+								 statusBar.y + vPadding, RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT, RAYGUI_WINDOWBOX_CLOSEBUTTON_HEIGHT };
+
+	// Update control
+	//--------------------------------------------------------------------
+	// NOTE: Logic is directly managed by button
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	EguiStatusBar(statusBar, title);
+	EguiPanel(windowPanel, NULL);    // Draw window base
+
+
+	// Move around
+	if (egui.hot) {
+		rect->x += egui.mouse_pos.x - egui.previous_mouse_pos.x;
+		rect->y += egui.mouse_pos.y - egui.previous_mouse_pos.y;
+	}
+
+	if (CheckCollisionPointRec(egui.mouse_pos, statusBar)) {
+		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+			egui.hot = true;
+		}
+		else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+			egui.hot = false;
+		}
+	}
+
+	// Draw window close button
+	int tempBorderWidth = GuiGetStyle(BUTTON, BORDER_WIDTH);
+	int tempTextAlignment = GuiGetStyle(BUTTON, TEXT_ALIGNMENT);
+	GuiSetStyle(BUTTON, BORDER_WIDTH, 1);
+	GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+#if defined(RAYGUI_NO_ICONS)
+	result = GuiButton(closeButtonRec, "x");
+#else
+	result = EguiButton(closeButtonRec, GuiIconText(ICON_CROSS_SMALL, NULL));
+#endif
+	GuiSetStyle(BUTTON, BORDER_WIDTH, tempBorderWidth);
+	GuiSetStyle(BUTTON, TEXT_ALIGNMENT, tempTextAlignment);
+	//--------------------------------------------------------------------
+
+	return result;      // Window close button clicked: result = 1
+}
+
+// Label control
+int EguiLabel(Rectangle bounds, const char* text)
+{
+	int result = 0;
+	GuiState state = guiState;
+
+	// Update control
+	//--------------------------------------------------------------------
+	//...
+	//--------------------------------------------------------------------
+
+	// Draw control
+	//--------------------------------------------------------------------
+	EguiDrawText(text, bounds, GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state * 3))));
+	//--------------------------------------------------------------------
+
+	return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

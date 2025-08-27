@@ -1,60 +1,255 @@
-﻿// TODO:
+﻿
+#if 0
+
+// TODO:
 // -log doesn't show first line
 // -serialize entity animations map (currently segfaults)
 
+
+
+#if 0
+typedef struct PlatformRenderTexture {
+	RenderTexture2D texture;
+} PlatformRenderTexture;
+
+typedef struct PlatformImage {
+	Image image;
+} PlatformImage;
+
+typedef struct PlatformTexture {
+	Texture2D texture;
+} PlatformTexture;
+
+typedef struct PlatformFont {
+	Font font;
+} PlatformFont;
+
+PlatformImage PlatformImageLoad(const char* str) {
+	PlatformImage result = (PlatformImage){ LoadImage(str) };
+
+	return result;
+}
+
+void PlatformFontLoad() {
+
+}
+
+typedef struct Rect {
+	float x, y, w, h;
+} Rect;
+
+RenderTexture2D PlatformLoadRenderTexture(int w, int h) {
+	RenderTexture2D result = LoadRenderTexture(w, h);
+
+	BeginTextureMode(result);
+	ClearBackground(WHITE);
+	EndTextureMode();
+
+	return result;
+}
+
+void PlatformBeginDrawing() {
+	BeginDrawing();
+	ClearBackground(LIGHTGRAY);
+}
+
+void PlatformEndDrawing() {
+	EndDrawing();
+}
+
+PlatformDrawText(const char* str, int x, int y) {
+	DrawText(str, x, y, 13, BLACK);
+}
+
+PlatformTextureDraw(PlatformTexture texture, float x, float y, float w, float h) {
+	DrawTexturePro(texture.texture,
+		(Rectangle) {
+		0, 0, (float)texture.texture.width, (float)-texture.texture.height
+	},
+		(Rectangle) {
+		x, y, w, h
+	},
+		(Vector2) {
+		0, 0
+	},
+		0,
+		WHITE);
+}
+
+void PlatformRectDraw(Rect rect, PlatformColor color) {
+	DrawRectangle(rect.x, rect.y, rect.w, rect.h, *((Color*)&color));
+}
+#else
+#endif
+
+#if 1
 #define FIX_ME 0
 
 #define NAME_SIZE 30
-
-#include "raylib.h"
 #include <assert.h>
 #include <stdio.h>
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 #include <float.h>
 #include "json.h"
+#include <stdbool.h>
+
 #include "raymath.h"
 #include <stdarg.h>
 
-#define RAYGUI_IMPLEMENTATION
-#include "raygui.h"
+//#include "raygui.h"
+#include "editor.h"
 
-#define AREA_X  0
-#define AREA_Y  0
-#define AREA_WIDTH 900
-#define AREA_HEIGHT  450
 
-#define INVENTORY_X 0
-#define INVENTORY_Y AREA_HEIGHT
-#define INVENTORY_WIDTH AREA_WIDTH
-#define INVENTORY_HEIGHT 100
+// Gui definitions
 
-#define LOG_ORIGIN_X AREA_X
-#define LOG_ORIGIN_Y AREA_Y + AREA_HEIGHT + INVENTORY_HEIGHT + 5
-#define LOG_WIDTH AREA_WIDTH
-#define LOG_HEIGHT 200
 
-#define EDITOR_ORIGIN_X  AREA_X + AREA_WIDTH + 5
-#define EDITOR_ORIGIN_Y  AREA_Y
-#define EDITOR_WIDTH  300
-#define EDITOR_HEIGHT  LOG_ORIGIN_Y + LOG_HEIGHT - EDITOR_ORIGIN_Y
-
-#define WINDOW_WIDTH AREA_X + AREA_WIDTH + 5 + EDITOR_WIDTH + 5
-#define WINDOW_HEIGHT EDITOR_ORIGIN_Y + EDITOR_HEIGHT + 5
 
 const int NUM_NODES_X = 90;
 const int NUM_NODES_Y = 50;
 
-bool is_playing;
 bool run_slice_spritesheet;
 
 bool g_start_drawing;
 bool g_is_drawing;
 bool g_init;
 
-RenderTexture2D target;
-RenderTexture2D drop_down_panel_target;
+#if 0
+// Vector2 type
+typedef struct Vector2 {
+	float x;
+	float y;
+} Vector2;
 
+// Vector3 type                 // -- ConvertHSVtoRGB(), ConvertRGBtoHSV()
+typedef struct Vector3 {
+	float x;
+	float y;
+	float z;
+} Vector3;
+
+// Color type, RGBA (32bit)
+typedef struct Color {
+	unsigned char r;
+	unsigned char g;
+	unsigned char b;
+	unsigned char a;
+} Color;
+
+// PlatformRect type
+typedef struct PlatformRect {
+	float x;
+	float y;
+	float width;
+	float height;
+} PlatformRect;
+
+// TODO: PlatformTexture type is very coupled to raylib, required by Font type
+// It should be redesigned to be provided by user
+typedef struct PlatformTexture {
+	unsigned int id;        // OpenGL texture id
+	int width;              // Texture base width
+	int height;             // Texture base height
+	int mipmaps;            // Mipmap levels, 1 by default
+	int format;             // Data format (PixelFormat type)
+} PlatformTexture;
+
+// Image, pixel data stored in CPU memory (RAM)
+typedef struct Image {
+	void* data;             // Image raw data
+	int width;              // Image base width
+	int height;             // Image base height
+	int mipmaps;            // Mipmap levels, 1 by default
+	int format;             // Data format (PixelFormat type)
+} Image;
+
+// Texture, tex data stored in GPU memory (VRAM)
+typedef struct Texture {
+	unsigned int id;        // OpenGL texture id
+	int width;              // Texture base width
+	int height;             // Texture base height
+	int mipmaps;            // Mipmap levels, 1 by default
+	int format;             // Data format (PixelFormat type)
+} Texture;
+
+typedef struct RenderTexture {
+	unsigned int id;        // OpenGL framebuffer object id
+	Texture texture;        // Color buffer attachment texture
+	Texture depth;          // Depth buffer attachment texture
+} RenderTexture;
+
+typedef RenderTexture PlatformTexture;
+#endif
+
+//PlatformTexture target;
+//PlatformTexture drop_down_panel_target;
+
+/*
+ * ===============================================================
+ *
+ *                          TIMER
+ *
+ * ===============================================================
+ */
+
+typedef struct TimeSystem {
+	double total_time_in_seconds;
+} TimeSystem;
+
+TimeSystem time_system;
+
+typedef struct Timer {
+	double time;
+	double time_elapsed;
+} Timer;
+
+struct { char* key; Timer value; } *timer_map;
+
+typedef struct TimeInSeconds {
+	double time;
+} TimeInSeconds;
+
+double ConvertSecondsToMilliseconds(TimeInSeconds time) {
+	double result = time.time * 1000;
+
+	return result;
+}
+
+#include <stdbool.h>
+
+
+bool DoTimer(char* name, float time) {
+	int i = shgeti(timer_map, name);
+	if (i == -1) {
+		Timer timer = {
+			.time = time
+		};
+
+		shput(timer_map, name, timer);
+
+		return true;
+	}
+
+	Timer* timer = &timer_map[i].value;
+	timer->time_elapsed += 0.016;
+
+	if (timer->time_elapsed <= timer->time) {
+		return true;
+	}
+	else {
+		shdel(timer_map, name);
+		return false;
+	}
+}
+
+bool DoTimerSeconds(char* name, TimeInSeconds seconds) {
+	DoTimer(name, ConvertSecondsToMilliseconds(seconds));
+}
+
+void CountTime() {
+	time_system.total_time_in_seconds += 0.016;
+	assert(time_system.total_time_in_seconds <= DBL_MAX);
+}
 
 /*
  * ===============================================================
@@ -97,36 +292,19 @@ void RemoveFromHashTable(HashTable* hashtable, char* key) {
 	}
 }
 
-void AddToHashTable(HashTable* hashtable, char* key, int value) {
 
-	for (int i = 0; i < MAX_NUM_HASHTABLE_ELEMENTS; ++i) {
-		if (strcmp(hashtable->elements[i].key, key) == 0) {
-			hashtable->elements[i].value = value;
-		}
-	}
+#if 0
+// Color, 4 components, R8G8B8A8 (32bit)
+typedef struct Color {
+	unsigned char r;        // Color red value
+	unsigned char g;        // Color green value
+	unsigned char b;        // Color blue value
+	unsigned char a;        // Color alpha value
+} Color;
 
-	HashTableElement element = {
-		.value = value
-	};
+#endif
 
-	strcpy(element.key, key);
-
-	if (hashtable->num == 0) hashtable->num = 1;
-
-	assert(hashtable->num < MAX_NUM_HASHTABLE_ELEMENTS - 1);
-	hashtable->elements[hashtable->num++] = element;
-}
-
-int GetHashTableElement(HashTable hashtable, char* key) {
-	for (int i = 1; i < MAX_NUM_HASHTABLE_ELEMENTS; ++i) {
-		if (strcmp(key, hashtable.elements[i].key) == 0)
-			return hashtable.elements[i].value;
-	}
-
-	return 0;
-}
-
-void DrawTargetTexture(RenderTexture2D target, Vector2 position) {
+void PlatformDrawTargetTexture(PlatformTexture target, Vector2 position) {
 	DrawTextureRec(target.texture, (Rectangle) {
 		0, 0, (float)target.texture.width,
 			(float)-target.texture.height
@@ -182,8 +360,6 @@ void Log(int line, const char* fmt, ...) {
 }
 
 typedef enum Status { Status_Not_Running, Status_Running, Status_Ended } Status;
-
-
 
 Vector2 LerpPos(Vector2 pos, Vector2 end_pos) {
 	float lerp_amount = 0.05;
@@ -283,260 +459,10 @@ char* GetString(String s) {
 	return result;
 }
 
-/*
- * ===============================================================
- *
- *                          IO
- *
- * ===============================================================
- */
-typedef enum InputEvent { InputEvent_None, InputEvent_LeftClickPressed, InputEvent_LeftClickReleased } InputEvent;
-
-typedef struct InputSystem {
-	InputEvent input_event;
-	Vector2i mouse_pos;
-	Vector2i previous_mouse_pos;
-} InputSystem;
-
-InputSystem input_system;
-
-const char* LoadFile(const char* file_name) {
-	FILE* file = fopen(file_name, "r");
-	assert(file);
-
-	fseek(file, 0, SEEK_END);
-	int size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-	char* data = malloc(size + 1);
-	fread(data, size, 1, file);
-
-	data[size] = '\0';
-
-	fclose(file);
-
-	return data;
-}
-
-void HandleInput() {
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		input_system.input_event = InputEvent_LeftClickPressed;
-	}
-	else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-		input_system.input_event = InputEvent_LeftClickReleased;
-	}
-	else {
-		input_system.input_event = InputEvent_None;
-	}
-
-	input_system.previous_mouse_pos = input_system.mouse_pos;
-	input_system.mouse_pos = (Vector2i){ GetMousePosition().x, GetMousePosition().y };
-
-	input_system.mouse_pos.x -= 5;
-	input_system.mouse_pos.y -= 5;
-}
-
-/*
- * ===============================================================
- *
- *                          TIMER
- *
- * ===============================================================
- */
-
-
-typedef struct Timer {
-	double time;
-	double time_elapsed;
-} Timer;
-
-double total_time;
-
-struct { char* key; Timer value; } *timer_map;
-
-bool DoTimer(char* name, float time) {
-	int i = shgeti(timer_map, name);
-	if (i == -1) {
-		Timer timer = {
-			.time = time
-		};
-
-		shput(timer_map, name, timer);
-
-		return true;
-	}
-
-	Timer* timer = &timer_map[i].value;
-	timer->time_elapsed += 0.016;
-
-	if (timer->time_elapsed <= timer->time) {
-		return true;
-	}
-	else {
-		shdel(timer_map, name);
-		return false;
-	}
-}
-
-void CountTime() {
-	total_time += 0.016;
-	assert(total_time <= DBL_MAX);
-}
-/*
- * ===============================================================
- *
- *                          S_TEXTURES
- *
- * ===============================================================
- */
-
-typedef struct Texture2 {
-	char name[NAME_SIZE];
-	Texture2D texture;
-} Texture2;
-
-typedef struct SpriteSheet {
-	Vector2i num_sprites;
-	char texture_name[NAME_SIZE];
-} SpriteSheet;
-
-typedef struct TextureMap { char* key; Texture2 value; } TextureMap;
-
-typedef struct TextureSystem {
-	TextureMap* textures_map;
-
-	TextureMap* spritesheet_map;
-	TextureMap* inventory_map;
-
-	char* texture_cache;
-} TextureSystem;
-
-TextureSystem texture_system;
-
-typedef struct MyTexture {
-	Vector2 num_sprites;
-	Texture2D texture;
-} MyTexture;
-
-static void DrawTextureRect(Texture2D texture, Rectangle dest) {
-
-	//draw red rectangle on error
-	if (!texture.id) {
-		DrawRectangleRec(dest, RED);
-		return;
-	}
-
-	// draw
-	DrawTexturePro(texture,
-		(Rectangle) {
-		0.0f, 0.0f, (float)texture.width, (float)texture.height
-	},
-		dest, (Vector2) { 0 }, (float)0, WHITE);
-}
-
-#if 1
-static void DrawTextureRectCenter(Texture2D texture, Rectangle dest) {
-	dest.x -= dest.width / 2;
-	dest.y -= dest.height / 2;
-	DrawTextureRect(texture, dest);
-}
-#endif
-
-static void DrawTextureRectFlipped(Texture2D texture, Rectangle dest) {
-#if 0
-	dest.x += game_origin_x;
-	dest.y += game_origin_y;
-#endif
-	DrawTexturePro(texture,
-		(Rectangle) {
-		0.0f, 0.0f, -1 * (float)texture.width, (float)texture.height
-	},
-		dest, (Vector2) { 0 }, (float)0, WHITE);
-}
-
-static void AddTextureToMap(TextureMap** map, const char* name, Texture2 texture) {
-
-	if (shgeti(*map, name) != -1) {
-		UnloadTexture(shget(*map, name).texture);
-		shdel(*map, name);
-	}
-
-	//Log("Hello: %s %d %d\n", texture.name, texture.texture.width, texture.texture.width);
-
-	shput(*map, name, texture);
-}
-
-static void AddTexture(const char* name, Texture2 texture) {
-	AddTextureToMap(&texture_system.textures_map, name, texture);
-}
-
-static Texture2 GetTextureFromMap(TextureMap* map, const char* str) {
-	if (!str || strcmp(str, "") == 0) return (Texture2) { 0 };
-	int i = shgeti(map, str);
-	if (i == -1) {
-		Log(__LINE__, "Failed to find the texture \"%s\"", str);
-		return (Texture2) { 0 };
-	}
-
-	Texture2 t = map[i].value;
-
-	return t;
-}
-
-Texture2 GetTexture(const char* str) {
-	Texture2 res = GetTextureFromMap(texture_system.textures_map, str);
-
-	return res;
-}
-
-static Texture2D LoadTexture1(const char* name) {
-	//NOTE: breaks if not initialized to zero
-	char str[256] = { 0 };
-	strcat(str, "C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures");
-	strcat(str, name);
-
-	Image image = LoadImage(str);
-	if (!image.data) {
-		printf("failed to load %s\n", name);
-		return (Texture2D) { 0 };
-	}
-	Texture2D texture = LoadTextureFromImage(image);
-	UnloadImage(image);
-
-	return texture;
-}
-
-static void LoadTextures() {
-	FilePathList files = LoadDirectoryFiles("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures");
-	for (int i = 0; i < files.count; ++i) {
-		char* name = GetFileNameWithoutExt(files.paths[i]);
-		Texture2 texture = {
-			.texture = LoadTexture(files.paths[i])
-		};
-		strcpy(texture.name, name);
-		String s = CreateString(name);
-		OldLog("LOG: Loaded texture \"%s\" size:%dx%d\n", s.name, texture.texture.width, texture.texture.height);
-		AddTexture(s.name, texture);
-	}
-
-#if 1
-	files = LoadDirectoryFiles("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Inventory");
-	for (int i = 0; i < files.count; ++i) {
-		char* name = GetFileNameWithoutExt(files.paths[i]);
-		Texture2 texture = {
-					.texture = LoadTexture(files.paths[i])
-		};
-		strcpy(texture.name, name);
-		String s = CreateString(name);
-		OldLog("LOG: Loaded texture \"%s\"\n", s.name);
-		AddTextureToMap(&texture_system.inventory_map, s.name, texture);
-	}
-#endif
-}
 
 
 #if 0
-static Animation LoadAnimation() {
+Animation LoadAnimation() {
 	Animation animation = {
 		.time_per_frame = 0.016,
 		.valid = true,
@@ -598,32 +524,31 @@ void Animate(Animation* animation) {
 		(int)animation->sprite_sheet.num_sprites.y;
 }
 
-void DrawAnimation(Animation animation, Rectangle dest, bool flip_flag) {
+void DrawAnimation(Animation animation, Rect dest, bool flip_flag) {
 
 	// handle bad input
 	if (!animation.sprite_sheet.num_sprites.x || !animation.sprite_sheet.num_sprites.y) {
-		DrawTextureRect((Texture2D) { 0 }, dest);
+		PlatformDrawTextureRect((PlatformTexture) { 0 }, dest);
 		return;
 	}
 
-	Texture2D texture = GetTexture(animation.sprite_sheet.texture_name).texture;
+	PlatformTexture texture = GetSprite(animation.sprite_sheet.texture_name).texture;
 	Vector2i num_sprites = animation.sprite_sheet.num_sprites;
 	int row = animation.row;
 
-	float width = texture.width / num_sprites.y;
-	float height = texture.height / num_sprites.x;
+	float width = texture.texture.width / num_sprites.y;
+	float height = texture.texture.height / num_sprites.x;
 	float x = width * animation.current_frame;
 	float y = height * row;
 
-	Rectangle source = { x, y, width, height };
+	Rect source = { x, y, width, height };
 
 	int flip = 1;
 	if (flip_flag) flip = -1;
 
-	Rectangle rect = { x, y, width, height };
-	DrawTexturePro(texture,
-		source,
-		dest, (Vector2) { 0 }, (float)0, WHITE);
+
+	PlatformTextureDraw(texture, dest.x, dest.y, dest.w, dest.h);
+
 }
 
 Animation CreateAnimation(const char* name, SpriteSheet sprite_sheet, int row) {
@@ -645,7 +570,7 @@ Animation CreateAnimation(const char* name, SpriteSheet sprite_sheet, int row) {
 /*
  * ===============================================================
  *
- *                          S_Entities
+ *                          Section_Entities
  *
  * ===============================================================
  */
@@ -663,7 +588,7 @@ typedef struct Entity {
 	char name[NAME_SIZE];
 	NodePos node_pos;
 	//char texture_name[NAME_SIZE];
-	Texture2 texture;
+	Sprite sprite;
 
 	EntityId id;
 
@@ -679,6 +604,8 @@ typedef struct Entity {
 	char* current_animation;
 
 	bool is_grabbable;
+
+	bool is_locked;
 } Entity;
 
 typedef enum GrabStatus { GrabStatus_None, GrabStatus_Grabbing, GrabStatus_Releasing } GrabStatus;
@@ -688,12 +615,19 @@ typedef enum GrabStatus { GrabStatus_None, GrabStatus_Grabbing, GrabStatus_Relea
 typedef struct EntitySystem {
 	bool valid;
 
+	// Serializable
+
 	Entity entities[MAX_NUM_ENTITIES];
 
 	EntityId available_handles[MAX_NUM_ENTITIES];
 	int num_available_handles;
 
 	HashTable entities_map;
+
+} EntitySystem;
+EntitySystem entity_system;
+
+typedef struct GrabSystem {
 
 	EntityId hovered_entities[MAX_NUM_ENTITIES];
 	int num_hovered_entities;
@@ -702,8 +636,9 @@ typedef struct EntitySystem {
 	EntityId grabbed_entity;
 
 	GrabStatus grab_status;
-} EntitySystem;
-EntitySystem entity_system;
+} GrabSystem;
+
+GrabSystem grab_system;
 
 EntityId GetAvailableId() {
 	if (!entity_system.num_available_handles) {
@@ -723,7 +658,6 @@ void DestroyId(EntityId id) {
 	entity_system.available_handles[entity_system.num_available_handles++] = (EntityId){ .index = id.index, .generation = id.generation + 1 };
 }
 
-
 #define MAX_NUM_STACK 64
 
 typedef struct UndoSystem {
@@ -734,53 +668,254 @@ typedef struct UndoSystem {
 
 UndoSystem undo_system;
 
-void Do() {
+void UndoSystemDo() {
 	undo_system.entity_system_stack[undo_system.num_stack] = entity_system;
 	undo_system.index = undo_system.num_stack;
 	undo_system.num_stack = (undo_system.num_stack + 1) % MAX_NUM_STACK;
 }
 
-EntitySystem Redo() {
+EntitySystem UndoSystemRedo() {
 	if (undo_system.index == undo_system.num_stack) return undo_system.entity_system_stack[undo_system.num_stack];
 	undo_system.index = (undo_system.index) % MAX_NUM_STACK;
 	return undo_system.entity_system_stack[undo_system.index];
 }
 
-EntitySystem Undo() {
+EntitySystem UndoSystemUndo() {
 	//if (undo_system.index == undo_system.num_stack) return undo_system.entity_system_stack[undo_system.num_stack];
 	EntitySystem result = undo_system.entity_system_stack[undo_system.index];
 
-	undo_system.index--;
-	if (undo_system.index < 0) undo_system.index = MAX_NUM_STACK;
+	if (undo_system.index) undo_system.index--;
 
 	return result;
 }
 
 void AddHoveredEntity(EntityId entity) {
-	assert(entity_system.num_hovered_entities < MAX_NUM_ENTITIES - 1);
-	entity_system.hovered_entities[entity_system.num_hovered_entities++] = entity;
+
 }
 
-static Entity* GetEntity(EntityId id) {
+Entity* GetEntity(EntityId id) {
 
 	Entity* entity = &entity_system.entities[id.index];
 
 	return entity;
 }
 
-static void DestroyEntity(EntityId id) {
+void DestroyEntity(EntityId id) {
 	if (GetEntity(id)->type == EntityType_None) {
 		Log(__LINE__, "Failed to destroy entity with id %d,%d\n", id.index, id.generation);
 		return;
 	}
 	Log(__LINE__, "Entity \"%s\" destroyed\n", GetEntity(id)->name);
 
-	Do();
+	UndoSystemDo();
 
 	RemoveFromHashTable(&entity_system.entities_map, GetEntity(id)->name);
 	entity_system.entities[id.index] = (Entity){ 0 };
 
 }
+
+
+/*
+ * ===============================================================
+ *
+ *                          IO
+ *
+ * ===============================================================
+ */
+typedef enum InputEvent { InputEvent_None, InputEvent_LeftClickPressed, InputEvent_LeftClickReleased } InputEvent;
+
+typedef struct InputSystem {
+	InputEvent input_event;
+	V2 mouse_pos;
+	V2 previous_mouse_pos;
+	State left_mouse, right_mouse;
+} InputSystem;
+
+InputSystem input_system;
+
+const char* LoadFile(const char* file_name) {
+	FILE* file = fopen(file_name, "r");
+	assert(file);
+
+	fseek(file, 0, SEEK_END);
+	int size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char* data = malloc(size + 1);
+	fread(data, size, 1, file);
+
+	data[size] = '\0';
+
+	fclose(file);
+
+	return data;
+}
+
+void HandleInput() {
+	if (input_system.left_mouse == Active) {
+		input_system.input_event = InputEvent_LeftClickPressed;
+	}
+	else if (input_system.left_mouse == Deactivating) {
+		input_system.input_event = InputEvent_LeftClickReleased;
+	}
+	else {
+		input_system.input_event = InputEvent_None;
+	}
+
+	input_system.previous_mouse_pos = input_system.mouse_pos;
+	input_system.mouse_pos = (V2){ platform_system.mouse_x, platform_system.mouse_y };
+
+	input_system.mouse_pos.x -= GAME_SCREEN_X;
+	input_system.mouse_pos.y -= GAME_SCREEN_Y;
+}
+
+
+/*
+ * ===============================================================
+ *
+ *                          S_TEXTURES
+ *
+ * ===============================================================
+ */
+
+typedef enum { SpriteType_None, SpriteType_Texture, SpriteType_Rect, SpriteType_Text } SpriteType;
+
+typedef struct Sprite {
+	char name[NAME_SIZE];
+	SpriteType type;
+	PlatformColor color;
+	union {
+		PlatformTexture texture;
+		char text[NAME_SIZE];
+	};
+} Sprite;
+
+typedef struct SpriteSheet {
+	Vector2i num_sprites;
+	char texture_name[NAME_SIZE];
+} SpriteSheet;
+
+typedef struct TextureMap { char* key; Sprite value; } TextureMap;
+
+typedef struct TextureSystem {
+	TextureMap* textures_map;
+
+	TextureMap* spritesheet_map;
+	TextureMap* inventory_map;
+
+	char* texture_cache;
+} TextureSystem;
+
+TextureSystem texture_system;
+
+void PlatformDrawTextureRect(PlatformTexture texture, Rect dest) {
+	//draw red PlatformRect on error
+	if (!texture.texture.id) {
+		PlatformRectDraw(dest, PLATFORM_RED);
+		return;
+	}
+
+	// draw
+	DrawTexturePro(texture.texture,
+		(Rectangle) {
+		0.0f, 0.0f, (float)texture.texture.width, (float)texture.texture.height
+	},
+		* ((Rectangle*)&dest), (Vector2) { 0 }, (float)0, WHITE);
+}
+
+void DrawTextureRectFlipped(PlatformTexture texture, Rect dest) {
+
+	//TODO: Flip!
+	PlatformTextureDraw(texture, dest.x, dest.y, dest.w, dest.h);
+}
+
+void AddTextureToMap(TextureMap** map, const char* name, Sprite texture) {
+
+	if (shgeti(*map, name) != -1) {
+		UnloadTexture(shget(*map, name).texture.texture);
+		shdel(*map, name);
+	}
+
+	//Log("Hello: %s %d %d\n", texture.name, texture.texture.width, texture.texture.width);
+
+	shput(*map, name, texture);
+}
+
+void AddTexture(const char* name, Sprite texture) {
+	AddTextureToMap(&texture_system.textures_map, name, texture);
+}
+
+Sprite GetTextureFromMap(TextureMap* map, const char* str) {
+	if (!str || strcmp(str, "") == 0) return (Sprite) { 0 };
+	int i = shgeti(map, str);
+	if (i == -1) {
+		Log(__LINE__, "Failed to find the texture \"%s\"", str);
+		return (Sprite) { 0 };
+	}
+
+	Sprite t = map[i].value;
+
+	return t;
+}
+
+Sprite GetSprite(const char* str) {
+	Sprite res = GetTextureFromMap(texture_system.textures_map, str);
+
+	return res;
+}
+
+Sprite CreateTextSprite(const char* str) {
+	Sprite res = (Sprite){
+		.color = PLATFORM_BLACK,
+		.type = SpriteType_Text
+	};
+	strcpy(res.text, str);
+
+	return res;
+}
+
+Sprite CreateRectSprite(PlatformColor color) {
+	Sprite res = (Sprite){
+		.color = color,
+		.type = SpriteType_Rect
+	};
+
+
+	return res;
+}
+
+void LoadTextures() {
+#if 0
+	FilePathList files = LoadDirectoryFiles("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures");
+	for (int i = 0; i < files.count; ++i) {
+		char* name = GetFileNameWithoutExt(files.paths[i]);
+		Sprite texture = {
+			.type = SpriteType_Texture,
+			.texture = LoadTexture(files.paths[i])
+		};
+		strcpy(texture.name, name);
+		String s = CreateString(name);
+		OldLog("LOG: Loaded texture \"%s\" size:%dx%d\n", s.name, texture.texture.texture.width, texture.texture.texture.height);
+		AddTexture(s.name, texture);
+	}
+#if 1
+	files = LoadDirectoryFiles("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Inventory");
+	for (int i = 0; i < files.count; ++i) {
+		char* name = GetFileNameWithoutExt(files.paths[i]);
+		Sprite texture = {
+			.type = SpriteType_Texture,
+			.texture = LoadTexture(files.paths[i])
+		};
+		strcpy(texture.name, name);
+		String s = CreateString(name);
+		OldLog("LOG: Loaded texture \"%s\"\n", s.name);
+		AddTextureToMap(&texture_system.inventory_map, s.name, texture);
+	}
+#endif
+#endif
+
+}
+
 
 int CompareEntities(const void* element1, const void* element2) {
 	EntityId* id1 = (EntityId*)element1;
@@ -843,15 +978,15 @@ void ResetEntitySystem() {
 	//entity_system.num_entities = 0;
 	entity_system.entities_map.num = 0;
 	Entity nop = { 0 };
-	entity_system.num_hovered_entities = 0;
+	grab_system.num_hovered_entities = 0;
 }
 
-bool IsHovered(Rectangle r) {
-	Vector2 mouse_pos = GetMousePosition();
+bool IsHovered(Rect r) {
+	V2 mouse_pos = input_system.mouse_pos;
 
-	if (mouse_pos.x < r.x + r.width &&
+	if (mouse_pos.x < r.x + r.w &&
 		mouse_pos.x > r.x &&
-		mouse_pos.y < r.y + r.height &&
+		mouse_pos.y < r.y + r.h &&
 		mouse_pos.y > r.y) {
 		return true;
 	}
@@ -859,8 +994,8 @@ bool IsHovered(Rectangle r) {
 	return false;
 }
 
-bool IsClicked(Rectangle r) {
-	return IsHovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+bool IsClicked(Rect r) {
+	return IsHovered(r) && platform_system.mouse_left == Active;
 }
 
 PixelPos GetEntityPixelPos(EntityId id) {
@@ -878,14 +1013,15 @@ PixelPos MovePos(PixelPos current_pos, PixelPos dest) {
 	//TODO: warning! broken code!
 	float speed = 1;
 
+
 	Vector2 distance = Vector2Subtract((Vector2) { dest.pos.x, dest.pos.y }, (Vector2) { current_pos.pos.x, current_pos.pos.y });
 	Vector2 direction = Vector2Normalize(distance);
 
 	current_pos.pos.x += direction.x * speed;
 	current_pos.pos.y += direction.y * speed;
 
-	assert(current_pos.pos.x < AREA_WIDTH);
-	assert(current_pos.pos.y < AREA_HEIGHT);
+	assert(current_pos.pos.x < GAME_SCREEN_WIDTH);
+	assert(current_pos.pos.y < GAME_SCREEN_HEIGHT);
 
 	return current_pos;
 }
@@ -897,7 +1033,7 @@ bool IsEntityNone(EntityId id) {
 #pragma optimize( "", off )
 
 
-static EntityId CreateEntityOriginal(Entity entity) {
+EntityId CreateEntityOriginal(Entity entity) {
 	if (!*entity.name) return (EntityId) { 0 };
 #if 0
 	entity.id = (EntityId){ .index = entity_system.num_entities };
@@ -916,13 +1052,13 @@ static EntityId CreateEntityOriginal(Entity entity) {
 	return entity.id;
 }
 
-Entity CreateEntityRaw(char* name, EntityType type, Vector2i pixel_pos, Vector2 size, Texture2 texture) {
+Entity CreateEntityRaw(char* name, EntityType type, Vector2i pixel_pos, Vector2 size, Sprite sprite) {
 	//TODO: input santiizing
 	Entity entity = {
 		.type = type,
 		.pixel_pos = pixel_pos,
 		.size = size,
-		.texture = texture
+		.sprite = sprite
 	};
 
 	strcpy(entity.name, name);
@@ -930,9 +1066,9 @@ Entity CreateEntityRaw(char* name, EntityType type, Vector2i pixel_pos, Vector2 
 	return entity;
 }
 
-static EntityId CreateEntity(char* name, EntityType type, Vector2i pixel_pos, Vector2 size, Texture2 texture) {
+EntityId CreateEntity(char* name, EntityType type, Vector2i pixel_pos, Vector2 size, Sprite sprite) {
 
-	Entity entity = CreateEntityRaw(name, type, pixel_pos, size, texture);
+	Entity entity = CreateEntityRaw(name, type, pixel_pos, size, sprite);
 
 	entity.id = GetAvailableId();
 
@@ -962,38 +1098,12 @@ bool IsIdEqual(EntityId id0, EntityId id1) {
 	return id0.index == id1.index;
 }
 
-
-
 EntityId CreateCharacter(const char* name, Vector2 pos, Vector2 size) {
 
-	EntityId id = CreateEntity(name, EntityType_Character, (Vector2i) { pos.x, pos.y }, (Vector2) { size.x, size.y }, GetTexture(name));
+	EntityId id = CreateEntity(name, EntityType_Character, (Vector2i) { pos.x, pos.y }, (Vector2) { size.x, size.y }, GetSprite(name));
 
 	return id;
 }
-
-#if 0
-EntityId AddEntityToScreen(const char* name, Rectangle rect, EntityType type) {
-	Entity entity = {
-		//.rect = rect,
-		.type = type,
-		.pixel_pos = { rect.x, rect.y},
-		.size = {rect.width, rect.height},
-		//.center = { rect.x - rect.x / 2, rect.y - rect.y / 2},
-		.texture = GetTexture(name)
-	};
-
-	strcpy(entity.name, name);
-
-	EntityId id = CreateEntity(entity);
-
-	EntityId id = CreateEntity(name, EntityType_Character, (Vector2) { rec.x, rect.y }, (Vector2) { rect.width, size.y }, GetTexture(name));
-
-	return id;
-
-	return id;
-}
-#endif
-
 
 /*
  * ===============================================================
@@ -1121,7 +1231,7 @@ void DoAction(Action* action) {
 	case ActionType_AnimateOnce: {
 #if 0
 		if (!action->animation) {
-			EntityId id = AddEntityToScreen(action->name, (Rectangle) { action->pos.x, action->pos.y, action->size.x, action->size.y }, EntityType_Animation);
+			EntityId id = AddEntityToScreen(action->name, (PlatformRect) { action->pos.x, action->pos.y, action->size.x, action->size.y }, EntityType_Animation);
 			GetEntity(id)->animation = CreateAnimation(action->name, (SpriteSheet) { 0 }, 0, 5);
 			action->animation = &GetEntity(id)->animation;
 			GetEntity(id)->animation.status = Status_Running;
@@ -1141,7 +1251,7 @@ void DoAction(Action* action) {
 	}
 	case ActionType_CreateItem: {
 #if FIX_ME
-		AddEntityToScreen(action->name, (Rectangle) { action->pos.x, action->pos.y, action->size.x, action->size.y }, EntityType_Screen);
+		AddEntityToScreen(action->name, (PlatformRect) { action->pos.x, action->pos.y, action->size.x, action->size.y }, EntityType_Screen);
 #endif
 		action->status = Status_Ended;
 		break;
@@ -1261,8 +1371,8 @@ typedef struct ItemMatch {
 } Match;
 
 typedef struct DatabaseItem {
-	Texture2D inventory_texture;
-	Texture2D screen_texture;
+	PlatformTexture inventory_texture;
+	PlatformTexture screen_texture;
 } DatabaseItem;
 
 typedef struct ItemMix {
@@ -1294,7 +1404,7 @@ bool IsVector2Equal(Vector2 v0, Vector2 v1) {
 	return v0.x == v1.x && v0.y == v0.y;
 }
 
-static char* CheckScreenItemMatch(const char* name0, const char* name1) {
+char* CheckScreenItemMatch(const char* name0, const char* name1) {
 
 
 	Match item_match = { 0 };
@@ -1336,7 +1446,7 @@ Vector2i GetItemPos(int index) {
 	return pos;
 }
 
-static EntityId CreateItem(const char* name) {
+EntityId CreateItem(const char* name) {
 	//TODO: check we don't add the same item twice
 
 	EntityId id = CreateEntity(name, EntityType_InventoryItem, GetItemPos(arrlen(item_system.inventory_items_buff)), (Vector2) { INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE }, GetTextureFromMap(texture_system.inventory_map, name));
@@ -1349,9 +1459,9 @@ void AddItemToInventory(EntityId id) {
 	arrput(item_system.inventory_items_buff, id);
 }
 
-static char* CheckItemMatch(const char* name0, const char* name1) {
+char* CheckItemMatch(const char* name0, const char* name1) {
 
-	int x = entity_system.num_hovered_entities;
+	int x = grab_system.num_hovered_entities;
 
 	//for (int i = 0; i < arrlen(game_state.hovered_entities_buff); ++i) {
 	//	printf("entity name: %s\n", game_state.hovered_entities_buff[i]);
@@ -1369,7 +1479,7 @@ static char* CheckItemMatch(const char* name0, const char* name1) {
 	return result;
 }
 
-static void RemoveInventoryItem(EntityId id) {
+void RemoveInventoryItem(EntityId id) {
 	for (int i = 0; i < arrlen(item_system.inventory_items_buff); ++i) {
 		if (IsIdEqual(item_system.inventory_items_buff[i], id)) {
 			arrdel(item_system.inventory_items_buff, i);
@@ -1380,7 +1490,7 @@ static void RemoveInventoryItem(EntityId id) {
 	assert(0);
 }
 
-static bool DoInventoryItemInteractionWithInventoryItem(EntityId id) {
+bool DoInventoryItemInteractionWithInventoryItem(EntityId id) {
 
 	const char* name0 = GetEntity(id)->name;
 	const char* name1 = GetEntity(item_system.grabbed_item)->name;
@@ -1405,7 +1515,7 @@ static bool DoInventoryItemInteractionWithInventoryItem(EntityId id) {
 
 }
 
-static void AddMatch(const char* name0, const char* name1, const char* result) {
+void AddMatch(const char* name0, const char* name1, const char* result) {
 	Match item_match = { 0 };
 	strcpy(item_match.name0, name0);
 	strcpy(item_match.name1, name1);
@@ -1419,7 +1529,7 @@ static void AddMatch(const char* name0, const char* name1, const char* result) {
 	hmput(item_system.item_matches_map, item_match, result);
 }
 
-static void AddScreenMatch(const char* name0, const char* name1, const char* result) {
+void AddScreenMatch(const char* name0, const char* name1, const char* result) {
 	Match item_match = { 0 };
 	strcpy(item_match.name0, name0);
 	strcpy(item_match.name1, name1);
@@ -1433,7 +1543,7 @@ static void AddScreenMatch(const char* name0, const char* name1, const char* res
 	hmput(item_system.screen_item_matches_map, item_match, result);
 }
 
-static void AddScreenItem(const char* str, Rectangle rect) {
+void AddScreenItem(const char* str, Rect rect) {
 #if 0
 
 	assert(0);
@@ -1451,7 +1561,7 @@ static void AddScreenItem(const char* str, Rectangle rect) {
 #endif
 }
 
-static void AddScreenItem2(const char* str, Rectangle rect) {
+void AddScreenItem2(const char* str, Rect rect) {
 	assert(0);
 #if 0
 	int i = shgeti(item_system.item_database_map, str);
@@ -1469,20 +1579,20 @@ static void AddScreenItem2(const char* str, Rectangle rect) {
 #endif
 }
 
-static void LoadScreenItems2() {
-	//AddScreenItem2("ketchup", (Rectangle) { 400, 400, 50, 50 });
+void LoadScreenItems2() {
+	//AddScreenItem2("ketchup", (PlatformRect) { 400, 400, 50, 50 });
 }
 
-static void LoadInventory() {
+void LoadInventory() {
 	CreateItem("tool");
 	CreateItem("tool2");
 }
 
-static void LoadMatches() {
+void LoadMatches() {
 	AddMatch("tool", "tool2", "dog");
 }
 
-static void LoadScreenMatches() {
+void LoadScreenMatches() {
 	AddScreenMatch("ketchup", "arm", "wow much interaction");
 }
 
@@ -1490,10 +1600,6 @@ void GrabItemToInventory() {
 	//animate 
 	//move to inventory
 	//show some text
-}
-
-void DoInventory() {
-
 }
 
 /*
@@ -1508,8 +1614,8 @@ bool IsGrabbingItem() {
 	return item_system.grabbed_item.index;
 }
 
-Rectangle GetEntityRect(Entity entity) {
-	Rectangle rect = {
+Rect GetEntityRect(Entity entity) {
+	Rect rect = {
 			entity.pixel_pos.pos.x - entity.size.x / 2,
 			entity.pixel_pos.pos.y - entity.size.y / 2,
 			entity.size.x,
@@ -1519,47 +1625,51 @@ Rectangle GetEntityRect(Entity entity) {
 	return rect;
 }
 
-static void HandleEntityGrabbing() {
-	//default released and hovered entities
-	if (entity_system.grab_status == GrabStatus_Releasing) {
-		entity_system.grabbed_entity = (EntityId){ 0 };
-		entity_system.grab_status = GrabStatus_None;
+void HandleEntityGrabbing(bool is_playing) {
+	// Reset released and hovered entities
+	if (grab_system.grab_status == GrabStatus_Releasing) {
+		grab_system.grabbed_entity = (EntityId){ 0 };
+		grab_system.grab_status = GrabStatus_None;
 	}
-	entity_system.num_hovered_entities = 0;
 
-	//get hovered entities
+	grab_system.num_hovered_entities = 0;
+
+	// Get hovered entities
 	EntityId* ordered_entities = GetOrderedEntities();
 	for (int i = 0; i < arrlen(ordered_entities); ++i) {
 		Entity* current_entity = GetEntity(ordered_entities[i]);
 
-		Rectangle rect = GetEntityRect(*current_entity);
+		Rect rect = GetEntityRect(*current_entity);
 
 		if (IsHovered(rect)) {
-			AddHoveredEntity(current_entity->id);
+			assert(grab_system.num_hovered_entities < MAX_NUM_ENTITIES - 1);
+			grab_system.hovered_entities[grab_system.num_hovered_entities++] = current_entity->id;
 		}
 	}
 	arrfree(ordered_entities);
 
-	//get the first hovered entity
-	if (entity_system.num_hovered_entities) {
-		EntityId entity = entity_system.hovered_entities[entity_system.num_hovered_entities - 1];
-		entity_system.hovered_entity = entity;
+	// Get the first hovered entity
+	if (grab_system.num_hovered_entities) {
+		EntityId entity = grab_system.hovered_entities[grab_system.num_hovered_entities - 1];
+		grab_system.hovered_entity = entity;
 	}
 	else {
-		entity_system.hovered_entity = (EntityId){ 0 };
+		grab_system.hovered_entity = (EntityId){ 0 };
 	}
 
-	//set grabbed entity
-	if (input_system.input_event == InputEvent_LeftClickPressed && entity_system.hovered_entity.index) {
-		if (!is_playing || GetEntity(entity_system.hovered_entity)->is_grabbable) {
-			entity_system.grabbed_entity = entity_system.hovered_entity;
-			entity_system.grab_status = GrabStatus_Grabbing;
+	// Set grabbed entity
+	if (input_system.input_event == InputEvent_LeftClickPressed && grab_system.hovered_entity.index) {
+		if ((!is_playing && !GetEntity(grab_system.hovered_entity)->is_locked) || GetEntity(grab_system.hovered_entity)->is_grabbable) {
+			grab_system.grabbed_entity = grab_system.hovered_entity;
+			grab_system.grab_status = GrabStatus_Grabbing;
+
+			UndoSystemDo();
 		}
 	}
 
-	//get the released entity
-	if (input_system.input_event == InputEvent_LeftClickReleased && entity_system.grabbed_entity.index) {
-		entity_system.grab_status = GrabStatus_Releasing;
+	// Get the released entity
+	if (input_system.input_event == InputEvent_LeftClickReleased && grab_system.grabbed_entity.index) {
+		grab_system.grab_status = GrabStatus_Releasing;
 	}
 
 }
@@ -1568,10 +1678,10 @@ void SetEntityPixelPos(EntityId id, Vector2i pos) {
 	GetEntity(id)->pixel_pos = (PixelPos){ pos };
 }
 
-static void HandleInventoryItemGrabbing() {
+void HandleInventoryItemGrabbing() {
 
-	if (entity_system.grabbed_entity.index) {
-		item_system.grabbed_item = entity_system.grabbed_entity;
+	if (grab_system.grabbed_entity.index) {
+		item_system.grabbed_item = grab_system.grabbed_entity;
 		for (int i = 0; i < arrlen(item_system.inventory_items_buff); ++i) {
 			if (IsIdEqual(item_system.grabbed_item, item_system.inventory_items_buff[i])) {
 				item_system.grabbed_item_index = i;
@@ -1583,17 +1693,17 @@ static void HandleInventoryItemGrabbing() {
 	}
 
 	//check if released entity
-	if (IsEntityNone(item_system.grabbed_item) || entity_system.grab_status != GrabStatus_Releasing) {
+	if (IsEntityNone(item_system.grabbed_item) || grab_system.grab_status != GrabStatus_Releasing) {
 		return;
 	}
 
 	//get the most forefront entity that is not currently released item
 	EntityId entity = { 0 };
 
-	for (int i = 0; i < entity_system.num_hovered_entities; ++i) {
-		EntityId current_entity = entity_system.hovered_entities[i];
+	for (int i = 0; i < grab_system.num_hovered_entities; ++i) {
+		EntityId current_entity = grab_system.hovered_entities[i];
 
-		if (IsIdEqual(current_entity, entity_system.grabbed_entity)) {
+		if (IsIdEqual(current_entity, grab_system.grabbed_entity)) {
 			continue;
 		}
 
@@ -1620,13 +1730,12 @@ static void HandleInventoryItemGrabbing() {
 		SetEntityPixelPos(item_system.grabbed_item, GetItemPos(item_system.grabbed_item_index));
 }
 
-static void DrawEntities() {
+void DrawEntities(bool is_playing) {
 	EntityId* ordered_entities = GetOrderedEntities();
 
 	for (int i = 0; i < arrlen(ordered_entities); ++i) {
 		Entity entity = *GetEntity(ordered_entities[i]);
-		Texture2 texture = entity.texture;
-		Rectangle rect = GetEntityRect(entity);
+		Rect rect = GetEntityRect(entity);
 
 		if (entity.type == EntityType_None) continue;
 
@@ -1635,15 +1744,25 @@ static void DrawEntities() {
 			DrawAnimation(animation, rect, entity.flipped);
 		}
 		else {
-			//TODO: draw center flipped
-			if (!entity.flipped)
-				DrawTextureRect(texture.texture, rect);
-			else
-				DrawTextureRectFlipped(texture.texture, rect);
+			if (entity.sprite.type == SpriteType_Texture) {
+				//TODO: draw center flipped
+				if (!entity.flipped)
+					PlatformDrawTextureRect(entity.sprite.texture, rect);
+				else
+					DrawTextureRectFlipped(entity.sprite.texture, rect);
+			}
+			else if (entity.sprite.type == SpriteType_Rect) {
+				PlatformRectDraw(rect, entity.sprite.color);
+			}
+			else if (entity.sprite.type == SpriteType_Text) {
+				PlatformDrawText(entity.sprite.text, entity.pixel_pos.pos.x, entity.pixel_pos.pos.y);
+			}
+
 		}
 
 		if (!is_playing) {
-			DrawRectangleLinesEx(rect, 1, (Color) { 150, 150, 150, 200 });
+			PlatformRectDraw(rect, (PlatformColor) { 150, 150, 150, 200 });
+			//DrawPlatformRectLinesEx(rect, 1, (PlatformColor) { 150, 150, 150, 200 });
 		}
 
 	}
@@ -1698,10 +1817,10 @@ NodePos GetNode(Vector2i pos) {
 
 PixelPos GetPixelPosFromNodePos(NodePos node) {
 
-	float width = AREA_WIDTH / NUM_NODES_X;
+	float width = GAME_SCREEN_WIDTH / NUM_NODES_X;
 	float x = width * node.pos.x + width;
 
-	float height = AREA_HEIGHT / NUM_NODES_Y;
+	float height = GAME_SCREEN_HEIGHT / NUM_NODES_Y;
 	float y = height * node.pos.y + height;
 
 	PixelPos result = (PixelPos){ x, y };
@@ -1733,12 +1852,12 @@ PixelPos Vector2iToPixelPos(Vector2i v) {
 }
 
 NodePos GetNearestNodeNumFromPixelPos(PixelPos pos) {
-	assert(pos.pos.x > 0 && pos.pos.y > 0 && pos.pos.x < AREA_WIDTH && pos.pos.y < AREA_HEIGHT);
+	assert(pos.pos.x > 0 && pos.pos.y > 0 && pos.pos.x < GAME_SCREEN_WIDTH && pos.pos.y < GAME_SCREEN_HEIGHT);
 
-	float width = AREA_WIDTH / NUM_NODES_X;
+	float width = GAME_SCREEN_WIDTH / NUM_NODES_X;
 	int x = pos.pos.x / width;
 
-	float height = AREA_HEIGHT / NUM_NODES_Y;
+	float height = GAME_SCREEN_HEIGHT / NUM_NODES_Y;
 	int y = pos.pos.y / height;
 
 	NodePos result = { x , y };
@@ -1747,7 +1866,7 @@ NodePos GetNearestNodeNumFromPixelPos(PixelPos pos) {
 }
 
 bool IsMouseInsideGameScreen() {
-	bool result = input_system.mouse_pos.x > AREA_X && input_system.mouse_pos.x > AREA_Y && input_system.mouse_pos.x < AREA_WIDTH && input_system.mouse_pos.y < AREA_HEIGHT;
+	bool result = input_system.mouse_pos.x > GAME_SCREEN_X && input_system.mouse_pos.x > GAME_SCREEN_Y && input_system.mouse_pos.x < GAME_SCREEN_WIDTH && input_system.mouse_pos.y < GAME_SCREEN_HEIGHT;
 
 	return result;
 }
@@ -1767,7 +1886,7 @@ void DoWalkingAreaVertices() {
 
 	if (g_is_drawing) {
 		if (input_system.input_event == InputEvent_LeftClickPressed && IsMouseInsideGameScreen()) {
-			AddWalkingAreaVertex(GetNearestNodeNumFromPixelPos(Vector2iToPixelPos(input_system.mouse_pos)));
+			AddWalkingAreaVertex(GetNearestNodeNumFromPixelPos(Vector2iToPixelPos((Vector2i) { input_system.mouse_pos.x, input_system.mouse_pos.y })));
 		}
 	}
 }
@@ -1797,7 +1916,7 @@ bool IsObstacle(NodePos neighbor) {
 		hmgeti(pathfinding_system.obstacle_map, down) != -1)
 		return true;
 
-	if (neighbor.pos.x < 0 || neighbor.pos.y < 0 || neighbor.pos.x > AREA_WIDTH || neighbor.pos.y > AREA_HEIGHT)
+	if (neighbor.pos.x < 0 || neighbor.pos.y < 0 || neighbor.pos.x > GAME_SCREEN_WIDTH || neighbor.pos.y > GAME_SCREEN_HEIGHT)
 		return true;
 
 	return false;
@@ -1972,7 +2091,7 @@ void DrawWalkingArea() {
 		PixelPos v1 = GetPixelPosFromNodePos(pathfinding_system.walking_area_vertices[(i + 1) %
 			arrlen(pathfinding_system.walking_area_vertices)]).pos;
 		DrawLineEx((Vector2) { v0.pos.x, v0.pos.y }, (Vector2) { v1.pos.x, v1.pos.y }, 1, RED);
-		DrawRectangle(v0.x - 5, v0.y - 5, 10, 10, RED);
+		DrawPlatformRect(v0.x - 5, v0.y - 5, 10, 10, RED);
 	}
 
 	//draw nodes
@@ -1988,10 +2107,10 @@ void DrawWalkingArea() {
 }
 
 PixelPos GetNearestPixelPosFromNodePos(NodePos pos) {
-	float width = AREA_WIDTH / NUM_NODES_X;
+	float width = GAME_SCREEN_WIDTH / NUM_NODES_X;
 	int x = pos.pos.x / width;
 
-	float height = AREA_HEIGHT / NUM_NODES_Y;
+	float height = GAME_SCREEN_HEIGHT / NUM_NODES_Y;
 	int y = pos.pos.y / height;
 
 	PixelPos result = GetPixelPosFromNodePos((NodePos) { x, y });
@@ -2466,7 +2585,7 @@ void Parse(char* str) {
 		StoreFloat(&size.y);
 
 #if 1
-		Entity e = CreateEntityRaw(name, EntityType_Character, (Vector2i) { pos.x, pos.y }, size, GetTexture(name));
+		Entity e = CreateEntityRaw(name, EntityType_Character, (Vector2i) { pos.x, pos.y }, size, GetSprite(name));
 		arrput(tokenizer.entities_buff, e);
 #endif
 
@@ -2538,918 +2657,7 @@ void InitGameFromText() {
 
 }
 
-/*
- * ===============================================================
- *
- *                          S_EDITOR
- *
- * ===============================================================
- */
 
-
-typedef struct WidgetData {
-	int active; // ie selected box
-	bool flag;
-	char text[NAME_SIZE];
-} Widget;
-#define MAX_NUM_WIDGETS 128
-
-#define Stringify1(x) #x
-#define Stringify(x) Stringify1(x)
-#define EditorDropDownBox(name) EditorDropDownBoxRaw(Stringify(__LINE__), name)
-#define EditorToggle(name) EditorToggleRaw(Stringify(__LINE__), name)
-
-
-typedef enum EditorWindow { EditorWindow_Default, EditorWindow_Lists, EditorWindow_Slice_Spritesheet } EditorWindow;
-
-typedef struct Editor {
-	char text0[64];
-	char text1[64];
-	//Vector2 pos;
-
-
-	Vector2 current_pos;
-	Vector2 previous_pos;
-	Vector2 offset;
-
-	bool column_mode;
-	char str[NAME_SIZE];
-	bool drop_down_panel_active;
-	char drop_down_panel_id[NAME_SIZE];
-	Rectangle drop_down_panel_rec;
-	int num_lines;
-	Vector2 scroll;
-	EditorWindow window;
-
-	bool show_modify_entity_box;
-	char entity_name[NAME_SIZE];
-	Vector2i size;
-
-
-	HashTable widgets_hashtable;
-	Widget widgets[MAX_NUM_WIDGETS];
-	int num_widgets;
-
-	bool windows[MAX_NUM_WIDGETS];
-
-} Editor;
-
-Editor editor;
-
-#define EDITOR_LINE_GAP 10
-#define EDITOR_POS_X EDITOR_ORIGIN_X + 5 
-#define EDITOR_POS_Y EDITOR_ORIGIN_Y + 5
-#define EDITOR_ICON_SIZE 24
-#define EDITOR_BUTTON_SIZE_X 72
-#define EDITOR_BUTTON_SIZE_Y 24
-
-
-typedef enum EditorTab { EditorTab_Entities, EditorTab_Events, EditorTab_Areas, EditorTab_Inventory } EditorTab;
-
-EditorWindow editor_window;
-EditorTab editor_tab;
-
-Widget* GetWidget(char* id, const char* str) {
-	int index = GetHashTableElement(editor.widgets_hashtable, id);
-	if (index == 0) {
-		assert(editor.num_widgets < MAX_NUM_WIDGETS);
-		editor.widgets[editor.num_widgets] = (Widget){ 0 };
-		if (str) {
-			strcpy(editor.widgets[editor.num_widgets].text, str);
-		}
-		index = editor.num_widgets;
-		AddToHashTable(&editor.widgets_hashtable, id, editor.num_widgets);
-		editor.num_widgets++;
-	}
-
-	Widget* result = &editor.widgets[index];
-
-	return result;
-}
-
-void EditorNext(int w, int h) {
-	//TODO: stop using button size for all elements, consider storing the previous elements rect
-	if (editor.column_mode) {
-		editor.current_pos.x += EDITOR_LINE_GAP + w;
-	}
-	else {
-		editor.current_pos.y += EDITOR_LINE_GAP + h;
-	}
-}
-int EditorBeginRow() {
-	editor.column_mode = true;
-
-	return editor.current_pos.x;
-}
-
-void EditorEndRow(int original_x) {
-	editor.column_mode = false;
-	editor.current_pos.x = original_x;
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y);
-}
-
-bool EditorButton(const char* str) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, 110, 24 };
-
-	bool result = EguiButton(rect, str);
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y);
-
-	return result;
-}
-
-bool EditorButtonIcon(const char* str) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_ICON_SIZE, EDITOR_ICON_SIZE };
-
-	bool result = EguiButton(rect, str);
-
-	EditorNext(EDITOR_ICON_SIZE, EDITOR_BUTTON_SIZE_Y);
-
-
-	return result;
-}
-
-void EditorToggleRaw(const char* id, const char* str) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_ICON_SIZE, EDITOR_ICON_SIZE };
-	EguiToggle(rect, str, GetWidget(id, 0)->flag);
-
-}
-
-bool EditorToggleIcon(const char* str, bool* b) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_ICON_SIZE, EDITOR_ICON_SIZE };
-	EguiToggle(rect, str, b);
-
-	EditorNext(EDITOR_ICON_SIZE, EDITOR_ICON_SIZE);
-
-}
-
-bool EditorToggle2(const char* str, bool* b) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, 70, 24 };
-	EguiToggle(rect, str, b);
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_ICON_SIZE);
-
-}
-
-bool EditorLabel(const char* str) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y };
-	GuiLabel(rect, str);
-	Vector2 v = MeasureTextEx(GetFontDefault(), str, 10, 0);
-	EditorNext(v.x, v.y);
-}
-
-bool EditorLabelButton(const char* str) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y };
-	bool result = EguiLabelButton(rect, str);
-
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y);
-
-	return result;
-}
-
-#define EditorInputBox(str) EditorInputBoxRaw(Stringify(__LINE__), str)
-
-char* EditorInputBoxRaw(char* id, char* str) {
-	Widget* widget = GetWidget(id, str);
-	assert(widget);
-
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y };
-	if (EguiInputBox(rect, widget->text, 11, widget->flag)) {
-		widget->flag = !widget->flag;
-	}
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_ICON_SIZE);
-
-	char* result = widget->text;
-
-	return result;
-}
-
-bool EditorTextBox2(char* str, bool active) {
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_BUTTON_SIZE_X, EDITOR_BUTTON_SIZE_Y };
-	bool res = GuiTextBox(rect, str, 11, active);
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_ICON_SIZE);
-
-
-	return res;
-}
-
-#define EditorInputBoxAndLabel(label, text) EditorInputBoxAndLabelRaw(Stringify(__LINE__), label, text)
-
-void EditorInputBoxAndLabelRaw(const char* id, const char* label, char* text_box) {
-
-	Widget* widget = GetWidget(id, text_box);
-
-	int x = EditorBeginRow();
-	EditorLabel(label);
-	EditorInputBoxRaw(id, text_box);
-	EditorEndRow(x);
-}
-
-
-
-bool EditorInputBox2(const char* label, char* text_box, bool active) {
-	int x = EditorBeginRow();
-	EditorLabel(label);
-	editor.current_pos.x += 60;
-	bool res = EditorTextBox2(text_box, active);
-	EditorEndRow(x);
-
-	return res;
-}
-
-
-
-void DeInitGame() {
-	ResetEntitySystem();
-}
-
-//void EditorToggle(const char *str, bool *b) {
-//	Rectangle r = { editor.pos.x, editor.pos.y, 50, 50 };
-//	GuiToggle(r, str, b);
-//
-//	editor.pos.y += 10;
-//}
-//
-//void EditorInput(const char* str) {
-//	Rectangle r = { editor.pos.x, editor.pos.y, 50, 50 };
-//	DrawText("Name:", rect.x, rect.y, 5, DARKGRAY);
-//
-//	rect.x += rect.width + 5;
-//	GuiTextBox(rect, editor.text0, 100, false);
-//}
-
-void EditorTabBar(char** str, int count, int* active) {
-	EguiTabBar((Rectangle) { editor.current_pos.x, editor.current_pos.y, 10, 24 }, str, count, active);
-	//editor.current_pos.y += 24;
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_ICON_SIZE);
-
-}
-
-void EditorBeginPosition(Vector2 pos) {
-	editor.previous_pos = editor.current_pos;
-	editor.current_pos = pos;
-}
-
-void EditorEndPosition() {
-	editor.current_pos = editor.previous_pos;
-	editor.previous_pos = (Vector2){ 0 };
-}
-
-void EditorEndOffset() {
-	editor.current_pos = Vector2Subtract(editor.current_pos, editor.offset);
-	editor.offset = (Vector2){ 0 };
-}
-
-void EditorBeginOffset(Vector2 offset) {
-	editor.current_pos = Vector2Add(offset, editor.current_pos);
-	editor.offset = offset;
-}
-
-bool EditorBeginDropDownPanel(const char* id, Rectangle area_rect) {
-	Vector2 panel_size = { 100, 300 };
-	int z = 1;
-
-	if (CheckCollisionPointRec(GetMousePosition(), area_rect) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-		editor.drop_down_panel_active = true;
-		strcpy(editor.drop_down_panel_id, id);
-		editor.drop_down_panel_rec = (Rectangle){ GetMousePosition().x, GetMousePosition().y, panel_size.x, panel_size.y };
-	}
-
-	if (strcmp(editor.drop_down_panel_id, id) == 0 && editor.drop_down_panel_active) {
-		if (!CheckCollisionPointRec(GetMousePosition(), editor.drop_down_panel_rec) &&
-			(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))) {
-			editor.drop_down_panel_active = false;
-			DeActivatePanel(z);
-
-			return false;
-		}
-
-		EguiBeginPanel(z, editor.drop_down_panel_rec, RAYWHITE);
-		EditorBeginPosition((Vector2) { editor.drop_down_panel_rec.x, editor.drop_down_panel_rec.y });
-
-		return true;
-	}
-
-	return false;
-}
-
-void EditorEndDropDownPanel() {
-	EguiEndPanel();
-	EditorEndPosition();
-
-}
-
-char multi_line_text[1024 * 10];
-
-void EditorLog() {
-	if (is_log_dirty) {
-		const int max_chars_in_line = 20;
-		int counter = 0;
-		int line_len = 0;
-		int line_num = 0;
-		multi_line_text[counter++] = line_num + '0';
-		multi_line_text[counter++] = ' ';
-		char line_num_string[8] = { 0 };
-		for (int i = 0; i < 1024 * 10; ++i) {
-			if (log_buffer[i] == '\0') {
-				multi_line_text[counter] = 0;
-				break;
-			}
-			else if (log_buffer[i] == '\n') {
-				line_len = 0;
-				line_num++;
-				multi_line_text[counter++] = '\n';
-				sprintf(line_num_string, "%d", line_num);
-				strcpy(multi_line_text + counter, line_num_string);
-				counter += strlen(line_num_string);
-				multi_line_text[counter++] = ' ';
-			}
-			else if (line_len == 50) {
-				multi_line_text[counter++] = '\n';
-				line_num++;
-				multi_line_text[counter++] = line_num + '0';
-				multi_line_text[counter++] = ' ';
-				line_len = 0;
-			}
-			else {
-				multi_line_text[counter++] = log_buffer[i];
-			}
-		}
-
-		editor.num_lines = line_num;
-		editor.scroll.y = -1 * 10 * (editor.num_lines - 10);
-	}
-
-	Rectangle scissorRec = { 0 };
-	Rectangle log_rect = { LOG_ORIGIN_X, LOG_ORIGIN_Y, LOG_WIDTH, LOG_HEIGHT };
-	if (is_log_dirty) {
-		editor.scroll.y = -(10 * (editor.num_lines - 10));
-	}
-	GuiScrollPanel(log_rect, "Log", (Rectangle) { log_rect.x, log_rect.y, log_rect.width, 966 }, & editor.scroll, & scissorRec);
-	BeginScissorMode(scissorRec.x, scissorRec.y, scissorRec.width, scissorRec.height);
-
-	Rectangle label_rect1 = (Rectangle){ log_rect.x + 10, log_rect.y + editor.scroll.y + 30, log_rect.width, log_rect.height };
-	GuiLabel(label_rect1, multi_line_text);
-
-	EndScissorMode();
-}
-bool IsNumber(const char* str) {
-	if (!str || str[0] == '\0')
-		return false;
-	int i = 0;
-	if (str[0] == '-') i = 1;
-	for (; i < strlen(str); ++i) {
-		if (str[i] > '9' || str[i] < '0') return false;
-	}
-
-	return true;
-}
-
-void EditorSliceSpritesheet() {
-	//TODO: function fails when x and y are in the center
-	static char file_name[NAME_SIZE];
-	static bool b1, b2, b3, b4, b5, b6, b7, b8;
-	static bool do_it;
-	static int num_rows = 1;
-	static int num_columns = 1;
-	static int x = 0;
-	static int y = 0;
-	static int width = AREA_WIDTH;
-	static int height = AREA_HEIGHT;
-	static Texture2D t;
-	static char animation_names[NAME_SIZE * 10];
-	static char rows_str[NAME_SIZE], columns_str[NAME_SIZE], x_str[NAME_SIZE], y_str[NAME_SIZE], height_str[NAME_SIZE], width_str[NAME_SIZE];
-	static bool init;
-
-	if (!init) {
-		sprintf(rows_str, "%d", num_rows);
-		sprintf(columns_str, "%d", num_columns);
-		sprintf(x_str, "%d", x);
-		sprintf(y_str, "%d", y);
-		sprintf(width_str, "%d", width);
-		sprintf(height_str, "%d", height);
-		init = true;
-	}
-
-	EguiDrawPanel((Rectangle) { editor.current_pos.x, editor.current_pos.y - 5, EDITOR_WIDTH - 10, 600 }, WHITE, current_depth);
-
-	Vector2 offset = (Vector2){ 5, 0 };
-	EditorBeginOffset(offset);
-
-	if (EditorInputBox2("Texture:", file_name, b1)) {
-		b1 = !b1;
-	}
-
-	if (EditorButton("Load texture")) {
-		t = GetTexture(file_name).texture;
-		sprintf(width_str, "%d", t.width);
-		sprintf(height_str, "%d", t.height);
-	}
-	if (EditorInputBox2("x:", x_str, b4)) {
-		b4 = !b4;
-	}
-	if (EditorInputBox2("y:", y_str, b5)) {
-		b5 = !b5;
-	}
-
-	if (EditorInputBox2("width:", width_str, b7)) {
-		b7 = !b7;
-	}
-	if (EditorInputBox2("height:", height_str, b8)) {
-		b8 = !b8;
-	}
-
-	if (EditorInputBox2("Rows:", rows_str, b2)) {
-		b2 = !b2;
-	}
-
-	if (EditorInputBox2("Columns:", columns_str, b3)) {
-		b3 = !b3;
-	}
-
-	if (EditorInputBox2("Animation names:", animation_names, b6)) {
-		b6 = !b6;
-	}
-
-	if (IsNumber(rows_str)) {
-		num_rows = TextToInteger(rows_str);
-	}
-
-	if (IsNumber(columns_str)) {
-		num_columns = TextToInteger(columns_str);
-	}
-
-	if (IsNumber(x_str)) {
-		x = TextToInteger(x_str);
-	}
-
-	if (IsNumber(y_str)) {
-		y = TextToInteger(y_str);
-	}
-
-	if (IsNumber(width_str)) {
-		width = TextToInteger(width_str);
-	}
-
-	if (IsNumber(height_str)) {
-		height = TextToInteger(height_str);
-	}
-
-	if (EditorButton("Save!")) {
-		if (file_name && file_name[0] != 0) {
-			char text[1000] = { 0 };
-			sprintf(text, "%s\n%d %d\n%d %d\n%d %d\n%s", file_name, x, y, width, height, num_rows, num_columns, animation_names);
-			char path[256] = { 0 };
-			sprintf(path, "C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\%s", file_name);
-			SaveFileText(path, text);
-
-			OldLog("Saved spritesheet data\n");
-		}
-	}
-
-	float new_width, new_height;
-	float w_ratio = 1, h_ratio = 1;
-
-	if (t.id) {
-		BeginTextureMode(target);
-		float texture_ratio = t.width / t.height;
-		float screen_ratio = AREA_WIDTH / AREA_HEIGHT;
-		if (screen_ratio > texture_ratio) {
-			new_width = t.width * AREA_HEIGHT / t.height;
-			new_height = AREA_HEIGHT;
-		}
-		else {
-			new_width = AREA_WIDTH;
-			new_height = t.height * AREA_WIDTH / t.width;
-			DrawTextureRect(t, (Rectangle) { 0, 0, AREA_WIDTH, t.height* AREA_WIDTH / t.width });
-		}
-		DrawTextureRect(t, (Rectangle) { 0, 0, new_width, new_height });
-
-		w_ratio = new_width / t.width;
-		h_ratio = new_height / t.height;
-
-		EndTextureMode();
-	}
-
-	float delta_x = width * w_ratio / num_columns;
-	float pos_x = x;
-	for (int i = 0; i < num_columns + 1; ++i) {
-		BeginTextureMode(target);
-		DrawLineEx((Vector2) { pos_x, y }, (Vector2) { pos_x, height* h_ratio + y }, 2, BLUE);
-		EndTextureMode();
-
-		pos_x += delta_x;
-	}
-
-	float delta_y = height * h_ratio / num_rows;
-	float pos_y = y;
-	for (int i = 0; i < num_rows + 1; ++i) {
-		BeginTextureMode(target);
-		DrawLineEx((Vector2) { x, pos_y }, (Vector2) { width* w_ratio + x, pos_y }, 2, BLUE);
-		EndTextureMode();
-		pos_y += delta_y;
-	}
-
-	EditorEndOffset();
-}
-
-void EditorChangeWindow(EditorWindow window) {
-	if (window == editor.window) {
-		editor.window = EditorWindow_Default;
-		return;
-	}
-
-	editor.window = window;
-}
-
-Vector2 BeginDropwDownPanel() {
-	BeginTextureMode(drop_down_panel_target);
-	ClearBackground(WHITE);
-
-
-	Rectangle rect = { 0, 0, 100, 300 };
-
-	GuiPanel(rect, editor.drop_down_panel_id);
-}
-
-void EndDropwDownPanel() {
-	EndTextureMode();
-}
-
-
-
-int EditorDropDownBoxRaw(char* id, char* text) {
-
-	int index = GetHashTableElement(editor.widgets_hashtable, id);
-	if (index == 0) {
-		assert(editor.num_widgets < MAX_NUM_WIDGETS);
-		editor.widgets[editor.num_widgets] = (Widget){ 0 };
-		index = editor.num_widgets;
-		AddToHashTable(&editor.widgets_hashtable, id, editor.num_widgets);
-		editor.num_widgets++;
-	}
-
-	Rectangle rect = { editor.current_pos.x, editor.current_pos.y, 110, 24 };
-
-	if (EguiDropDownBox(rect, text, &editor.widgets[index].active, editor.widgets[index].flag)) {
-		editor.widgets[index].flag = !editor.widgets[index].flag;
-	}
-
-	EditorNext(EDITOR_BUTTON_SIZE_X, EDITOR_ICON_SIZE);
-
-	int result = editor.widgets[index].active;
-
-	return result;
-}
-
-void InitEditor() {
-
-}
-
-void MyWindow() {
-	Rectangle rect = (Rectangle){ 50, 50, 200, 200 };
-
-	if (GuiWindowBox(rect, "modify!")) {
-		editor.show_modify_entity_box = false;
-		return;
-	}
-
-
-	Vector2 pos = { rect.x + 5, rect.y + 20 };
-
-	editor.current_pos = pos;
-
-	// draw inputs
-	EditorInputBoxAndLabel("name:", editor.entity_name);
-#if FIX_ME
-
-	char width[32] = { 0 };
-	sprintf(width, "%d", editor.size.x);
-	EditorInputBox("width:", text_box2);
-
-	char height[32] = { 0 };
-	sprintf(height, "%d", editor.size.y);
-	EditorInputBox("height:", height);
-
-	int w = TextToInteger(text_box2);
-	int h = TextToInteger(text_box3);
-
-	if (EditorButton("modify!")) {
-		for (int i = 0; i < MAX_NUM_ENTITIES; ++i) {
-			if (strcmp(entity_system.entities_map.elements[i].key, entity->name) == 0)
-				strcpy(entity_system.entities_map.elements[i].key, text_box1);
-		}
-
-		strcpy(entity->name, text_box1);
-		entity->size = (Vector2){ w, h };
-		entity->texture = GetTexture(entity->name);
-
-	}
-#endif
-}
-
-void DoEditor() {
-
-	EguiBegin();
-
-
-	editor.current_pos = (Vector2){ EDITOR_POS_X, EDITOR_POS_Y };
-	editor.column_mode = false;
-
-	static bool show_add_entity_box;
-	static bool show_add_item_box;
-
-	EguiBeginPanel(0, (Rectangle) { EDITOR_ORIGIN_X, EDITOR_ORIGIN_Y, EDITOR_WIDTH, EDITOR_HEIGHT }, GRAY);
-	{
-		EditorInputBoxAndLabel("wha", "asd");
-
-		int original_row_x = EditorBeginRow();
-		{
-			EditorToggleIcon("#152#", &is_playing);
-
-			/*if (EditorButton("Load Config")) {
-				DeInitGame();
-				InitGameFromText();
-			}*/
-			static bool animate;
-			if (EditorButtonIcon("#160#")) {
-				animate = !animate;
-				Entity* entity = GetEntityByName("player");
-				Animation* animation = &shgetp(entity->animations_map, entity->current_animation)->value;
-				if (animate)
-					BeginAnimation(animation);
-				else
-					EndAnimation(animation);
-			}
-
-			if (EditorButtonIcon("#201#")) {
-				LoadTextures();
-
-				for (int i = 1; i < MAX_NUM_ENTITIES; ++i) {
-					Entity* entity = entity_system.entities + i;
-					if (entity->type == EntityType_Character || entity->type == EntityType_Background)
-						entity->texture = GetTexture(entity->texture.name);
-					else {
-						entity->texture = GetTextureFromMap(texture_system.inventory_map, entity->texture.name);
-					}
-				}
-			}
-
-			EditorToggleIcon("#177#", &g_start_drawing);
-
-			if (EditorButtonIcon("#202#"))
-				EditorChangeWindow(EditorWindow_Slice_Spritesheet);
-
-			if (EditorButtonIcon("#203#")) {
-				EditorChangeWindow(EditorWindow_Lists);
-			}
-
-			if (EditorButtonIcon("#208#")) {
-				EntitySystem es = Redo();
-				if (es.valid)
-					entity_system = es;
-			}
-
-			if (EditorButtonIcon("#209#")) {
-				EntitySystem es = Undo();
-				if (es.valid)
-					entity_system = es;
-			}
-
-			if (EditorButtonIcon("#154#")) {
-				g_init = true;
-			}
-		}
-		EditorEndRow(original_row_x);
-
-		Vector2 list_end = { 0 };
-
-		if (editor.window == EditorWindow_Lists) {
-
-			char* t0 = "Entities";
-			char* t1 = "Events";
-			char* t2 = "Areas";
-			char* t3 = "Inventory";
-			char* t[] = { t0, t1, t2, t3 };
-			EditorTabBar(t, 4, &editor_tab);
-			Rectangle panel_rect = { editor.current_pos.x, editor.current_pos.y, EDITOR_WIDTH - 10, 400 };
-			EguiDrawPanel(panel_rect, WHITE, current_depth);
-
-			if (entity_system.hovered_entity.index) {
-				DrawText(GetEntity(entity_system.hovered_entity)->name, GetMousePosition().x, GetMousePosition().y, 10, BLUE);
-			}
-
-			/*
-			static bool active;
-			static Vector2 pos;
-
-			if (CheckCollisionPointRec(GetMousePosition(), list_rect) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)){
-				active = true;
-				pos = GetMousePosition();
-			}
-
-			if (active) {
-				Rectangle rec = { pos.x, pos.y, 50, 50 };
-				if (GuiDropdownBox(rec, "hi", &active, true)) {
-					active = false;
-				}
-			}*/
-			//}
-
-			//if (editor_tab == EditorTab_Entities) {
-				//EditorBeginRow();
-				/*if (EditorButton("Add Entity")) {
-					editor_window = EditorWindow_AddEntity;
-				}*/
-
-				//EditorEndRow();
-			if (editor_tab == EditorTab_Entities) {
-				for (int i = 1; i < MAX_NUM_ENTITIES; ++i) {
-					if (entity_system.entities[i].type == EntityType_None) continue;
-
-					// draw entity name and position
-					Entity entity = entity_system.entities[i];
-					char entity_name[128] = { 0 };
-					sprintf(entity_name, "#149#%s (%d %d)", entity.name, entity.pixel_pos.pos.x, entity.pixel_pos.pos.y);
-					EditorBeginOffset((Vector2) { 5, 0 });
-					EditorLabelButton(entity_name);
-					EditorEndOffset();
-
-					// draw panel with delete and modify options
-					Rectangle entity_text_rect = (Rectangle){ editor.current_pos.x, editor.current_pos.y, 256, EDITOR_BUTTON_SIZE_Y};
-					if (EditorBeginDropDownPanel(entity_system.entities[i].name, entity_text_rect)) {
-
-						if (EditorLabelButton("Delete")) {
-							DestroyEntity(GetEntityByName(editor.drop_down_panel_id)->id);
-							editor.drop_down_panel_active = false;
-							DeActivatePanel(current_depth);
-						};
-
-						if (EditorLabelButton("Modify")) {
-							editor.show_modify_entity_box = true;
-							strcpy(editor.entity_name, entity_system.entities[i].name);
-							editor.size.x = entity_system.entities[i].size.x;
-							editor.size.y = entity_system.entities[i].size.y;
-						}
-
-						EditorEndDropDownPanel();
-					}
-
-
-				}
-
-				if (EditorBeginDropDownPanel("add entity", (Rectangle) { editor.current_pos.x, editor.current_pos.y, 256, panel_rect.x + panel_rect.width })) {
-
-					Rectangle panel_rect = egui_panels[current_depth].rect;
-					Rectangle label_rect = (Rectangle){ panel_rect.x + 5, panel_rect.y + 40, 256, EDITOR_BUTTON_SIZE_Y };
-					if (EguiLabelButton(label_rect, "Add entity")) {
-						show_add_entity_box = true;
-					}
-
-					EndDropwDownPanel();
-
-				}
-			}
-			else if (editor_tab == EditorTab_Inventory) {
-
-				for (int i = 0; i < arrlen(entity_system.entities); ++i) {
-					if (entity_system.entities[i].type != EntityType_InventoryItem) continue;
-
-					int x = EditorBeginRow();
-					EditorBeginOffset((Vector2) { 5, 0 });
-
-					char entity_name[128];
-					sprintf(entity_name, "#149#%s", entity_system.entities[i].name);
-
-					Rectangle panel_rect = { 0 };
-					Rectangle label_rect = { editor.current_pos.x, editor.current_pos.y, 256, EDITOR_BUTTON_SIZE_Y };
-					if (EditorBeginDropDownPanel(entity_system.entities[i].name, label_rect)) {
-						BeginTextureMode(drop_down_panel_target);
-						Rectangle rect = { 0, 0, 100, 300 };
-						ClearBackground(WHITE);
-						GuiPanel(rect, editor.drop_down_panel_id);
-
-						Rectangle label_rect = (Rectangle){ rect.x + 5, rect.y + 40, 256, EDITOR_BUTTON_SIZE_Y };
-
-						if (GuiLabelButton(label_rect, "Delete")) {
-							DestroyEntity(GetEntityByName(editor.drop_down_panel_id)->id);
-							editor.drop_down_panel_active = false;
-						}
-
-						label_rect.y += EDITOR_BUTTON_SIZE_Y;
-
-						EndTextureMode();
-					}
-
-					EditorLabelButton(entity_name);
-					//EditorLabelButton("Add entity");
-
-					EditorEndOffset();
-					EditorEndRow(x);
-				}
-
-				EditorBeginDropDownPanel("add item", (Rectangle) { editor.current_pos.x, editor.current_pos.y, 256, panel_rect.x + panel_rect.width });
-			}
-		}
-		else if (editor.window == EditorWindow_Slice_Spritesheet) {
-			EditorSliceSpritesheet();
-		}
-		else if (editor.window == EditorWindow_Default) {
-
-		}
-
-
-
-
-
-		if (show_add_entity_box) {
-			static bool bb;
-			static bool bb2;
-			static bool bb3;
-			static char text_box1[NAME_SIZE];
-			static char text_box2[NAME_SIZE] = "100";
-			static char text_box3[NAME_SIZE] = "100";
-
-			Rectangle rect = (Rectangle){ 50, 50, 200, 200 };
-			if (GuiWindowBox(rect, "hi!")) {
-				show_add_entity_box = false;
-				strcpy(text_box1, "\0");
-				strcpy(text_box2, "100");
-				strcpy(text_box3, "100");
-
-			}
-			else {
-				Vector2 pos = { rect.x + 5, rect.y + 20 };
-
-				editor.current_pos = pos;
-
-
-				if (EditorInputBox2("name:", text_box1, bb)) {
-					bb = !bb;
-				}
-
-				if (EditorInputBox2("width:", text_box2, bb2)) {
-					bb2 = !bb2;
-				}
-
-				if (EditorInputBox2("height:", text_box3, bb3)) {
-					bb3 = !bb3;
-				}
-
-				/*static bool em;
-				static int ac;
-				if (EguiDropdownBox((Rectangle) { 0, 0, 100, 100 }, "hello;goodbye", & ac, em)) {
-					em = !em;
-				}*/
-
-				int selection = EditorDropDownBox("character;background");
-
-				int w = TextToInteger(text_box2);
-				int h = TextToInteger(text_box3);
-
-
-				if (EditorButton("create!")) {
-					if (selection == 0)
-						CreateCharacter(text_box1, (Vector2) { AREA_WIDTH / 2, AREA_HEIGHT / 2 }, (Vector2) { w, h });
-					else if (selection == 1)
-						CreateEntity(text_box1, EntityType_Background, (Vector2i) { AREA_WIDTH / 2, AREA_HEIGHT / 2 }, (Vector2) { w, h }, GetTexture(text_box1));
-
-				}
-			}
-		}
-		else if (show_add_item_box) {
-			Rectangle rect = (Rectangle){ 50, 50, 200, 200 };
-			if (GuiWindowBox(rect, "hi!")) {
-				show_add_entity_box = false;
-			}
-
-			Vector2 pos = { rect.x + 5, rect.y + 20 };
-
-			editor.current_pos = pos;
-			static bool bb;
-			static char text_box[NAME_SIZE];
-			if (EditorInputBox2("name:", text_box, bb)) {
-				bb = !bb;
-			}
-
-			if (EditorButton("create!")) {
-				CreateItem(text_box);
-			}
-		}
-		else if (editor.show_modify_entity_box) {
-			MyWindow();
-		}
-	}
-	EguiEndPanel();
-
-	EguiEnd();
-
-	EditorLog();
-}
 
 /*
  * ===============================================================
@@ -3481,77 +2689,87 @@ void DrawCurrentPath() {
 
 	for (int i = 0; i < arrlen(pathfinding_system.current_path_buff); ++i) {
 		PixelPos pos = GetPixelPosFromNodePos(pathfinding_system.current_path_buff[i]);
-		DrawRectangle(pos.pos.x - 5, pos.pos.y - 5, 10, 10, BLUE);
+		PlatformRectDraw((Rect) { pos.pos.x - 5, pos.pos.y - 5, 10, 10 }, PLATFORM_BLUE);
 	}
 
 	for (int j = 0; j < hmlen(pathfinding_system.obstacle_map); ++j) {
 		PixelPos pos = GetPixelPosFromNodePos(pathfinding_system.obstacle_map[j].key);
 
-		DrawRectangle(pos.pos.x - 5, pos.pos.y - 5, 10, 10, YELLOW);
+		PlatformRectDraw((Rect){ pos.pos.x - 5, pos.pos.y - 5, 10, 10 }, PLATFORM_YELLOW);
 	}
 }
 
-
-
-void RunGameLoop(RenderTexture2D target) {
+void RunGameLoop(PlatformRenderTexture target, bool enable_input, bool is_playing) {
 
 	CountTime();
 
-	HandleInput();
+	if (enable_input) {
 
-	HandleEntityGrabbing();
+		HandleInput();
 
-	//move grabbed entity, should this code be here?
-	if (entity_system.grabbed_entity.index) {
-		if (is_playing && GetEntity(entity_system.grabbed_entity)->type == EntityType_InventoryItem)
-			GetEntity(entity_system.grabbed_entity)->pixel_pos.pos = Vector2iAdd(GetEntity(entity_system.grabbed_entity)->pixel_pos.pos,
-				Vector2iSubtract(input_system.mouse_pos, input_system.previous_mouse_pos));
-		else if (!is_playing) {
-			Vector2i mouse_pos = input_system.mouse_pos;
+		HandleEntityGrabbing(is_playing);
 
-			//Vector2 pos = GetEntity(entity_system.grabbed_entity)->pixel_pos.pos;
-			Vector2 size = GetEntity(entity_system.grabbed_entity)->size;
-			Vector2 left_corner = { mouse_pos.x - size.x / 2, mouse_pos.y - size.y / 2 };
-			Vector2 right_corner = { left_corner.x + size.x, left_corner.y + size.y };
+		// Handle entity movement during edit mode
+		if (!is_playing) {
+			if (grab_system.grabbed_entity.index) {
+				V2 mouse_pos = input_system.mouse_pos;
 
-			//left_corner.x > 0 && left_corner.y > 0 && right_corner.x < GAME_SCREEN_WIDTH && right_corner.y < GAME_SCREEN_HEIGHT ?
+				Vector2 size = GetEntity(grab_system.grabbed_entity)->size;
+				Vector2 left_corner = { mouse_pos.x - size.x / 2, mouse_pos.y - size.y / 2 };
+				Vector2 right_corner = { left_corner.x + size.x, left_corner.y + size.y };
 
-			if (mouse_pos.x < AREA_WIDTH && mouse_pos.y < AREA_HEIGHT && mouse_pos.y > 0 && mouse_pos.x > 0) {
-#if 0
-				NodePos node_pos = GetNearestNodeNumFromPixelPos((PixelPos) { mouse_pos });
-				GetEntity(entity_system.grabbed_entity)->pixel_pos = GetPixelPosFromNodePos(node_pos);
-#else
-				GetEntity(entity_system.grabbed_entity)->pixel_pos.pos.x += mouse_pos.x - input_system.previous_mouse_pos.x;
-				GetEntity(entity_system.grabbed_entity)->pixel_pos.pos.y += mouse_pos.y - input_system.previous_mouse_pos.y;
-
-#endif
+				if (mouse_pos.x < GAME_SCREEN_WIDTH && mouse_pos.y < GAME_SCREEN_HEIGHT && mouse_pos.y > 0 && mouse_pos.x > 0) {
+					GetEntity(grab_system.grabbed_entity)->pixel_pos.pos.x += mouse_pos.x - input_system.previous_mouse_pos.x;
+					GetEntity(grab_system.grabbed_entity)->pixel_pos.pos.y += mouse_pos.y - input_system.previous_mouse_pos.y;
+				}
 			}
 		}
-		//item_system.grabbed_item = entity_system.grabbed_entity;
-	}
 
-	DoInventory();
-	BeginTextureMode(target);
-	ClearBackground(WHITE);
-
-	if (is_playing) {
-		HandleInventoryItemGrabbing();
+		// Handle entity grabbing during play mode
+		// NOTE: Same code as HandleInventoryGrabbing?
 #if 0
-		HandlePlayerMovement();
-		MoveEntity();
-		DoActions2();
+		if (is_playing) {
+			if (entity_system.grabbed_entity.index) {
+				if (GetEntity(entity_system.grabbed_entity)->type == EntityType_InventoryItem) {
+					GetEntity(entity_system.grabbed_entity)->pixel_pos.pos = Vector2iAdd(GetEntity(entity_system.grabbed_entity)->pixel_pos.pos,
+						Vector2iSubtract(input_system.mouse_pos, input_system.previous_mouse_pos));
+				}
+			}
+		}
 #endif
+
 	}
-	DoAnimations();
-	DrawEntities();
+
+	// Game rendering?
+#if 0
+	BeginTextureMode(target);
+	{
+		ClearBackground(GRAY);
+
+		if (is_playing) {
+			HandleInventoryItemGrabbing();
+#if 0
+			HandlePlayerMovement();
+			MoveEntity();
+			DoActions2();
+#endif
+		}
+		DoAnimations();
+		DrawEntities();
+
+	}
 	EndTextureMode();
+#endif
+}
+
+void PlatformSetRenderTarget(PlatformRenderTexture texture) {
+
 }
 
 void InitGame() {
 	Log(__LINE__, "Init started");
 
-
-	GuiLoadIcons("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\iconset.rgi", false);
+	//GuiLoadIcons("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\iconset.rgi", false);
 
 	InitStringSystem();
 
@@ -3568,15 +2786,13 @@ void InitGame() {
 		InitGameFromText();
 		NodePos node_pos = (NodePos){ 20, 20 };
 		PixelPos player_pixel_pos = GetPixelPosFromNodePos(node_pos);
-		//game_state.player = AddEntityToScreen("player", CreateString("run"), (Rectangle) { player_pixel_pos.pos.x, player_pixel_pos.pos.y, 100, 100 }, EntityType_Character);
+		//game_state.player = AddEntityToScreen("player", CreateString("run"), (PlatformRect) { player_pixel_pos.pos.x, player_pixel_pos.pos.y, 100, 100 }, EntityType_Character);
 		GetEntityByName("player")->node_pos = node_pos;
 	}
 	else if (load) {
 		LoadGame("filey");
 		//game_state.player = GetEntityByName("player")->id;
 	}
-
-
 
 	//LoadInventory();
 	//LoadScreenItems2();
@@ -3610,15 +2826,11 @@ void InitGame() {
 
 	//StartEntityAnimation(GetEntity);
 
-
-	target = LoadRenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT);
-	BeginTextureMode(target);
-	ClearBackground(WHITE);
-	EndTextureMode();
+	target = (PlatformRenderTexture){ PlatformLoadRenderTexture(GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT) };
 
 	//CreateBackground();
 
-	drop_down_panel_target = LoadRenderTexture(100, 300);
+	drop_down_panel_target = (PlatformRenderTexture){PlatformLoadRenderTexture(100, 300)};
 
 	// main loop
 
@@ -3628,102 +2840,31 @@ void InitGame() {
 
 	CreateEntity("background", EntityType_Background,
 		(Vector2i) {
-		AREA_WIDTH / 2, AREA_HEIGHT / 2
+		GAME_SCREEN_WIDTH / 2, GAME_SCREEN_HEIGHT / 2
 	},
 		(Vector2) {
-		AREA_WIDTH, AREA_HEIGHT
-	}, GetTexture("background"));
-	CreateEntity("inventory", EntityType_Background,
-		(Vector2i) {
-		INVENTORY_X + INVENTORY_WIDTH / 2,
-			INVENTORY_Y + INVENTORY_HEIGHT / 2
-	},
-		(Vector2) {
-		INVENTORY_WIDTH, INVENTORY_HEIGHT
-	}, GetTexture("inventory"));
-
+		GAME_SCREEN_WIDTH, GAME_SCREEN_HEIGHT
+	}, GetSprite("background"));
 
 	Log(__LINE__, "Init ended");
 }
 
 Vector2 GetScreenCenter() {
-	Vector2 result = (Vector2){ AREA_WIDTH / 2, AREA_HEIGHT / 2 };
+	Vector2 result = (Vector2){ GAME_SCREEN_WIDTH / 2, GAME_SCREEN_HEIGHT / 2 };
 
 	return result;
 }
 
-int main(void)
-{
-	editor.num_widgets = 1;
+#else
 
-	SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
-	InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "my game");
-	SetTargetFPS(60);
+/*
+ * ===============================================================
+ *
+ *                          SECTION_PLATFORM
+ *
+ * ===============================================================
+ */
 
-	is_playing = false;
 
-	bool run_game_loop = true;
-	bool close = false;
-	g_init = true;
-
-	while (!close)
-	{
-		if (g_init) {
-			InitGame();
-
-			g_init = false;
-		}
-
-		if (WindowShouldClose() || IsKeyPressed(KEY_ESCAPE)) {
-			SaveGame();
-			close = true;
-		}
-
-		BeginTextureMode(target);
-		ClearBackground(RAYWHITE);
-		EndTextureMode();
-
-#if 0
-		if (IsKeyReleased(KEY_P)) {
-			run_game_loop = false;
-		}
 #endif
-
-		if (run_game_loop)
-			RunGameLoop(target);
-
-		if (run_slice_spritesheet) {
-			run_game_loop = false;
-
-		}
-
-
-
-		BeginDrawing();
-		{
-			ClearBackground(RAYWHITE);
-
-#if 0
-			BeginTextureMode(target);
-			{
-				if (!is_playing) {
-					DoWalkingAreaVertices();
-					DrawWalkingArea();
-					DrawCurrentPath();
-				}
-			}
-			EndTextureMode();
 #endif
-
-			DrawTargetTexture(target, (Vector2) { AREA_X, AREA_Y });
-			DoEditor();
-		}
-		EndDrawing();
-
-		is_log_dirty = false;
-	}
-
-	CloseWindow();
-
-	return 0;
-}
