@@ -1,5 +1,6 @@
 #include "Platform.h"
-#include "Game.h"
+//#include "Game.h"
+#include <SDL3/SDL_main.h>
 
 /*
 RenderTexture2D PlatformLoadRenderTexture(int w, int h) {
@@ -71,38 +72,67 @@ void PlatformInit() {
   including commercial applications, and to alter it and redistribute it
   freely.
 */
-#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
-#include <SDL3_ttf/SDL_ttf.h>
-#include <assert.h >
 
-#define FONT_HEIGHT 18
-
-typedef struct Sdl {
-	SDL_Renderer* renderer;
-	SDL_Window* window;
-	TTF_Font* font;
-	TTF_Text* text;
-	SDL_Event* event;
-} Sdl;
-
-Sdl sdl;
-
-void PlatformTextDraw(const char* txt, float x, float y) {
+void PlatformTextDraw(const char* str, float x, float y) {
+	TTF_Text* text = TTF_CreateText(sdl.engine, sdl.font, str, 0);
 	int w = 0, h = 0;
-	TTF_GetTextSize(sdl.text, &w, &h);
+	TTF_GetTextSize(text, &w, &h);
 	SDL_Surface* window_surface = SDL_GetWindowSurface(sdl.window);
-	TTF_DrawRendererText(sdl.text, x, y);
+	TTF_SetTextColor(text, 0, 0, 0, 255);
+	TTF_DrawRendererText(text, x, y);
+}
+
+PlatformV2i PlatformTextGetSize(const char* str) {
+	PlatformV2i result = { 0 };
+	TTF_Text* text = TTF_CreateText(sdl.engine, sdl.font, str, 0);
+	TTF_GetTextSize(text, &result.x, &result.y);
+
+	return result;
 }
 
 void PlatformRectDraw(PlatformRect rect, PlatformColor color) {
-	assert(color.a);
+	//assert(color.a);
 
 	SDL_SetRenderDrawColor(sdl.renderer, color.r, color.g, color.b, color.a);
 	//SDL_RenderRect(sdl.renderer, &rect);
 	SDL_RenderFillRect(sdl.renderer, &rect);
 }
+
+void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect) {
+	SDL_RenderTexture(sdl.renderer, texture.data, 0, &rect);
+}
+
+void PlatformLineDraw(float x0, float y0, float x1, float y1, float r, float g, float b) {
+	SDL_SetRenderDrawColor(sdl.renderer, r, g, b, 255);
+	SDL_RenderLine(sdl.renderer, x0, y0, x1, y1);
+}
+
+void PlatformLineDrawHorizontal(float x0, float y0, float x1, float y1) {
+	SDL_SetRenderDrawColor(sdl.renderer, 125, 125, 125, 255);
+
+	for (int i = x0; i < x1; ++i) {
+		if (i % 2 == 1) continue;
+		SDL_RenderPoint(sdl.renderer, (int)i, (int)y0);
+	}
+}
+
+void PlatformLineDrawVertical(float x0, float y0, float x1, float y1) {
+	SDL_SetRenderDrawColor(sdl.renderer, 125, 125, 125, 255);
+
+	for (int i = y0; i < y1; ++i) {
+		if (i % 2 == 1) continue;
+		SDL_RenderPoint(sdl.renderer, (int)x0, (int)i);
+	}
+}
+
+PlatformTexture PlatformTextureLoad(const char* path) {
+	SDL_Surface* surface = IMG_Load(path);
+	SDL_Texture* texture = SDL_CreateTextureFromSurface(sdl.renderer, surface);
+	PlatformTexture result = (PlatformTexture){ .data = texture };
+
+	return result;
+}
+
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
@@ -117,11 +147,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	sdl.font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", FONT_HEIGHT);
 	assert(sdl.font);
 
-	TTF_TextEngine* engine = TTF_CreateRendererTextEngine(sdl.renderer);
-	assert(engine);
+	sdl.engine = TTF_CreateRendererTextEngine(sdl.renderer);
+	assert(sdl.engine);
 
-	sdl.text = TTF_CreateText(engine, sdl.font, "asd", 0);
-
+	GameInit();
 
 	return SDL_APP_CONTINUE;
 }
@@ -134,13 +163,18 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	}
 
 	sdl.event = event;
-	
+
 	return SDL_APP_CONTINUE;
 }
 
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
+
+	static Uint64 time = 0;
+	Uint64 delta_time = SDL_GetTicks() - time;
+	time = SDL_GetTicks();
+
 	// Input
 	SDL_Event* event = sdl.event;
 	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
@@ -149,7 +183,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				platform_system.mouse_left = Activating;
 				printf("Activating\n");
 			}
-			
+
 		}
 	}
 	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
@@ -195,7 +229,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	SDL_GetWindowSize(sdl.window, &platform_system.window_width, &platform_system.window_height);
 	GameRun(platform_system.window_width, platform_system.window_height);
 	PlatformTextDraw("asdas", 500, 500);
-	
+
+	char buff[8] = { 0 };
+	sprintf(buff, "%u", delta_time);
+	sdl.fps_text = TTF_CreateText(sdl.engine, sdl.font, buff, 0);
+
 	SDL_RenderPresent(sdl.renderer);
 
 	return SDL_APP_CONTINUE;

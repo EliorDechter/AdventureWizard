@@ -1,117 +1,257 @@
 #include "Game.h"
 
 #define MAX_NUM_DRAW_COMMANDS 1024
-typedef enum DrawCommandType { DrawCommandType_Default, DrawCommandType_Rect, DrawCommandType_Text } DrawCommandType;
 
-typedef struct DrawCommand {
-	DrawCommandType type;
-	EguiRect rect;
-	Str32 str;
-	EguiColor rect_color;
-} DrawCommand;
+void Draw(EguiDrawCommand command) {
+	assert(command.dest_rect.x >= 0);
+	assert(command.dest_rect.y >= 0);
+	assert(command.dest_rect.w >= 0);
+	assert(command.dest_rect.h >= 0);
+	//assert(command.rect_color.a);
 
-typedef struct RenderingSystem {
-	DrawCommand draw_commands[MAX_NUM_DRAW_COMMANDS];
-	int num_commands;
-} RenderingSystem;
-
-RenderingSystem rendering_system;
-
-void Draw(DrawCommand command) {
-	assert(command.rect.x >= 0);
-	assert(command.rect.y >= 0);
-	assert(command.rect.w >= 0);
-	assert(command.rect.h >= 0);
-	assert(command.rect_color.a);
-
-	assert(rendering_system.num_commands < MAX_NUM_DRAW_COMMANDS - 1);
-	rendering_system.draw_commands[rendering_system.num_commands++] = command;
+	assert(egui.commands_count < MAX_NUM_DRAW_COMMANDS - 1);
+	egui.draw_commands[egui.commands_count++] = command;
 }
 
 void DrawBatch() {
-	for (int i = 0; i < rendering_system.num_commands; ++i) {
-		DrawCommand command = rendering_system.draw_commands[i];
-		PlatformRectDraw(*((PlatformRect*)&command.rect), *((PlatformColor*)&command.rect_color));
-		if (*command.str.str)
-			PlatformTextDraw(command.str.str, command.rect.x, command.rect.y);
+	for (int i = 0; i < egui.commands_count; ++i) {
+		EguiDrawCommand command = egui.draw_commands[i];
+		if (command.type == DrawCommandType_Texture)
+			PlatformTextureDraw(*(PlatformTexture*)&command.texture,
+				*(PlatformRect*)&command.dest_rect);
+		else if (command.type == DrawCommandType_String) {
+			//assert(!*command.str.str);
+			PlatformTextDraw(command.str.str, command.dest_rect.x, command.dest_rect.y);
+		}
+		else if (command.type == DrawCommandType_Rect) {
+			PlatformRectDraw(*((PlatformRect*)&command.dest_rect), *((PlatformColor*)&command.color));
+		}
+		else if (command.type == DrawCommandType_Line) {
+			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
+				command.color.r, command.color.g, command.color.b);
+		}
+		else if (command.type == DrawCommandType_VerticalLine) {
+			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+		}
+		else if (command.type == DrawCommandType_HorizontalLine) {
+			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+		}
+		else {
+			//assert(0);
+		}
+
+
+
 	}
 
-	rendering_system.num_commands = 0;
 }
 
 void DrawEditor(EguiDrawCommandsBuffer commands) {
-	for (int i = 0; i < egui.num_draw_commands; ++i) {
-		EguiDrawCommand command = commands.commands[i];
-#if 1
-		switch (command.type) {
-		case EguiDrawCommandType_Text: {
-			//GuiDrawText(command.text_data.text, command.rect, command.text_data.alignment, command.text_data.color);
-			//DrawTextEx(egui.font, command.text_data.text, (Vector2) { command.rect.x, command.rect.y }, 14, 1, BLACK);
-			assert(0);
-			//DrawText(command.text_data.text, command.rect.x, command.rect.y, 13, BLACK);
-			break;
-		}
-		case EguiDrawCommandType_Box: {
-			Box box = egui.boxes[command.box_data.box_index];
-			assert(box.color.a);
-			//PlatformRect rect = (PlatformRect){ box.x_internal, box.y_internal, box.w_internal, box.h_internal };
-			Draw((DrawCommand) {
-				.rect = (EguiRect){ .x = box.absolute_rect.x, .y = box.absolute_rect.y,
-.h = box.absolute_rect.h, .w = box.absolute_rect.w },
-.rect_color = box.color
-			});
 
-			if (box.border_type == BorderType_Default) {
-				// Draw top and left lines
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w , 1 }, .rect_color = EGUI_WHITE });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_WHITE });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y + 1, box.absolute_rect.w, 1 }, .rect_color = EGUI_LIGHTGRAY });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x + 1, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_LIGHTGRAY });
-
-				// Draw bottom and right lines
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1, box.absolute_rect.w, 1 }, .rect_color = EGUI_BLACK });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x + box.absolute_rect.w - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_BLACK });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1 - 1, box.absolute_rect.w, 1 }, .rect_color = EGUI_GRAY });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x + box.absolute_rect.w - 1 - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_GRAY });
-			}
-			else if (box.border_type == BorderType_Black) {
-				// Draw top and left lines
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w, 1 }, .rect_color = EGUI_BLACK });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_BLACK });
-
-				// Draw bottom and right lines
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1, box.absolute_rect.w, 1 }, .rect_color = EGUI_BLACK });
-				Draw((DrawCommand) { .rect = { box.absolute_rect.x + box.absolute_rect.w - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, .rect_color = EGUI_BLACK });
-			}
-
-			if (*box.str.str) {
-				//DrawText(box.str.str, box.absolute_rect.x, box.absolute_rect.y, 13, BLACK);
-				/*Draw((DrawCommand) {
-					.str = box.str,
-						.rect = (EguiRect){ box.absolute_rect.x, box.absolute_rect.y,
-						box.absolute_rect.w, box.absolute_rect.h },
-				});*/
-			}
-
-			break;
-		}
-		case EguiDrawCommandType_Rect: {
-			assert(0);
-			//DrawPlatformRect(command.rect, command.rect_data.border_width, command.rect_data.border_color, command.rect_data.color);
-			break;
-		}
-
-		case EguiDrawCommandType_Texture: {
-			//PlatformTextureDraw(command.texture, command.rect.x, command.rect.y, command.rect.w, command.rect.h);
-
-			break;
-
-		}
-		}
-#endif
-	}
 }
 
+EguiV2i TextGetSize(const char* str) {
+	PlatformV2i result = PlatformTextGetSize(str);
+	return *(EguiV2i*)&result;
+}
+void EguiBoxDo(Box box) {
+	EguiBoxBegin(box);
+	EguiBoxEnd();
+}
+
+EguiRect EguiRectScale(EguiRect rect, float scale) {
+	float new_w = rect.w * scale;
+	float new_h = rect.h * scale;
+
+	EguiRect result = {
+		rect.x + (rect.w / 2 - new_w / 2),
+		rect.y + (rect.h / 2 - new_h / 2),
+		new_w,
+		new_h
+	};
+
+	return result;
+}
+
+void EguiMenuNode(const char* list[], int count) {
+
+	// Head
+	EguiBoxBegin((Box) {
+		.border_type = BorderType_None,
+			.color = EGUI_WHITE,
+			.w = 25,
+			.h = 25
+	});
+	{
+		EguiItemAdd((Item) { .type = ItemType_BottomVerticalDottedLine });
+		//EguiItemAdd((Item) { .type = ItemType_Rect });
+		EguiItemAdd((Item) {
+			.type = ItemType_Texture,
+				.texture = *(EguiTexture*)&g_texture,
+				.size = (EguiV2){ 35, 35 }
+		});
+	}
+	EguiBoxEnd();
+
+	// List
+	for (int i = 0; i < count; ++i) {
+		EguiBoxBegin((Box) {
+			.row_mode = true,
+				.h = 20,
+				.grow_horizontal = true,
+				.color = EGUI_WHITE,
+				.border_type = BorderType_None,
+		});
+		{
+			// Button
+			EguiBoxBegin((Box) { .border_type = BorderType_None,  .w = EDITOR_ICON_SIZE, .h = EDITOR_ICON_SIZE });
+			{
+				if (i != count - 1)
+					EguiItemAdd((Item) { .type = ItemType_VerticalDottedLine });
+				else
+					EguiItemAdd((Item) { .type = ItemType_TopVerticalDottedLine });
+
+				EguiItemAdd((Item) { .type = ItemType_RightHorizontalDottedLine });
+				EguiItemAdd((Item) { .type = ItemType_Rect, .rect = (EguiRect){ 0, 0, 100, 100 }, .color = EGUI_RED });
+
+				EguiRect new_rect = EguiRectScale((EguiRect) { 0, 0, EguiBoxGetCurrent2()->w, EguiBoxGetCurrent2()->h }, 0.5);
+				EguiButtonBegin((Box) { .border_type = BorderType_None, .color = EGUI_GREEN,
+					.x = new_rect.x, .y = new_rect.y, .w = new_rect.w, .h = new_rect.h });
+				{
+#if 0
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0, 0, new_rect.w, 1 },
+							.color = EGUI_GRAY
+					});
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0 + new_rect.w - 1, 0, 1, new_rect.h },
+							.color = EGUI_GRAY
+					});
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0, 0 + new_rect.h - 1, new_rect.w, 1
+						},
+							.color = EGUI_GRAY
+					});
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0, 0, 1, new_rect.h },
+							.color = EGUI_GRAY
+					});
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0 + new_rect.w / 2, 0 + 3, 1, new_rect.h - 6 },
+							.color = EGUI_BLACK
+					});
+					EguiItemAdd((Item) {
+						.type = ItemType_Rect,
+							.rect = (EguiRect){ 0 + 3, 0 + new_rect.w / 2, new_rect.w - 6, 1 },
+							.color = EGUI_BLACK
+					});
+#endif
+				}
+				EguiButtonEnd();
+			}
+			EguiBoxEnd();
+
+			// Icon
+			EguiBoxBegin((Box) {
+				.border_type = BorderType_None,
+					.color = EGUI_WHITE,
+					.w = 25,
+					.h = 25
+			});
+			{
+				EguiItemAdd((Item) { .type = ItemType_LeftHorizontalDottedLine });
+				EguiItemAdd((Item) {
+					.type = ItemType_Texture,
+						.size = (EguiV2){ 30, 30 },
+						.texture = *(EguiTexture*)&g_texture
+				});
+			}
+			EguiBoxEnd();
+
+			// Name
+			EguiLabel(Str32Create("Entities"), (EguiV2i) { 10, 10 });
+		}
+		EguiBoxEnd();
+	}
+
+#if 1
+
+#else
+	// Top Line
+	EguiBoxBegin((Box) {
+		.row_mode = true,
+			.h = 20,
+			.grow_horizontal = true,
+			.color = EGUI_WHITE,
+			.border_type = BorderType_None
+	});
+	{
+		EguiBoxBegin((Box) {
+			.name = Str32Create("F"),
+				.border_type = BorderType_None,
+				.color = EGUI_WHITE,
+				.w = 25,
+				.h = 25
+		});
+		{
+			EguiItemAdd((Item) { .type = ItemType_BottomVerticalDottedLine });
+			EguiItemAdd((Item) { .type = ItemType_Rect });
+		}
+		EguiBoxEnd();
+		EguiLabel(Str32Create("Entities"), (EguiV2i) { 10, 10 });
+	}
+	EguiBoxEnd();
+
+	// Bottom Line
+	EguiBoxBegin((Box) {
+		.row_mode = true,
+			.h = 20,
+			.grow_horizontal = true,
+			.color = EGUI_WHITE,
+			.border_type = BorderType_None
+	});
+	{
+		EguiBoxBegin((Box) {
+			.name = Str32Create("F"),
+				.border_type = BorderType_None,
+				.color = EGUI_WHITE,
+				.w = 25,
+				.h = 25
+		});
+		{
+			EguiItemAdd((Item) { .type = ItemType_TopVerticalDottedLine });
+			EguiItemAdd((Item) { .type = ItemType_RightHorizontalDottedLine });
+			EguiItemAdd((Item) { .type = ItemType_Rect });
+		}
+		EguiBoxEnd();
+
+		EguiBoxBegin((Box) {
+			.name = Str32Create("F"),
+				.border_type = BorderType_None,
+				.color = EGUI_WHITE,
+				.w = 25,
+				.h = 25
+		});
+		{
+			EguiItemAdd((Item) { .type = ItemType_LeftHorizontalDottedLine });
+			EguiItemAdd((Item) { .type = ItemType_Rect });
+		}
+		EguiBoxEnd();
+
+		EguiLabel(Str32Create("Entity"), (EguiV2i) { 10, 10 });
+	}
+	EguiBoxEnd();
+#endif
+}
+
+void EguiMenu() {
+	EguiMenuNode(0, 3);
+}
 
 void DoEditor(float total_time_in_seconds, EguiV2 mouse_pos, int window_width, int window_height) {
 
@@ -123,33 +263,39 @@ void DoEditor(float total_time_in_seconds, EguiV2 mouse_pos, int window_width, i
 	// Drawing data
 	EguiV2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
 
+
 	EguiBegin(total_time_in_seconds, (EguiV2) { 5, 5 }, mouse_pos, platform_system.mouse_left);
 	{
 		// Files Panel
 #if 1
 		EguiBoxBegin(((Box) {
-			.per = 0.05,
-				.name = Str32Create("Files"),
+			.name = Str32Create("Files"),
 				.row_mode = true,
 				.n = 1,
 				.grow_horizontal = true,
 				.h = 50,
 				.size_type = SizeType_Fixed,
+				.child_gap = 5,
+				.center = true
 		}));
 		{
-
+			EguiLabel(Str32Create("File"), TextGetSize("File"));
+			EguiLabel(Str32Create("View"), TextGetSize("View"));
+			EguiLabel(Str32Create("Help"), TextGetSize("Help"));
 		}
 		EguiBoxEnd();
 #endif
 
 		// Top panel
 		EguiBoxBegin(((Box) {
-			.name = Str32Create("Top button panel"), .inner_padding = (EguiRect){ 8, 8, 0, 0 },
-				.n = 1, .per = 0.05, .row_mode = true, .push = 8,
+			.name = Str32Create("Top button panel"),
+				.inner_padding = (EguiRect){ 8, 8, 0, 0 },
+				.row_mode = true, .push = 8,
 				.grow_horizontal = true,
 				.h = 50,
 		}));
 		{
+
 			// Play
 			//EditorToggleIcon("#152#", &is_playing);
 
@@ -218,85 +364,46 @@ void DoEditor(float total_time_in_seconds, EguiV2 mouse_pos, int window_width, i
 				.grow_vertical = true
 		}));
 		{
-#if 1
 			//Left Panel
-			EguiBoxBegin(((Box) { .name = Str32Create("Left part of main screen"),  .grow_horizontal = true, .grow_vertical = true }));
+			EguiBoxBegin(((Box) {
+				.name = Str32Create("Left part of main screen"),
+					.grow_horizontal = true,
+					.grow_vertical = true,
+					.border_type = BorderType_None,
+			}));
 			{
-#if 0
+
 				// Game screen
-				EguiBoxBegin(((Box) { .name = Str32Create("Game screen"), .per = 0.5, .color = LIGHTGRAY }));
+				EguiBoxBegin(((Box) {
+					.name = Str32Create("Game screen"),
+						.color = EGUI_LIGHTGRAY,
+						.texture = *(EguiTexture*)&g_texture,
+						.grow_horizontal = true,
+						.grow_vertical = true,
+						.border_type = BorderType_None
+				}));
 				{
-					EguiTexturePanel(egui.current_pos, 1, target);
+
+					EguiItemAdd((Item) {
+						.type = ItemType_HorizontalDottedLine,
+							.line = (Line){ 5, 5, 100, 100 },
+					});
 				}
 				EguiBoxEnd();
-
-				// Log
-				EguiBoxBegin(((Box) { .name = Str32Create("Game screen"), .color = LIGHTGRAY }));
-				{
-					EguiLog((PlatformRect) { LOG_ORIGIN_X, LOG_ORIGIN_Y, LOG_WIDTH, LOG_HEIGHT });
-				};
-				EguiBoxEnd();
-#endif
 			}
 			EguiBoxEnd();
 
 			// Right panel
-			EguiBoxBegin(((Box) {
+			EguiBoxBegin((Box) {
 				.name = Str32Create("Right part of main screen"),
-					.grow_vertical = true, .w = 100
-			}));
+					.grow_vertical = true,
+					.w = 200,
+					.color = EGUI_WHITE
+			});
 			{
-#if 0
-
-				// lists window
-				if (editor.window == EditorWindow_Lists) {
-					// Top
-					EguiBoxBegin(((Box) { .name = Str32Create("tabs"), .h = 100, .row_mode = true, .grow_horizontal = true, .color = LIGHTGRAY }));
-					{
-						//	EditorTabBar((char* []) { "Entities", "Events", "Areas", "Inventory" }, 4, & editor.editor_tab);
-						EditorButton("hi", "hi");
-						EditorButton("bye", "hi");
-					}
-					EguiBoxEnd();
-#if 0
-					// List panel
-					EguiBoxBegin(((Box) { .grow_horizontal = true, .h = 400, .color = LIGHTGRAY }));
-					{
-						//EguiPanel(EguiBoxGetCurrent()->absolute_rect, 0);
-
-						if (editor.editor_tab == EditorTab_Entities) {
-							for (int entity_index = 1; entity_index < MAX_NUM_ENTITIES; ++entity_index) {
-								if (entity_system.entities[entity_index].type == EntityType_None) continue;
-
-								// draw entity name and position
-								Entity entity = entity_system.entities[entity_index];
-								char entity_name[128] = { 0 };
-								sprintf(entity_name, "#149# %s", entity.name);
-								EditorBeginOffset((Vector2) { 5, 0 });
-								PlatformRect entity_text_rect = (PlatformRect){ egui.current_pos.x, egui.current_pos.y, 256, EDITOR_BUTTON_SIZE_Y };
-								EditorLabelButton(entity_name);
-								EditorEndOffset();
-
-								// Drop down panel
-								if (CheckCollisionPointRec(input_system.mouse_pos, entity_text_rect) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-									editor.modify_entity_drop_down_panel = true;
-									editor.drop_down_panel_pos = input_system.mouse_pos;
-									editor.entity = entity_system.entities[entity_index].id;
-									sprintf(editor.entity_width, "%d", editor.entity_size.x);
-									sprintf(editor.entity_height, "%d", editor.entity_size.y);
-								}
-							}
-						}
-					}
-					EguiBoxEnd();
-#endif
-				}
-
-#endif
-
+				EguiMenu();
 			}
 			EguiBoxEnd();
-#endif
 		}
 		EguiBoxEnd();
 
@@ -469,17 +576,13 @@ void DoEditor(float total_time_in_seconds, EguiV2 mouse_pos, int window_width, i
 
 	}
 
-	EguiDrawCommandsBuffer draw_commands = EguiEnd();
-	DrawEditor(draw_commands);
+	EguiEnd();
 
 	// Draw mouse position
 	EguiRect mouse_rect = (EguiRect){ egui.window_width - 200, 0, 200, 100 };
 	char mouse_pos_text[128] = { 0 };
 	sprintf(mouse_pos_text, "mouse pos: %f %f", mouse_pos.x, mouse_pos.y);
 	PlatformTextDraw(mouse_pos_text, mouse_rect.x, mouse_rect.y);
-}
-
-void GameInit(int window_width, int window_height) {
 }
 
 void GameRun(int window_width, int window_height) {
@@ -489,3 +592,8 @@ void GameRun(int window_width, int window_height) {
 	}, window_width, window_height);
 	DrawBatch();
 }
+
+void GameInit() {
+	g_texture = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\ass.png");
+}
+

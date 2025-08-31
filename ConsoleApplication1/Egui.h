@@ -26,6 +26,9 @@ typedef enum EditorTab { EditorTab_Entities, EditorTab_Events, EditorTab_Areas, 
 
 typedef enum PanelId { PanelId_None, PanelId_Window, PanelId_TopPanel, PanelId_RightPanel, PanelId_GameScreen, PanelId_ModifyEntityDropDown } PanelId;
 typedef enum EditorWindowId { EditorWindowId_ModifyEntity, EditorWindowId_DrawTool } EditorWindowId;
+typedef struct Str128 {
+	char data[128];
+} Str128;
 
 
 typedef struct EguiColor {
@@ -77,7 +80,9 @@ typedef struct EguiRect {
 typedef struct EguiV2 {
 	float x, y;
 } EguiV2;
-
+typedef struct EguiV2i {
+	int x, y;
+} EguiV2i;
 #define DEBUG_PANELS 0
 
 #if 0
@@ -86,9 +91,53 @@ typedef struct EguiV2 {
 
 typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_Tooltip, CrateId_DropDown, CrateId_Total } CrateId;
 
-typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_None } BorderType;
+typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_None } BorderType;
 typedef enum Alignment { Alignment_Left, Alignment_Center, Alignment_Right } Alignment;
 typedef enum SizeType { SizeType_Fixed, SizeType_Empty } SizeType;
+
+typedef struct EguiTexture {
+	void* data;
+} EguiTexture;
+
+typedef enum ItemType {
+	ItemType_None,
+	ItemType_Str,
+	ItemType_Rect,
+	ItemType_Texture,
+	ItemType_VerticalDottedLine,
+	ItemType_BottomVerticalDottedLine,
+	ItemType_TopVerticalDottedLine,
+	ItemType_HorizontalDottedLine,
+	ItemType_LeftHorizontalDottedLine,
+	ItemType_RightHorizontalDottedLine,
+	ItemType_Line
+} ItemType;
+
+typedef struct Line {
+	float x0, y0, x1, y1;
+} Line;
+
+typedef struct Item {
+	ItemType type;
+	EguiV2 size;
+	EguiColor color;
+	union {
+		Str32 str;
+		EguiTexture texture;
+		EguiRect rect;
+		Line line;
+	};
+} Item;
+
+typedef struct EguiButton {
+	float w, h;
+	Str32 str;
+	Str32 tooltip_str;
+	Str32 id;
+	float push;
+	bool is_label;
+	EguiTexture texture;
+} EguiButton;
 
 typedef struct Box {
 	Str32 name;
@@ -101,7 +150,6 @@ typedef struct Box {
 	EguiRect inner_padding;
 	float push;
 	EguiColor color;
-	int child_gap;
 	int index;
 	int window_index;
 	BorderType border_type;
@@ -114,6 +162,11 @@ typedef struct Box {
 	bool grow_horizontal;
 	bool grow_vertical;
 	Str32 str;
+	EguiTexture texture;
+	float child_gap;
+	bool center;
+	Item items[32];
+	int items_count;
 } Box;
 
 typedef struct Crate {
@@ -128,16 +181,14 @@ typedef struct Crate {
 	int current_child_gap;
 } Crate;
 
-typedef enum EguiDrawCommandType { EguiDrawCommandType_None, EguiDrawCommandType_Text, EguiDrawCommandType_Box, EguiDrawCommandType_Rect, EguiDrawCommandType_Texture } EguiDrawCommandType;
-
+#if 0
 typedef struct EguiDrawCommand {
-	EguiDrawCommandType type;
 	int z;
 	int num;
 	EguiRect rect;
 
 	union {
-		//TODO: PlatformTexture texture;
+		EguiTexture texture;
 
 		struct {
 			char text[32];
@@ -158,16 +209,37 @@ typedef struct EguiDrawCommand {
 	};
 
 } EguiDrawCommand;
-
+#endif
 
 #define MAX_NUM_DRAW_COMMANDS 1024
 
+typedef enum EguiDrawCommandType {
+	DrawCommandType_Default,
+	DrawCommandType_Rect,
+	DrawCommandType_Line,
+	DrawCommandType_VerticalLine,
+	DrawCommandType_HorizontalLine,
+	DrawCommandType_String,
+	DrawCommandType_Texture
+} EguiDrawCommandType;
 
+typedef struct EguiDrawCommand {
+	EguiDrawCommandType type;
+	EguiRect dest_rect;
+	Str32 str;
+	EguiColor color;
+	EguiTexture texture;
+} EguiDrawCommand;
+
+typedef struct EguiDrawCommandsBuffer {
+	EguiDrawCommand commands[MAX_NUM_DRAW_COMMANDS];
+	int num;
+} EguiDrawCommandsBuffer;
 
 typedef struct Egui {
 
-	int num_boxes;
-	Box boxes[256];
+	int box_count;
+	Box boxes[1024];
 
 	Str32 hot_item;
 	Str32 active_item;
@@ -188,9 +260,6 @@ typedef struct Egui {
 	int current_window_id;
 	int hot_window;
 
-	EguiDrawCommand draw_commands[MAX_NUM_DRAW_COMMANDS];
-	int num_draw_commands;
-
 	EguiV2 mouse_pos;
 	EguiV2 previous_mouse_pos;
 
@@ -204,10 +273,12 @@ typedef struct Egui {
 	//PlatformFont font;
 	EguiState mouse_left, mouse_right;
 
+	int commands_count;
+	EguiDrawCommand draw_commands[MAX_NUM_DRAW_COMMANDS];
+
 } Egui;
 
 Egui egui;
-
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
 
@@ -279,16 +350,22 @@ typedef struct Editor {
 
 Editor editor;
 
-typedef struct EguiDrawCommandsBuffer {
-	EguiDrawCommand commands[MAX_NUM_DRAW_COMMANDS];
-	int num;
-} EguiDrawCommandsBuffer;
 
-
+// API
 void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState moues_left);
 EguiDrawCommandsBuffer EguiEnd();
 Str32 Str32Create();
-void EguiInit(int window_width ,int window_height);
+void EguiInit(int window_width, int window_height);
 void EguiBoxBegin(Box box);
 void EguiBoxEnd();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
+void EguiBoxTexture(EguiRect rect, EguiTexture t);
+void EguiDrawText(const char* text, EguiRect bounds, int alignment, EguiColor color);
+Box* EguiBoxGetCurrent();
+void EguiLabel(Str32 str, EguiV2i v);
+void EguiItemAdd(Item item);
+Box* EguiBoxGetCurrent2();
+bool EguiDoButton(EguiButton button);
+Str128 Str128Create(const char* str);
+bool EguiButtonBegin(Box button);
+void EguiButtonEnd();

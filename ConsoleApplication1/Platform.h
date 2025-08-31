@@ -1,8 +1,15 @@
 #pragma once
 
-#define RAYGUI_IMPLEMENTATION
-#include "raylib.h"
+//#define RAYGUI_IMPLEMENTATION
+//#include "raylib.h"
+#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
+#include <assert.h >
+#include <SDL3_image/SDL_image.h >
+#include <stdio.h>
 
+#define FONT_HEIGHT 18
 #define FILE_TO_PANEL_X 5
 #define FILE_TO_PANEL_Y 5
 #define FILE_TO_PANEL_WIDTH WINDOW_WIDTH
@@ -44,6 +51,10 @@ typedef struct V2 {
 	float x, y;
 } PlatformV2;
 
+typedef struct PlatformV2i {
+	int x, y;
+} PlatformV2i;
+
 // Some Basic Colors
 // NOTE: Custom raylib color palette for amazing visuals on WHITE background
 #define PLATFORM_LIGHTGRAY (PlatformColor){ 200, 200, 200, 255 }   // Light Gray
@@ -79,19 +90,21 @@ typedef enum State {
 } State;
 
 typedef struct PlatformRenderTexture {
-	RenderTexture2D texture;
+	SDL_Texture* texture;
 } PlatformRenderTexture;
 
 typedef struct PlatformImage {
-	Image image;
+	int i;
+	//Image image;
 } PlatformImage;
 
 typedef struct PlatformTexture {
-	Texture2D texture;
+	SDL_Texture *data;
 } PlatformTexture;
 
 typedef struct PlatformFont {
-	Font font;
+	int i;
+	//Font font;
 } PlatformFont;
 
 typedef struct PlatformRect {
@@ -111,7 +124,25 @@ typedef struct PlatformSystem {
 
 PlatformSystem platform_system;
 
+typedef struct Sdl {
+	SDL_Renderer* renderer;
+	SDL_Window* window;
+	TTF_Font* font;
+	TTF_Text* fps_text;
+	SDL_Event* event;
+	TTF_TextEngine* engine;
+} Sdl;
+
+Sdl sdl;
+
+PlatformTexture g_texture;
 
 // API
 void PlatformRectDraw(PlatformRect rect, PlatformColor color);
 void PlatformTextDraw(const char* txt, float x, float y);
+void PlatformTextureDraw(PlatformTexture t, PlatformRect rect);
+PlatformTexture PlatformTextureLoad(const char* path);
+PlatformV2i PlatformTextGetSize(const char* str);
+void PlatformLineDrawVertical(float x0, float y0, float x1, float y1);
+void PlatformLineDrawHorizontal(float x0, float y0, float x1, float y1);
+void PlatformLineDraw(float x0, float y0, float x1, float y1, float r, float g, float b);

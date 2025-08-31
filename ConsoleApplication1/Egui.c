@@ -67,7 +67,6 @@ void EguiNext(int w, int h) {
 	}
 }
 
-
 Crate* EguiGetCurrentWindow() {
 	Crate* result = &egui.windows_stack[egui.current_window_index];
 
@@ -105,15 +104,14 @@ Box* EguiBoxGetCurrent() {
 	return result;
 }
 
-
 void EguiDrawBox(int box_index, EguiColor color) {
+#if 0
 	assert(color.r >= 0);
 	assert(color.g >= 0);
 	assert(color.b >= 0);
 	assert(color.a > 0);
 
 	EguiDrawCommand command = {
-		.type = EguiDrawCommandType_Box,
 		.box_data = {.color = color, .box_index = box_index },
 		.num = egui.num_draw_commands,
 		.z = egui.current_window_id,
@@ -124,13 +122,14 @@ void EguiDrawBox(int box_index, EguiColor color) {
 	assert(egui.num_draw_commands < MAX_NUM_DRAW_COMMANDS);
 
 	egui.draw_commands[egui.num_draw_commands++] = command;
+#endif
 }
 
 void EguiDrawText(const char* text, EguiRect bounds, int alignment, EguiColor color) {
+#if 0
 	assert(text);
 
 	EguiDrawCommand command = {
-		.type = EguiDrawCommandType_Text,
 		.text_data = {
 			.alignment = alignment,
 			.color = color
@@ -140,23 +139,19 @@ void EguiDrawText(const char* text, EguiRect bounds, int alignment, EguiColor co
 			.z = egui.current_window_id
 
 	};
-
 	strcpy(command.text_data.text, text);
 
 	assert(egui.num_draw_commands < MAX_NUM_DRAW_COMMANDS);
-
-
 	egui.draw_commands[egui.num_draw_commands++] = command;
-
+#endif
 }
 
 void EguiDrawRect(EguiRect rect, int border_width, EguiColor border_color, EguiColor color) {
-
+#if 0
 	assert(rect.x < egui.window_width);
 	assert(rect.y < egui.window_height);
 
 	EguiDrawCommand command = {
-		.type = EguiDrawCommandType_Rect,
 		.rect_data = {
 			 .border_color = border_color,
 			.border_width = border_width,
@@ -171,14 +166,13 @@ void EguiDrawRect(EguiRect rect, int border_width, EguiColor border_color, EguiC
 	assert(egui.num_draw_commands < MAX_NUM_DRAW_COMMANDS);
 
 	egui.draw_commands[egui.num_draw_commands++] = command;
+#endif
 }
 
+void EguiDrawTexture(EguiRect rect, EguiTexture texture) {
 #if 0
-void EguiDrawTexture(EguiRectrect, PlatformTexture texture) {
-
 	EguiDrawCommand command = {
 		.texture = texture,
-		.type = EguiDrawCommandType_Texture,
 		.z = egui.current_window_id,
 		.rect = rect,
 		.num = egui.num_draw_commands
@@ -188,10 +182,11 @@ void EguiDrawTexture(EguiRectrect, PlatformTexture texture) {
 
 
 	egui.draw_commands[egui.num_draw_commands++] = command;
-}
 #endif
+}
 
 int CompareDrawCalls(const void* element1, const void* element2) {
+#if 0
 	EguiDrawCommand* c1 = (EguiDrawCommand*)element1;
 	EguiDrawCommand* c2 = (EguiDrawCommand*)element2;
 
@@ -217,37 +212,29 @@ int CompareDrawCalls(const void* element1, const void* element2) {
 		if (c1->num < c2->num) return -1;
 		return 0;
 	}
-
+#endif
 	return 0;
 }
-#if 0
-void EguiTexturePanel(Vector2 pos, float p, PlatformTexture t) {
+
+
+
+void EguiBoxTexture(EguiRect rect, EguiTexture t) {
 
 	float w = 0, h = 0;
 	Box* current_box = EguiBoxGetCurrent();
 	if (egui.current_row_mode) {
-		w = current_box->w * p;
+		w = current_box->w;
 		h = current_box->h;
 	}
 	else {
-		h = current_box->h * p;
+		h = current_box->h;
 		w = current_box->w;
 	}
 
-	EguiDrawTexture((EguiRect) { pos.x, pos.y, w, h }, t);
+	//EguiDrawTexture(rect, t);
 }
-#endif
 
 void EguiBoxBegin(Box box) {
-	//assert(box.n > 0);
-
-#if DEBUG_PANELS
-	for (int i = 0; i < egui.total_num_panels; ++i) printf("\t");
-	printf("Begin line %d\n", line);
-
-	assert(egui.num_line_stack < 32);
-	egui.panel_line_stack[egui.num_line_stack++] = line;
-#endif
 
 	// Increment the panel index in the window's stack
 	egui.windows_stack[egui.current_window_index].current_panel_index++;
@@ -269,28 +256,30 @@ void EguiBoxBegin(Box box) {
 
 		// Children
 		assert(previous_box->num_children < 255);
-		previous_box->children[previous_box->num_children++] = egui.num_boxes;
+		previous_box->children[previous_box->num_children++] = egui.box_count;
 
 		// Inner padding
 		box.w += box.inner_padding.x + box.inner_padding.w;
 		box.h += box.inner_padding.y + box.inner_padding.h;
 
-
 		// Update the previous box in the box array 
 		// TODO: Fix this mess
 		egui.boxes[previous_box->new_index] = *previous_box;
-
 	}
 	else {
 		//assert(box.w_internal != 0 && box.h_internal != 0 && box.wp == 0 && box.hp == 0);
 	}
 
+	// Default padding
+	//box.padding.x += box.x;
+	//box.padding.y += 25;
+
 	// Padding
 	// TODO: row mode, column mode?
 	box.x += box.padding.x;
 	box.y += box.padding.y;
-	box.w -= box.padding.x * 2;
-	box.h -= box.padding.y * 2;
+	//box.w -= box.padding.x * 2;
+	//box.h -= box.padding.y * 2;
 
 	// Set current stuff
 	egui.current_row_mode = box.row_mode;
@@ -313,19 +302,19 @@ void EguiBoxBegin(Box box) {
 	egui.current_pos.x += box.inner_padding.x;
 	egui.current_pos.y += box.inner_padding.y;
 
-	if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
-		box.color = EGUI_LIGHTGRAY;
+	//if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
+		//box.color = EGUI_LIGHTGRAY;
 
 	// Add box
-	assert(egui.num_boxes < 256);
-	box.new_index = egui.num_boxes;
-	egui.boxes[egui.num_boxes++] = box;
+	assert(egui.box_count < 256);
+	box.new_index = egui.box_count;
+	egui.boxes[egui.box_count++] = box;
 
 	// Init current panel 
 	*EguiBoxGetCurrent() = box;
 
 	// Draw panel
-	EguiDrawBox(box.new_index, box.color);
+	//EguiDrawBox(box.new_index, box.color);
 }
 
 void EguiBoxEnd() {
@@ -483,10 +472,10 @@ void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState mouse_le
 	egui.mouse_left = mouse_left;
 	egui.mouse_pos = mouse_pos;
 	egui.current_pos = (EguiV2){ 0 };
-	egui.num_draw_commands = 0;
+	egui.commands_count = 0;
 	//GuiEnableTooltip();
 	egui.current_window_index = -1;
-	egui.num_boxes = 0;
+	egui.box_count = 0;
 
 	// Begin drawing first window
 	EguiCrateBegin((EguiV2) { 0, 0 },
@@ -499,6 +488,24 @@ void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState mouse_le
 	});
 }
 
+void EguiRectDraw(EguiRect rect, EguiColor color) {
+
+	EguiDrawCommand command = (EguiDrawCommand){
+		.type = DrawCommandType_Rect,
+		.dest_rect = rect,
+		.color = color
+	};
+
+	assert(command.dest_rect.x >= 0);
+	assert(command.dest_rect.y >= 0);
+	assert(command.dest_rect.w >= 0);
+	assert(command.dest_rect.h >= 0);
+	//assert(command.rect_color.a);
+
+	assert(egui.commands_count < MAX_NUM_DRAW_COMMANDS - 1);
+	egui.draw_commands[egui.commands_count++] = command;
+}
+
 EguiDrawCommandsBuffer EguiEnd() {
 
 	EguiCrateEnd();
@@ -507,68 +514,8 @@ EguiDrawCommandsBuffer EguiEnd() {
 	assert(egui.total_num_panels == 0);
 	assert(egui.total_num_windows == 0);
 
-	// n
-#if 0
-	for (int i = 0; i < egui.num_boxes; ++i) {
-		Box* box = &egui.boxes[i];
-		int n_total = 0;
-		for (int j = 0; j < box->num_children; ++j) {
-			int child = box->children[j];
-			int n = egui.boxes[child].n;
-			n_total += egui.boxes[child].n;
-		}
-
-		int size_per_n = 0;
-		if (box->row_mode)
-			size_per_n = box->w_internal / n_total;
-		else
-			size_per_n = box->h_internal / n_total;
-
-		for (int j = 0; j < box->num_children; ++j) {
-			int child_index = box->children[j];
-			if (box->row_mode)
-				egui.boxes[child_index].w_internal = size_per_n * egui.boxes[child_index].n;
-			else
-				egui.boxes[child_index].h_internal = size_per_n * egui.boxes[child_index].n;
-		}
-	}
-#endif
-
-	// Empty size
-#if 0
-	for (int i = 0; i < egui.num_boxes; ++i) {
-		Box* box = &egui.boxes[i];
-
-		if (box->size_type == SizeType_Empty) {
-
-			float max_w = 0, max_h = 0;
-			float total_h = 0, total_w = 0;
-			for (int j = 0; j < box->num_children; ++j) {
-				Box* child = &egui.boxes[box->children[j]];
-				max_w = fmax(max_w, child->w_internal);
-				max_h = fmax(max_h, child->h_internal);
-				total_h += child->h_internal;
-				total_w += child->h_internal;
-			}
-
-			if (box->row_mode) {
-				box->w_internal = total_w + box->inner_padding.x + box->inner_padding.width;
-				box->h_internal = max_h + box->inner_padding.y + box->inner_padding.height;
-			}
-			else {
-				box->w_internal = max_w + box->inner_padding.x + box->inner_padding.width;
-				box->h_internal = total_h + box->inner_padding.y + box->inner_padding.height;
-			}
-
-			box->absolute_rect.width = box->w_internal;
-			box->absolute_rect.height = box->h_internal;
-
-		}
-	}
-#endif
-
 	// Grow
-	for (int i = 0; i < egui.num_boxes; ++i) {
+	for (int i = 0; i < egui.box_count; ++i) {
 		Box* box = &egui.boxes[i];
 
 		float max_w = 0, max_h = 0;
@@ -613,22 +560,34 @@ EguiDrawCommandsBuffer EguiEnd() {
 	}
 
 	// Calculate positions
-	for (int i = 0; i < egui.num_boxes; ++i) {
+	for (int i = 0; i < egui.box_count; ++i) {
 		Box* box = &egui.boxes[i];
 
-		float x = box->x, y = box->y;
+		float x = box->x + box->padding.x, y = box->y + box->padding.y;
 
 		for (int j = 0; j < box->num_children; ++j) {
 			Box* child = &egui.boxes[box->children[j]];
 
-			child->x = x;
-			child->y = y;
+			child->x += x;
+			child->y += y;
+
+			if (box->center) {
+				if (box->row_mode) {
+					child->y += box->h / 2 - child->h / 2;
+				}
+				else {
+					child->x += box->w / 2 - child->w / 2;
+
+				}
+			}
 
 			if (box->row_mode) {
 				x += child->w;
+				x += box->child_gap;
 			}
 			else {
 				y += child->h;
+				y += box->child_gap;
 			}
 
 			child->absolute_rect.x = child->x;
@@ -637,71 +596,43 @@ EguiDrawCommandsBuffer EguiEnd() {
 	}
 
 	// Mouse interaction
-	Box *hovered_box = 0;
-	for (int i = 0; i < egui.num_boxes; ++i) {
+	Box* hovered_box = 0;
+	for (int i = 0; i < egui.box_count; ++i) {
 		Box* box = egui.boxes + i;
 		bool is_hover = PlatformCheckCollisionPointRect((EguiV2) { egui.mouse_pos.x, egui.mouse_pos.y },
 			box->absolute_rect);
 		if (is_hover) hovered_box = box;
-#if 0
-		if (is_active) {
-			box->color = EGUI_RED;
-			if (egui.mouse_left == EguiDeactivating) {
-				egui.active_item = (Str32){ 0 };
-			}
-		}
-		if (is_hot) {
-			printf("hot: %d %s\n", i, egui.hot_item.str);
-			//box->color = EGUI_BLUE;
-			if (egui.mouse_left == EguiActivating) {
-				egui.active_item = box->name;
-			}
-
-			if (!is_hover)
-				egui.hot_item = (Str32){ 0 };
-		}
-		else if (is_hover) {
-			//printf("hover: %s\n", box->name);
-			egui.hot_item = box->name;
-		}
-#endif
-
 	}
 
 	if (hovered_box) {
 		bool is_hot = IsStr32Equal(egui.hot_item, hovered_box->name);
 		bool is_active = IsStr32Equal(egui.active_item, hovered_box->name);
+		//hovered_box->color = EGUI_GREEN;
 
 		if (is_active) {
 			hovered_box->color = EGUI_RED;
+			hovered_box->border_type = BorderType_Clicked;
 			if (egui.mouse_left == EguiDeactivating) {
 				egui.active_item = (Str32){ 0 };
 			}
 		}
 		else if (is_hot) {
 			hovered_box->color = EGUI_BLUE;
-			//printf("%d\n", egui.mouse_left);
 			if (egui.mouse_left == EguiActivating) {
 				egui.active_item = hovered_box->name;
 			}
-
-			//if (!is_hover)
-				//egui.hot_item = (Str32){ 0 };
+			else {
+				egui.hot_item = hovered_box->name;
+			}
 		}
 		else {
 			egui.hot_item = hovered_box->name;
 		}
-		//else if (box) {
-			//printf("hover: %s\n", box->name);
-		//}
 	}
 
 	// Drawing
+#if 0
 	EguiDrawCommand draw_commands_ordered[MAX_NUM_DRAW_COMMANDS] = { 0 };
-
-	for (int i = 0; i < egui.num_draw_commands; ++i) {
-		assert(egui.draw_commands[i].type != EguiDrawCommandType_None);
-	}
 
 	for (int i = 0; i < egui.num_draw_commands; ++i) {
 		draw_commands_ordered[i] = egui.draw_commands[i];
@@ -713,14 +644,210 @@ EguiDrawCommandsBuffer EguiEnd() {
 	for (int i = 0; i < egui.num_draw_commands - 1; ++i) {
 		assert(CompareDrawCalls(&draw_commands_ordered[i], &draw_commands_ordered[i + 1]) == -1);
 	}
+#endif
 
 	// Mouse position
 	egui.previous_mouse_pos = egui.mouse_pos;
 
+	// Draw
+	for (int i = 0; i < egui.box_count; ++i) {
+		//EguiDrawCommand command = commands.commands[i];
+
+		Box box = egui.boxes[i];
+		//assert(box.color.a);
+		EguiRectDraw((EguiRect) {
+			.x = box.absolute_rect.x,
+				.y = box.absolute_rect.y,
+				.h = box.absolute_rect.h,
+				.w = box.absolute_rect.w
+		},
+			box.color);
+
+		if (box.border_type == BorderType_Default) {
+			// Draw top and left lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w, 1 }, EGUI_WHITE);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_WHITE);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + 1, box.absolute_rect.w, 1 }, EGUI_LIGHTGRAY);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_LIGHTGRAY);
+
+			// Draw bottom and right lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1, box.absolute_rect.w, 1 }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + box.absolute_rect.w - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1 - 1, box.absolute_rect.w, 1 }, EGUI_GRAY);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + box.absolute_rect.w - 1 - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_GRAY);
+		}
+		else if (box.border_type == BorderType_Clicked) {
+
+			// Draw top and left lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w, 1 }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + 1, box.absolute_rect.w, 1 }, EGUI_GRAY);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_GRAY);
+
+			// Draw bottom and right lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1, box.absolute_rect.w, 1 }, EGUI_WHITE);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + box.absolute_rect.w - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_WHITE);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1 - 1, box.absolute_rect.w, 1 }, EGUI_LIGHTGRAY);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + box.absolute_rect.w - 1 - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_LIGHTGRAY);
+		}
+		else if (box.border_type == BorderType_Black) {
+			// Draw top and left lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w, 1 }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_BLACK);
+
+			// Draw bottom and right lines
+			EguiRectDraw((EguiRect) { box.absolute_rect.x, box.absolute_rect.y + box.absolute_rect.h - 1, box.absolute_rect.w, 1 }, EGUI_BLACK);
+			EguiRectDraw((EguiRect) { box.absolute_rect.x + box.absolute_rect.w - 1, box.absolute_rect.y, 1, box.absolute_rect.h }, EGUI_BLACK);
+		}
+
+		if (*box.str.str) {
+			//DrawText(box.str.str, box.absolute_rect.x, box.absolute_rect.y, 13, BLACK);
+			Draw((EguiDrawCommand) {
+				.type = DrawCommandType_String,
+					.str = box.str,
+					.dest_rect = (EguiRect){ box.absolute_rect.x, box.absolute_rect.y,
+					box.absolute_rect.w, box.absolute_rect.h },
+			});
+		}
+
+		if (box.texture.data) {
+			Draw((EguiDrawCommand) {
+				.type = DrawCommandType_Texture,
+					.dest_rect = box.absolute_rect,
+					.texture = box.texture
+			});
+		}
+
+		for (int j = 0; j < box.items_count; ++j) {
+			Item item = box.items[j];
+
+			if (item.type == ItemType_Str) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_String,
+						.str = item.str,
+						.dest_rect = (EguiRect){ box.absolute_rect.x, box.absolute_rect.y,
+						box.absolute_rect.w, box.absolute_rect.h },
+				});
+			}
+			else if (item.type == ItemType_Texture) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_Texture,
+						.dest_rect = (EguiRect){
+						box.absolute_rect.x + (box.absolute_rect.w / 2 - item.size.x / 2),
+						box.absolute_rect.y + (box.absolute_rect.h / 2 - item.size.y / 2),
+						item.size.x,
+						item.size.y
+					},
+						//.dest_rect = box.absolute_rect,
+						.texture = item.texture
+				});
+			}
+			else if (item.type == ItemType_Line) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_Line,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + item.rect.x,
+							box.absolute_rect.y + item.rect.y,
+							box.absolute_rect.x + item.rect.w,
+							box.absolute_rect.y + item.rect.h
+					},
+						.color = item.color
+				});
+			}
+			else if (item.type == ItemType_HorizontalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x,
+							box.absolute_rect.y + box.absolute_rect.h / 2,
+							box.absolute_rect.x + box.absolute_rect.w,
+							box.absolute_rect.y + box.absolute_rect.h / 2
+					}
+				});
+			}
+			else if (item.type == ItemType_LeftHorizontalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x,
+							box.absolute_rect.y + box.absolute_rect.h / 2,
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y + box.absolute_rect.h / 2
+					}
+				});
+			}
+			else if (item.type == ItemType_RightHorizontalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y + box.absolute_rect.h / 2,
+							box.absolute_rect.x + box.absolute_rect.w,
+							box.absolute_rect.y + box.absolute_rect.h / 2
+					}
+				});
+			}
+			else if (item.type == ItemType_VerticalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y,
+							box.absolute_rect.x + box.absolute_rect.w / 2 + box.absolute_rect.w,
+							box.absolute_rect.y + box.absolute_rect.h
+					}
+				});
+			}
+			else if (item.type == ItemType_TopVerticalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y,
+							box.absolute_rect.x + box.absolute_rect.w / 2 + box.absolute_rect.w,
+							box.absolute_rect.y + box.absolute_rect.h / 2
+					}
+				});
+			}
+			else if (item.type == ItemType_BottomVerticalDottedLine) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y + box.absolute_rect.h / 2,
+							box.absolute_rect.x + box.absolute_rect.w / 2,
+							box.absolute_rect.y + box.absolute_rect.h
+					}
+				});
+			}
+			else if (item.type == ItemType_Rect) {
+				Draw((EguiDrawCommand) {
+					.type = DrawCommandType_Rect,
+#if 0
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + box.absolute_rect.w / 4,
+							box.absolute_rect.y + box.absolute_rect.h / 4,
+							box.absolute_rect.w / 2,
+							box.absolute_rect.h / 2
+					},
+#else
+						.dest_rect = (EguiRect){
+							box.absolute_rect.x + item.rect.x,
+							box.absolute_rect.y + item.rect.y,
+							item.rect.w,
+							item.rect.h
+					},
+						.color = item.color
+#endif
+				});
+			}
+		}
+	}
+
 	// Return
 	EguiDrawCommandsBuffer result = { 0 };
-	memcpy(result.commands, draw_commands_ordered, egui.num_draw_commands * sizeof(EguiDrawCommand));
-	result.num = egui.num_draw_commands;
+	memcpy(result.commands, egui.draw_commands, egui.commands_count * sizeof(EguiDrawCommand));
+	result.num = egui.commands_count;
 
 	return result;
 }
@@ -772,9 +899,8 @@ static void EguiTooltip(EguiRect controlRec, Str32 str)
 				.border_type = BorderType_Black,
 				.color = (EguiColor){ 255, 255, 204, 255 }
 		});
-
 		{
-			EguiLabel((EguiRect) { controlRec.x, controlRec.y + controlRec.h + 4, textSize.x + 16, 8.0f }, str.str);
+			//EguiLabel((EguiRect) { controlRec.x, controlRec.y + controlRec.h + 4, textSize.x + 16, 8.0f }, str.str);
 		}
 		EguiCrateEnd();
 
@@ -875,177 +1001,89 @@ int EguiPanel(PlatformRect bounds, const char* text)
 }
 #endif
 
-typedef struct EguiButton {
-	float w, h;
-	Str32 str;
-	Str32 tooltip_str;
-	Str32 id;
-	Alignment alignment;
-	float push;
-	bool is_label;
-} EguiButton;
+bool EguiButtonBegin(Box box) {
+	bool result = false;
+	EguiBoxBegin(box);
 
-int EguiDoButton(EguiButton button)
-{
-	int result = 0;
-	GuiState state = guiState;
-
-	// Percentage 
-	Box* current_box = EguiBoxGetCurrent();
-#if 0
-	float per = 0;
-	if (egui.current_row_mode)
-		per = button.w / current_box->w_internal;
-	else
-		per = button.h / current_box->h_internal;
-#endif
-
-	// Row mode
-	bool row_mode = 0;
-	row_mode = !current_box->row_mode;
-
-	EguiBoxBegin((Box) {
-		.row_mode = row_mode, .size_type = SizeType_Fixed,
-			.w = button.w, .h = button.h, .str = button.str
-	});
-	{
-
-		// Hot and active
-		Box* b = EguiBoxGetCurrent();
-		Box* b2 = &egui.boxes[b->new_index];
-		bool is_hot = IsStr32Equal(egui.hot_item, b2->name);
-		bool is_active = IsStr32Equal(egui.active_item, b2->name);
-		//b2->color = EGUI_RED;
-#if 0
-
-		// Alignment
-		if (button.alignment == Alignment_Center) {
-			Box* current_box = EguiBoxGetCurrent();
-			if (row_mode) {
-
-			}
-			else {
-				float box_height = current_box->h;
-				float button_height = button.h;
-
-				egui.current_pos.y += (box_height / 2) - (button_height / 2);
-			}
-		}
-
-		// Rect
-		EguiRect rect = { egui.current_pos.x, egui.current_pos.y, button.w, button.h };
-
-		// Mouse interaction
-		if ((state != STATE_DISABLED))
-		{
-			EguiV2 mousePoint = egui.mouse_pos;
-
-			// Check button state
-			if (CheckCollisionPointRec(mousePoint, rect)) {
-				if (egui.hot_window == egui.current_window_id)
-				{
-					egui.hot_item = button.id;
-
-					if (egui.mouse_left == EguiActive) {
-						state = STATE_PRESSED;
-					}
-					else {
-						state = STATE_FOCUSED;
-					}
-					if (egui.mouse_left == EguiDeactivating) result = 1;
-				}
-			}
-			//else if (IsStr32Equal(egui.hot_item, button.id)) egui.hot_item = (Str32){ 0 };
-		}
-
-		if (button.is_label && state == STATE_FOCUSED)
-			EguiDrawRect(rect, 0, EGUI_LIGHTGRAY, EGUI_BLUE);
-		else
-			EguiDrawRect(rect, 0, EGUI_LIGHTGRAY, EGUI_LIGHTGRAY);
-
-		if (!button.is_label) {
-			if (state == STATE_NORMAL || state == STATE_FOCUSED) {
-#if 0
-				// Top and left lines
-				EguiDrawRect((PlatformRect) { rect.x, rect.y, rect.width, 1 }, 0, WHITE, WHITE);
-				EguiDrawRect((PlatformRect) { rect.x, rect.y, 1, rect.height }, 0, WHITE, WHITE);
-
-				// Bottom and right lines
-				EguiDrawRect((PlatformRect) { rect.x, rect.y + rect.height, rect.width, 1 }, 0, BLACK, BLACK);
-				EguiDrawRect((PlatformRect) { rect.x + rect.width, rect.y, 1, rect.height }, 0, BLACK, BLACK);
-				EguiDrawRect((PlatformRect) { rect.x + 1, rect.y + rect.height - 1, rect.width - 1, 1 }, 0, GRAY, GRAY);
-				EguiDrawRect((PlatformRect) { rect.x + rect.width - 1, rect.y + 1, 1, rect.height - 1 }, 0, GRAY, GRAY);
-#endif
-
-				// Draw top and left lines
-				EguiDrawRect((EguiRect) { rect.x, rect.y, rect.w, 1 }, 0, EGUI_WHITE, EGUI_WHITE);
-				EguiDrawRect((EguiRect) { rect.x, rect.y, 1, rect.h }, 0, EGUI_WHITE, EGUI_WHITE);
-				EguiDrawRect((EguiRect) { rect.x, rect.y + 1, rect.w, 1 }, 0, EGUI_LIGHTGRAY, EGUI_LIGHTGRAY);
-				EguiDrawRect((EguiRect) { rect.x + 1, rect.y, 1, rect.h }, 0, EGUI_LIGHTGRAY, EGUI_LIGHTGRAY);
-
-				// Draw bottom and right lines
-				EguiDrawRect((EguiRect) { rect.x, rect.y + rect.h - 1, rect.w, 1 }, 0, EGUI_BLACK, EGUI_BLACK);
-				EguiDrawRect((EguiRect) { rect.x + rect.w - 1, rect.y, 1, rect.h }, 0, EGUI_BLACK, EGUI_BLACK);
-				EguiDrawRect((EguiRect) { rect.x, rect.y + rect.h - 1 - 1, rect.w, 1 }, 0, EGUI_GRAY, EGUI_GRAY);
-				EguiDrawRect((EguiRect) { rect.x + rect.w - 1 - 1, rect.y, 1, rect.h }, 0, EGUI_GRAY, EGUI_GRAY);
-
-			}
-			else if (state == STATE_PRESSED) {
-#if 0
-				EguiDrawRect((PlatformRect) { rect.x, rect.y + rect.height, rect.width, 1 }, 0, WHITE, WHITE);
-				EguiDrawRect((PlatformRect) { rect.x + rect.width, rect.y, 1, rect.height }, 0, WHITE, WHITE);
-				EguiDrawRect((PlatformRect) { rect.x, rect.y, rect.width, 1 }, 0, BLACK, BLACK);
-				EguiDrawRect((PlatformRect) { rect.x, rect.y, 1, rect.height }, 0, BLACK, BLACK);
-				EguiDrawRect((PlatformRect) { rect.x + 1, rect.y + 1, rect.width - 1, 1 }, 0, GRAY, GRAY);
-				EguiDrawRect((PlatformRect) { rect.x + 1, rect.y + 1, 1, rect.height - 1 }, 0, GRAY, GRAY);
-#else 
-				// Draw top and left lines
-				EguiDrawRect((EguiRect) { rect.x, rect.y, rect.w, 1 }, 0, EGUI_BLACK, EGUI_BLACK);
-				EguiDrawRect((EguiRect) { rect.x, rect.y, 1, rect.h }, 0, EGUI_BLACK, EGUI_BLACK);
-				EguiDrawRect((EguiRect) { rect.x, rect.y + 1, rect.w, 1 }, 0, EGUI_GRAY, EGUI_GRAY);
-				EguiDrawRect((EguiRect) { rect.x + 1, rect.y, 1, rect.h }, 0, EGUI_GRAY, EGUI_GRAY);
-
-				// Draw bottom and right lines
-				EguiDrawRect((EguiRect) { rect.x, rect.y + rect.h - 1, rect.w, 1 }, 0, EGUI_WHITE, EGUI_WHITE);
-				EguiDrawRect((EguiRect) { rect.x + rect.w - 1, rect.y, 1, rect.h }, 0, EGUI_WHITE, EGUI_WHITE);
-				EguiDrawRect((EguiRect) { rect.x, rect.y + rect.h - 1 - 1, rect.w, 1 }, 0, EGUI_LIGHTGRAY, EGUI_LIGHTGRAY);
-				EguiDrawRect((EguiRect) { rect.x + rect.w - 1 - 1, rect.y, 1, rect.h }, 0, EGUI_LIGHTGRAY, EGUI_LIGHTGRAY);
-#endif
-			}
-		}
-
-#if TODO
-		EguiDrawText(button.str.str, GetTextBounds(BUTTON, rect), GuiGetStyle(BUTTON, TEXT_ALIGNMENT), BLACK);
-#endif
-
-#endif
-
-#if 0
-		// Tooltip
-		if (*button.tooltip_str.str && IsStr32Equal(egui.hot_item, button.id)) {
-			if (state == STATE_FOCUSED) {
-				if (!egui.tooltip_count_time) {
-					egui.tooltip_count_time = true;
-					egui.tooltip_time = egui.time;
-				}
-				else {
-					if (egui.time - egui.tooltip_time >= 0.5) {
-						EguiTooltip(rect, button.tooltip_str);
-					}
-				}
-			}
-			else {
-				if (egui.tooltip_count_time) {
-					egui.tooltip_count_time = false;
-				}
-			}
-		}
-#endif
+	if (IsStr32Equal(EguiBoxGetCurrent2()->name, egui.active_item)) {
+		result = true;
 	}
-	EguiBoxEnd();
 
 	return result;
+}
 
+void  EguiButtonEnd() {
+	EguiBoxEnd();
+}
+
+bool EguiDoButton(Box box)
+{
+#if 0
+	//TODO: return value
+	int result = 0;
+
+	// Row mode
+	EguiBoxBegin((Box) {
+		.w = button.w, .h = button.h, .str = button.str
+	});
+	EguiBoxEnd();
+
+#if 0
+	// Tooltip
+	if (*button.tooltip_str.str && IsStr32Equal(egui.hot_item, button.id)) {
+		if (state == STATE_FOCUSED) {
+			if (!egui.tooltip_count_time) {
+				egui.tooltip_count_time = true;
+				egui.tooltip_time = egui.time;
+			}
+			else {
+				if (egui.time - egui.tooltip_time >= 0.5) {
+					EguiTooltip(rect, button.tooltip_str);
+				}
+			}
+		}
+		else {
+			if (egui.tooltip_count_time) {
+				egui.tooltip_count_time = false;
+			}
+		}
+	}
+#endif
+
+	return result;
+#else
+	bool result = EguiButtonBegin(box);
+	EguiButtonEnd();
+
+	return result;
+#endif
+}
+
+Box* EguiBoxGetCurrent2() {
+	Box* box = EguiBoxGetCurrent();
+	Box* result = &egui.boxes[box->new_index];
+
+	return result;
+}
+
+void EguiItemAdd(Item item) {
+	Box* box = EguiBoxGetCurrent();
+	egui.boxes[box->new_index].items[egui.boxes[box->new_index].items_count++] = item;
+}
+
+void EguiLabel(Str32 str, EguiV2i v) {
+
+	EguiBoxBegin((Box) {
+		.name = str,
+			.border_type = BorderType_None,
+			.color = EguiBoxGetPrevious()->color,
+			.w = v.x,
+			.h = v.y
+	});
+	{
+		EguiItemAdd((Item) { .type = ItemType_Str, .str = Str32Create(str.str) });
+	}
+	EguiBoxEnd();
 }
 
 int EguiToggle(EguiRect bounds, const char* text, bool* active)
@@ -1214,8 +1252,10 @@ bool EguiDialogBegin(Str32 name, int id, float* x, float* y, float w, float h, E
 		EguiBoxBegin((Box) { 0, .border_type = BorderType_Black, .padding = (EguiV2){ 5, 5 } });
 		{
 			Box* current_box = EguiBoxGetCurrent();
-			EguiDoButton((EguiButton) {
-				.w = current_box->w, .h = current_box->h, .str = Str32Create("X"), .tooltip_str = Str32Create("exit")
+			EguiDoButton((Box) {
+				.w = current_box->w, .h = current_box->h,
+					//.str = Str32Create("X"),
+					//.tooltip_str = Str32Create("exit")
 			});
 		}
 		EguiBoxEnd();
@@ -1799,28 +1839,6 @@ int EguiStatusBar(EguiRect bounds, const char* text)
 	return result;
 }
 
-// Label control
-int EguiLabel(EguiRect bounds, const char* text)
-{
-	int result = 0;
-	GuiState state = guiState;
-
-	// Update control
-	//--------------------------------------------------------------------
-	//...
-	//--------------------------------------------------------------------
-
-	// Draw control
-	//--------------------------------------------------------------------
-	//EguiDrawText(text, bounds, GuiGetStyle(LABEL, TEXT_ALIGNMENT), BLACK);
-	//--------------------------------------------------------------------
-
-	EguiNext(bounds.w, bounds.h);
-
-
-	return result;
-}
-
 void EguiLog(EguiRect rect) {
 
 	static int num_lines;
@@ -1912,7 +1930,11 @@ bool EditorButton(const char* str, const char* tooltip_str) {
 	Str32 id = Str32Create(str);
 	Str32 s = Str32Create(str);
 	Str32 ts = Str32Create(tooltip_str);
-	bool result = EguiDoButton(((EguiButton) { .alignment = Alignment_Center, .id = id, .w = 110, .h = 24, .str = s, .tooltip_str = ts }));
+	bool result = EguiDoButton(((Box) {
+		//.id = id,
+		.w = 110, .h = 24,
+			//.str = s, .tooltip_str = ts
+	}));
 
 	return result;
 }
@@ -1924,21 +1946,39 @@ bool EditorLabel2(const char* str, const char* tooltip_str) {
 	Str32 id = Str32Create(str);
 	Str32 s = Str32Create(str);
 	Str32 ts = Str32Create(tooltip_str);
-	bool result = EguiDoButton(((EguiButton) { .alignment = Alignment_Center, .id = id, .w = 110, .h = 24, .str = s, .tooltip_str = ts, .is_label = true }));
+	bool result = EguiDoButton(((Box) {
+		//.id = id,
+		.w = 110, .h = 24,
+			//.str = s, .tooltip_str = ts,
+			//.is_label = true 
+	}));
 
 	return result;
 }
 
+
+Str128 Str128Create(const char* str) {
+
+	assert(*str);
+	assert(str);
+	assert(strlen(str));
+
+	Str128 result = { 0 };
+	strcpy(result.data, str);
+
+	return result;
+}
 
 bool EditorButtonIcon(const char* str, const char* tooltip_str) {
 
 	Str32 id = Str32Create(str);
 	Str32 s = Str32Create(str);
 	Str32 ts = Str32Create(tooltip_str);
-	bool result = EguiDoButton(((EguiButton) {
-		.alignment = Alignment_Center,
-			.id = id, .w = EDITOR_ICON_SIZE, .h = EDITOR_ICON_SIZE,
-			.str = s, .tooltip_str = ts
+
+	bool result = EguiDoButton(((Box) {
+		//.id = id,
+		.w = EDITOR_ICON_SIZE, .h = EDITOR_ICON_SIZE,
+			//.str = s, .tooltip_str = ts
 	}));
 
 	return result;
@@ -1963,7 +2003,7 @@ bool EditorLabel(const char* str) {
 	//int h = GuiGetStyle(DEFAULT, TEXT_SIZE);
 	EguiRect rect = { egui.current_pos.x, egui.current_pos.y, w,  EDITOR_BUTTON_SIZE_Y };
 
-	EguiLabel(rect, str);
+	//EguiLabel(rect, str);
 }
 
 bool EditorLabelButton(const char* str) {
