@@ -112,7 +112,7 @@ void EguiMenuNode(const char* list[], int count) {
 					EguiItemAdd((Item) { .type = ItemType_TopVerticalDottedLine });
 
 				EguiItemAdd((Item) { .type = ItemType_RightHorizontalDottedLine });
-				EguiItemAdd((Item) { .type = ItemType_Rect, .rect = (EguiRect){ 0, 0, 100, 100 }, .color = EGUI_RED });
+				//EguiItemAdd((Item) { .type = ItemType_Rect, .rect = (EguiRect){ 0, 0, 100, 100 }, .color = EGUI_RED });
 
 				EguiRect new_rect = EguiRectScale((EguiRect) { 0, 0, EguiBoxGetCurrent2()->w, EguiBoxGetCurrent2()->h }, 0.5);
 				EguiButtonBegin((Box) { .border_type = BorderType_None, .color = EGUI_GREEN,

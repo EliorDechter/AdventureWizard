@@ -157,7 +157,7 @@ typedef struct Box {
 	int n;
 	int children[256];
 	int num_children;
-	int new_index;
+	//int new_index;
 	SizeType size_type;
 	bool grow_horizontal;
 	bool grow_vertical;
@@ -173,8 +173,8 @@ typedef struct Crate {
 	int id;
 	int index;
 
-	Box panel_stack[32];
-	int current_panel_index;
+	int box_stack[32];
+	int current_box_index;
 
 	EguiV2 current_pos;
 	bool current_column_mode;
@@ -267,8 +267,8 @@ typedef struct Egui {
 	bool current_row_mode;
 	int current_child_gap;
 
-	Crate windows_stack[32];
-	int current_window_index;
+	Crate crates_stack[32];
+	int current_crate_index;
 
 	//PlatformFont font;
 	EguiState mouse_left, mouse_right;

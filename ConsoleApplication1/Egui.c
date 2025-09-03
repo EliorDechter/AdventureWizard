@@ -68,38 +68,32 @@ void EguiNext(int w, int h) {
 }
 
 Crate* EguiGetCurrentWindow() {
-	Crate* result = &egui.windows_stack[egui.current_window_index];
+	Crate* result = &egui.crates_stack[egui.current_crate_index];
 
 	return result;
 }
 
 Crate* EguiGetPreviousWindow() {
-	assert(egui.current_window_index > 0);
-	Crate* result = &egui.windows_stack[egui.current_window_index - 1];
+	assert(egui.current_crate_index > 0);
+	Crate* result = &egui.crates_stack[egui.current_crate_index - 1];
 
 	return result;
 }
 
 Box* EguiBoxGetPrevious() {
-	int current_box_index = egui.windows_stack[egui.current_window_index].current_panel_index;
-	if (current_box_index < 1) return 0;
-	Box* result = &egui.windows_stack[egui.current_window_index].panel_stack[current_box_index - 1];
+	int current_box_index = egui.crates_stack[egui.current_crate_index].current_box_index;
+	if (current_box_index < 0) return 0;
+	int final_index = egui.crates_stack[egui.current_crate_index].box_stack[current_box_index - 1];
+	Box* result = &egui.boxes[final_index];
 
 	return result;
 }
 
 Box* EguiBoxGetCurrent() {
-#if 1
-	int i = egui.windows_stack[egui.current_window_index].current_panel_index;
-	assert(i > -1);
-	Box* result = &egui.windows_stack[egui.current_window_index].panel_stack[i];
-#else
-	int i = egui.windows_stack[egui.current_window_index].current_panel_index;
-	assert(i > -1);
-	Box* not_result = &egui.windows_stack[egui.current_window_index].panel_stack[i];
-
-	Box* result = &egui.boxes[not_result->new_index];
-#endif
+	int current_box_index = egui.crates_stack[egui.current_crate_index].current_box_index;
+	if (current_box_index < 0) return 0;
+	int final_index = egui.crates_stack[egui.current_crate_index].box_stack[current_box_index];
+	Box* result = &egui.boxes[final_index];
 
 	return result;
 }
@@ -237,16 +231,16 @@ void EguiBoxTexture(EguiRect rect, EguiTexture t) {
 void EguiBoxBegin(Box box) {
 
 	// Increment the panel index in the window's stack
-	egui.windows_stack[egui.current_window_index].current_panel_index++;
+	//egui.crates_stack[egui.current_crate_index].current_box_index++;
 	egui.total_num_panels++;
 
-	box.index = egui.windows_stack[egui.current_window_index].current_panel_index;
-	box.window_index = egui.current_window_index;
+	box.index = egui.crates_stack[egui.current_crate_index].current_box_index;
+	box.window_index = egui.current_crate_index;
 
 	// Temporary
 	assert(box.x >= 0 && box.w >= 0);
 
-	Box* previous_box = EguiBoxGetPrevious();
+	Box* previous_box = EguiBoxGetCurrent();
 	if (previous_box) {
 
 		//Name
@@ -264,11 +258,15 @@ void EguiBoxBegin(Box box) {
 
 		// Update the previous box in the box array 
 		// TODO: Fix this mess
-		egui.boxes[previous_box->new_index] = *previous_box;
+		//egui.boxes[previous_box->new_index] = *previous_box;
 	}
 	else {
 		//assert(box.w_internal != 0 && box.h_internal != 0 && box.wp == 0 && box.hp == 0);
 	}
+
+	// Default color 
+	if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
+		box.color = EGUI_BROWN;
 
 	// Default padding
 	//box.padding.x += box.x;
@@ -302,19 +300,11 @@ void EguiBoxBegin(Box box) {
 	egui.current_pos.x += box.inner_padding.x;
 	egui.current_pos.y += box.inner_padding.y;
 
-	//if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
-		//box.color = EGUI_LIGHTGRAY;
-
 	// Add box
 	assert(egui.box_count < 256);
-	box.new_index = egui.box_count;
+	egui.crates_stack[egui.current_crate_index].current_box_index++;
+	egui.crates_stack[egui.current_crate_index].box_stack[egui.crates_stack[egui.current_crate_index].current_box_index] = egui.box_count;
 	egui.boxes[egui.box_count++] = box;
-
-	// Init current panel 
-	*EguiBoxGetCurrent() = box;
-
-	// Draw panel
-	//EguiDrawBox(box.new_index, box.color);
 }
 
 void EguiBoxEnd() {
@@ -378,7 +368,7 @@ void EguiBoxEnd() {
 		egui.current_child_gap = previous_box->child_gap;
 	}
 
-	current_crate->current_panel_index--;
+	current_crate->current_box_index--;
 }
 
 
@@ -398,7 +388,7 @@ void EguiCrateBegin(EguiV2 pos, EguiV2 size, int window_id, Box box) {
 		//Vector2 size, Vector2 padding, BorderType border_type, Color color, int window_id, bool empty_size) {
 
 	egui.total_num_windows++;
-	egui.current_window_index++;
+	egui.current_crate_index++;
 
 	Crate* current_window = EguiGetCurrentWindow();
 
@@ -415,7 +405,7 @@ void EguiCrateBegin(EguiV2 pos, EguiV2 size, int window_id, Box box) {
 	}
 
 	// Save previous window current position
-	if (egui.current_window_index > 0) {
+	if (egui.current_crate_index > 0) {
 		Crate* previous_window = EguiGetPreviousWindow();
 		previous_window->current_pos = egui.current_pos;
 		previous_window->current_column_mode = egui.current_row_mode;
@@ -423,7 +413,7 @@ void EguiCrateBegin(EguiV2 pos, EguiV2 size, int window_id, Box box) {
 	}
 
 	// Set new window
-	*current_window = (Crate){ .id = window_id, .index = egui.current_window_index, .current_pos = pos, .current_panel_index = -1 };
+	*current_window = (Crate){ .id = window_id, .index = egui.current_crate_index, .current_pos = pos, .current_box_index = -1 };
 	egui.current_pos = pos;
 
 	// Set window id
@@ -450,7 +440,7 @@ EguiCrateEnd() {
 
 	EguiBoxEnd();
 
-	if (egui.current_window_index > 0) {
+	if (egui.current_crate_index > 0) {
 		Crate* previous_window = EguiGetPreviousWindow();
 
 		assert(previous_window->id != 0);
@@ -461,8 +451,8 @@ EguiCrateEnd() {
 		egui.current_child_gap = previous_window->current_child_gap;
 	}
 
-	egui.current_window_index--;
-	assert(egui.current_window_index >= -1);
+	egui.current_crate_index--;
+	assert(egui.current_crate_index >= -1);
 }
 
 void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState mouse_left) {
@@ -474,7 +464,7 @@ void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState mouse_le
 	egui.current_pos = (EguiV2){ 0 };
 	egui.commands_count = 0;
 	//GuiEnableTooltip();
-	egui.current_window_index = -1;
+	egui.current_crate_index = -1;
 	egui.box_count = 0;
 
 	// Begin drawing first window
@@ -1060,15 +1050,15 @@ bool EguiDoButton(Box box)
 }
 
 Box* EguiBoxGetCurrent2() {
-	Box* box = EguiBoxGetCurrent();
-	Box* result = &egui.boxes[box->new_index];
+	Box* result = EguiBoxGetCurrent();
+	//Box* result = &egui.boxes[box->new_index];
 
 	return result;
 }
 
 void EguiItemAdd(Item item) {
 	Box* box = EguiBoxGetCurrent();
-	egui.boxes[box->new_index].items[egui.boxes[box->new_index].items_count++] = item;
+	box->items[box->items_count++] = item;
 }
 
 void EguiLabel(Str32 str, EguiV2i v) {
