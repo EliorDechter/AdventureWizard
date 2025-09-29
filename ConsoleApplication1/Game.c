@@ -400,7 +400,7 @@ Entity* game_entity_get(Entity_handle handle) {
 
 	Entity* result = game.entities + index;
 
-	return index;
+	return result;
 }
 
 /*
@@ -765,61 +765,20 @@ EntityId CreateCharacter(const char* name, v2 pos, v2 size) {
 	return id;
 }
 
-Entity* entity_get_next(int *iterator_index) {
-	int index = 0;
+Entity* entity_get_next(int* iterator_index) {
+	Handle handle = { 0 };
 	Entity* result = 0;
-	if (handle_iterator_get_next(&game.entities_handle_map, iterator_index, &index)) {
-		result = &game.entities[index];
+	if (handle_get_next(&game.entities_handle_map, iterator_index, &handle)) {
+		result = &game.entities[handle.index];
 	}
 
 	return result;
 }
 
 bool entity_get_next_handle(int* iterator_index, Entity_handle* handle) {
-	bool result = handle_iterator_get_next_handle(&game.entities_handle_map, iterator_index, &result);
+	bool result = handle_get_next(&game.entities_handle_map, iterator_index, handle);
 
 	return result;
-}
-
-void foo() {
-#if 1
-
-	Entity_handle hovered_entity = { 0 };
-	int iterator_index = 0;
-	Entity_handle entity_handle = { 0 };
-	while (entity_get_next_handle(&iterator_index, &entity_handle)) {
-		Entity* entity = entity_get(entity_handle);
-		bool is_hover = v2_is_inside_rect((v2) { wzrd_gui.mouse_pos.x, wzrd_gui.mouse_pos.y }, entity->rect);
-		if (is_hover) {
-			hovered_entity = entity_handle;
-		}
-	}
-
-	if (game.active_entity) {
-		if (wzrd_gui.mouse_left == EguiDeactivating) {
-			if (game.hot_entity. == active_box) {
-				wzrd_gui.clicked_item = active_box->name;
-
-			}
-			wzrd_gui.active_item = (str128){ 0 };
-		}
-	}
-
-	if (hot_box) {
-		if (hot_box->flat_button)
-			hot_box->color = EGUI_DARKBLUE;
-		if (wzrd_gui.mouse_left == EguiActivating) {
-			wzrd_gui.active_item = hot_box->name;
-		}
-	}
-
-	if (hovered_box) {
-		wzrd_gui.hot_item = hovered_box->name;
-	}
-	else {
-		wzrd_gui.hot_item = (str128){ 0 };
-	}
-#endif
 }
 
 platform_color wzrd_color_to_platform_color(wzrd_color color) {
@@ -840,33 +799,88 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 
 void game_run() {
 
-	for (int i = 0; i < game.entities_handle_map.count; ++i) {
-		if (game.entities_handle_map.handles[i].used) {
-			Entity* e = &game.entities[i];
+	// entity mouse interaction 
+	{
+		Entity_handle hovered_entity = { 0 };
+		int iterator_index = 1;
+		Entity_handle entity_handle = { 0 };
+		while (entity_get_next_handle(&iterator_index, &entity_handle)) {
+			Entity* entity = game_entity_get(entity_handle);
+			bool is_hover = v2_is_inside_rect((v2) { game.mouse_pos.x, game.mouse_pos.y }, entity->rect);
+			if (is_hover) {
+				hovered_entity = entity_handle;
+			}
+		}
 
-			/*	if (game.mouse_x >= e->x && game.mouse_y >= e->y && game.mouse_x < e->x + e->w && game.mouse_y < e->y + e->h) {
-					e->color = PLATFORM_RED;
-				}
-				else {
-					e->color = PLATFORM_WHITE;
-				}*/
+		if (game.active_entity.val.index) {
+			if (wzrd_gui.mouse_left == EguiDeactivating) {
+				game.active_entity = (Entity_handle){ 0 };
+			}
+		}
+
+		if (wzrd_gui.mouse_left == EguiDeactivating) {
+			if (!handle_equal(game.hot_entity.val, game.selected_entity.val)) {
+				Entity* clicked_entity = game_entity_get(game.selected_entity);
+				clicked_entity->color = (wzrd_color){ 255, 255, 255, 255 };
+				game.selected_entity = (Entity_handle){ 0 };
+			}
+		}
+
+		if (game.hot_entity.val.index) {
+			if (wzrd_gui.mouse_left == EguiActivating) {
+				game.active_entity = game.hot_entity;
+
+				game.selected_entity = game.active_entity;
+
+
+				Entity* active_entity = game_entity_get(game.active_entity);
+			}
+		}
+
+		if (hovered_entity.val.index) {
+			game.hot_entity = hovered_entity;
+		}
+		else {
+			game.hot_entity = (Entity_handle){ 0 };
 		}
 	}
 
-	// Draw
-	PlatformTextureBeginTarget(game.target_texture);
-
-
-	int iterator_index = 0;
-	Entity* entity = 0;
-	while (entity = entity_get_next(&iterator_index)) {
-		Texture* texture = game_texture_get(e->texture);
-		PlatformTextureDrawFromSource(game_texture_get(e->texture)->val, *(PlatformRect*)&e->rect,
-			(PlatformRect) {
-			0, 0, texture->val.w, texture->val.h
-		}, wzrd_color_to_platform_color(e->color));
+	if (game.selected_entity.val.index) {
+		Entity* clicked_entity = game_entity_get(game.selected_entity);
 	}
 
+	Entity* active_entity = game_entity_get(game.active_entity);
+	if (active_entity) {
+		active_entity->rect.x += game.mouse_delta.x;
+		active_entity->rect.y += game.mouse_delta.y;
+	}
+
+
+
+	// Draw
+	PlatformTextureBeginTarget(game.target_texture);
+	{
+		Entity* selected_entity = game_entity_get(game.selected_entity);
+		if (selected_entity) {
+			PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
+			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
+		}
+
+		int iterator_index = 0;
+		Entity* entity = 0;
+		while (entity = entity_get_next(&iterator_index)) {
+			Texture* texture = game_texture_get(entity->texture);
+			PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
+				(PlatformRect) {
+				0, 0, texture->val.w, texture->val.h
+			}, wzrd_color_to_platform_color(entity->color));
+		}
+
+		if (selected_entity) {
+			PlatformRect rect = (PlatformRect){ selected_entity->rect.x - 3, selected_entity->rect.y - 3, 6, 6 };
+			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
+		}
+	}
 	PlatformTextureEndTarget();
 }
 

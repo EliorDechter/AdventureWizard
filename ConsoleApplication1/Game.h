@@ -122,7 +122,7 @@ typedef struct Game {
 
 	v2 mouse_pos, mouse_delta;
 
-	Entity_handle hot_entity, active_entity;
+	Entity_handle hot_entity, active_entity, selected_entity;
 
 } Game;
 

@@ -496,7 +496,6 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		assert(0);
 	}
 
-
 	assert(wzrd_gui.total_num_windows == 0);
 
 	// Calculate size
@@ -685,7 +684,7 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 			}
 		}
 	}
-
+	
 	// Mouse interaction
 	wzrd_box* hovered_box = 0;
 	int depth = 0;

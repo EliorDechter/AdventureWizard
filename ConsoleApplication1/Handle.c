@@ -3,7 +3,7 @@
 struct Handle_node;
 
 void handle_remove(Handle_map* map, Handle handle) {
-	Handle_internal* handle_internal = map->handles + handle.index_to_handle;
+	Handle_internal* handle_internal = map->handles + handle.index;
 
 	assert(handle_internal->generation == handle.generation);
 
@@ -14,23 +14,24 @@ void handle_remove(Handle_map* map, Handle handle) {
 }
 
 Handle handle_create(Handle_map* map) {
-	int handle_internal_index = -1;
+	bool found = false;
 
-	for (int i = 0; i < HANDLES_COUNT_MAX; ++i) {
-		if (!map->handles[i].used) {
-			map->handles[i].used = true;
-			handle_internal_index = i;
+	int index = 0;
+	int generation = 0;
+	for (; index < HANDLES_COUNT_MAX; ++index) {
+		if (!map->handles[index].used) {
+			map->handles[index].used = true;
+			generation = map->handles[index].generation;
+			found = true;
 			break;
 		}
 	}
 
-	assert(handle_internal_index >= 0 && handle_internal_index < 256);
-
-	Handle_internal* handle_internal = map->handles + handle_internal_index;
+	assert(found);
 
 	Handle result = (Handle){
-		.generation = handle_internal->generation,
-		.index_to_handle = handle_internal_index
+		.generation = generation,
+		.index = index
 	};
 
 	map->count++;
@@ -39,11 +40,12 @@ Handle handle_create(Handle_map* map) {
 }
 
 int handle_get(const Handle_map* map, Handle handle) {
-	Handle_internal handle_internal = map->handles[handle.index_to_handle];
+	Handle_internal handle_internal = map->handles[handle.index];
 
 	assert(handle_internal.generation == handle.generation);
+	assert(handle_internal.used);
 
-	int result = handle.index_to_handle;
+	int result = handle.index;
 
 	return result;
 }
@@ -57,13 +59,16 @@ void handle_remove_by_index(Handle_map* map, int index) {
 	map->count--;
 }
 
-bool handle_iterator_get_next(Handle_map* map, int* index, int* result_index) {
-
+bool handle_get_next(const Handle_map* map, int* iterator_index, Handle* result_handle) {
 	bool result = false;
 
-	for (; *index < HANDLES_COUNT_MAX; *index = *index + 1) {
-		if (map->handles[*index].used) {
-			*result_index = *index;
+	for (; *iterator_index < HANDLES_COUNT_MAX; *iterator_index = *iterator_index + 1) {
+		if (result) break;
+		if (map->handles[*iterator_index].used) {
+			*result_handle = (Handle) {
+				.generation = map->handles[*iterator_index].generation,
+				.index = *iterator_index
+			};
 			result = true;
 		}
 	}
@@ -71,19 +76,8 @@ bool handle_iterator_get_next(Handle_map* map, int* index, int* result_index) {
 	return result;
 }
 
-bool handle_iterator_get_next_handle(Handle_map* map, int* index, Handle* result_handle) {
-
-	bool result = false;
-
-	for (; *index < HANDLES_COUNT_MAX; *index = *index + 1) {
-		if (map->handles[*index].used) {
-			*result_handle = (Handle){
-				.generation = map->handles[*index].generation,
-				.index_to_handle = *index
-			};
-			result = true;
-		}
-	}
+bool handle_equal(Handle a, Handle b) {
+	bool result = a.index == b.index && a.generation == b.generation;
 
 	return result;
 }

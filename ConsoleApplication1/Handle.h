@@ -7,12 +7,11 @@
 
 
 typedef struct Handle {
-	int index_to_handle;
 	int generation;
+	int index;
 } Handle;
 
 typedef struct Handle_internal {
-	//int index_to_item;
 	int generation;
 	bool used;
 } Handle_internal;
@@ -31,5 +30,4 @@ void handle_remove(Handle_map* map, Handle handle);
 Handle handle_create(Handle_map* map);
 int handle_get(const Handle_map* map, Handle handle);
 void handle_remove_by_index(Handle_map* map, int index);
-bool handle_iterator_get_next(Handle_map *map, int *index, int *result_index);
-bool handle_iterator_get_next_handle(Handle_map* map, int* index, Handle* result_handle);
+bool handle_get_next(const Handle_map* map, int* iterator_index, Handle* result_handle);
