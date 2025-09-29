@@ -1,6 +1,16 @@
+#pragma once
 
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "Strings.h"
+
+// BUG: FONT SIZE CLASHES WITH THAT DEFINED IN PLATFORM.C
+#define WZRD_FONT_HEIGHT 22
+#define FONT_WIDTH WZRD_FONT_HEIGHT / 2
 
 #define BUTTON_WIDTH 110
 #define BUTTON_HEIGHT 24
@@ -26,60 +36,55 @@ typedef enum EditorTab { EditorTab_Entities, EditorTab_Events, EditorTab_Areas, 
 
 typedef enum PanelId { PanelId_None, PanelId_Window, PanelId_TopPanel, PanelId_RightPanel, PanelId_GameScreen, PanelId_ModifyEntityDropDown } PanelId;
 typedef enum EditorWindowId { EditorWindowId_ModifyEntity, EditorWindowId_DrawTool } EditorWindowId;
-typedef struct Str128 {
-	char data[128];
-} Str128;
 
-
-typedef struct EguiColor {
-	unsigned int r, g, b, a;
-} EguiColor;
+typedef struct wzrd_color {
+	unsigned char r, g, b, a;
+} wzrd_color;
 
 // Some Basic Colors
 // NOTE: Custom raylib color palette for amazing visuals on WHITE background
-#define EGUI_LIGHTGRAY (EguiColor){ 200, 200, 200, 255 }   // Light Gray
-#define EGUI_GRAY      (EguiColor){ 130, 130, 130, 255 }   // Gray
-#define EGUI_DARKGRAY  (EguiColor){ 80, 80, 80, 255 }      // Dark Gray
-#define EGUI_YELLOW    (EguiColor){ 253, 249, 0, 255 }     // Yellow
-#define EGUI_GOLD      (EguiColor){ 255, 203, 0, 255 }     // Gold
-#define EGUI_ORANGE    (EguiColor){ 255, 161, 0, 255 }     // Orange
-#define EGUI_PINK      (EguiColor){ 255, 109, 194, 255 }   // Pink
-#define EGUI_RED       (EguiColor){ 230, 41, 55, 255 }     // Red
-#define EGUI_MAROON    (EguiColor){ 190, 33, 55, 255 }     // Maroon
-#define EGUI_GREEN     (EguiColor){ 0, 228, 48, 255 }      // Green
-#define EGUI_LIME      (EguiColor){ 0, 158, 47, 255 }      // Lime
-#define EGUI_DARKGREEN (EguiColor){ 0, 117, 44, 255 }      // Dark Green
-#define EGUI_SKYBLUE   (EguiColor){ 102, 191, 255, 255 }   // Sky Blue
-#define EGUI_BLUE      (EguiColor){ 0, 121, 241, 255 }     // Blue
-#define EGUI_DARKBLUE  (EguiColor){ 0, 82, 172, 255 }      // Dark Blue
-#define EGUI_PURPLE    (EguiColor){ 200, 122, 255, 255 }   // Purple
-#define EGUI_VIOLET    (EguiColor){ 135, 60, 190, 255 }    // Violet
+#define EGUI_LIGHTGRAY (wzrd_color){ 200, 200, 200, 255 }   // Light Gray
+#define EGUI_LIGHTESTGRAY (wzrd_color){ 225, 225, 225, 255 }   // Lightest Gray
+#define EGUI_GRAY      (wzrd_color){ 180, 180, 180, 255 }   // Gray
+#define EGUI_DARKGRAY  (wzrd_color){ 80, 80, 80, 255 }      // Dark Gray
+#define EGUI_YELLOW    (wzrd_color){ 253, 249, 0, 255 }     // Yellow
+#define EGUI_GOLD      (wzrd_color){ 255, 203, 0, 255 }     // Gold
+#define EGUI_ORANGE    (wzrd_color){ 255, 161, 0, 255 }     // Orange
+#define EGUI_PINK      (wzrd_color){ 255, 109, 194, 255 }   // Pink
+#define EGUI_RED       (wzrd_color){ 230, 41, 55, 255 }     // Red
+#define EGUI_MAROON    (wzrd_color){ 190, 33, 55, 255 }     // Maroon
+#define EGUI_GREEN     (wzrd_color){ 0, 228, 48, 255 }      // Green
+#define EGUI_LIME      (wzrd_color){ 0, 158, 47, 255 }      // Lime
+#define EGUI_DARKGREEN (wzrd_color){ 0, 117, 44, 255 }      // Dark Green
+#define EGUI_SKYBLUE   (wzrd_color){ 102, 191, 255, 255 }   // Sky Blue
+#define EGUI_BLUE      (wzrd_color){ 0, 121, 241, 255 }     // Blue
+#define EGUI_DARKBLUE  (wzrd_color){ 0, 82, 172, 255 }      // Dark Blue
+#define EGUI_PURPLE    (wzrd_color){ 200, 122, 255, 255 }   // Purple
+#define EGUI_VIOLET    (wzrd_color){ 135, 60, 190, 255 }    // Violet
 #define EGUI_DARKPURPLE(EguiColor){ 112, 31, 126, 255 }    // Dark Purple
-#define EGUI_BEIGE     (EguiColor){ 211, 176, 131, 255 }   // Beige
-#define EGUI_BROWN     (EguiColor){ 127, 106, 79, 255 }    // Brown
-#define EGUI_DARKBROWN (EguiColor){ 76, 63, 47, 255 }      // Dark Brown
+#define EGUI_BEIGE     (wzrd_color){ 211, 176, 131, 255 }   // Beige
+#define EGUI_BROWN     (wzrd_color){ 127, 106, 79, 255 }    // Brown
+#define EGUI_DARKBROWN (wzrd_color){ 76, 63, 47, 255 }      // Dark Brown
 
-#define EGUI_WHITE     (EguiColor){ 255, 255, 255, 255 }   // White
-#define EGUI_BLACK     (EguiColor){ 0, 0, 0, 255 }         // Black
-#define EGUI_BLANK     (EguiColor){ 0, 0, 0, 0 }           // Blank (Transparent)
-#define EGUI_MAGENTA   (EguiColor){ 255, 0, 255, 255 }     // Magenta
-#define EGUI_RAYWHITE  (EguiColor){ 245, 245, 245, 255 }   // My own White (raylib logo)
+#define EGUI_WHITE     (wzrd_color){ 255, 255, 255, 255 }   // White
+#define EGUI_WHITE2     (wzrd_color){ 230, 230, 230, 255 }   // White2
+#define EGUI_BLACK     (wzrd_color){ 0, 0, 0, 255 }         // Black
+#define EGUI_BLANK     (wzrd_color){ 0, 0, 0, 0 }           // Blank (Transparent)
+#define EGUI_MAGENTA   (wzrd_color){ 255, 0, 255, 255 }     // Magenta
+#define EGUI_RAYWHITE  (wzrd_color){ 245, 245, 245, 255 }   // My own White (raylib logo)
 
 typedef enum EguiState {
 	EguiInactive, EguiActivating, EguiActive, EguiDeactivating
-} EguiState;
+} wzrd_state;
 
-typedef struct Str32 {
-	char str[32];
-} Str32;
 
 typedef struct EguiRect {
 	float x, y, w, h;
-} EguiRect;
+} wzrd_rect;
 
 typedef struct EguiV2 {
 	float x, y;
-} EguiV2;
+} wzrd_v2;
 typedef struct EguiV2i {
 	int x, y;
 } EguiV2i;
@@ -91,17 +96,18 @@ typedef struct EguiV2i {
 
 typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_Tooltip, CrateId_DropDown, CrateId_Total } CrateId;
 
-typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_None } BorderType;
+typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_None } BorderType;
 typedef enum Alignment { Alignment_Left, Alignment_Center, Alignment_Right } Alignment;
 typedef enum SizeType { SizeType_Fixed, SizeType_Empty } SizeType;
 
-typedef struct EguiTexture {
+typedef struct wzrd_texture{
 	void* data;
-} EguiTexture;
+	float w, h;
+} wzrd_texture;
 
 typedef enum ItemType {
 	ItemType_None,
-	ItemType_Str,
+	wzrd_item_type_str,
 	ItemType_Rect,
 	ItemType_Texture,
 	ItemType_VerticalDottedLine,
@@ -110,7 +116,8 @@ typedef enum ItemType {
 	ItemType_HorizontalDottedLine,
 	ItemType_LeftHorizontalDottedLine,
 	ItemType_RightHorizontalDottedLine,
-	ItemType_Line
+	ItemType_Line,
+	ItemType_IconClose
 } ItemType;
 
 typedef struct Line {
@@ -119,64 +126,63 @@ typedef struct Line {
 
 typedef struct Item {
 	ItemType type;
-	EguiV2 size;
-	EguiColor color;
+	wzrd_v2 size;
+	wzrd_color color;
+	float pad_left, pad_right, pad_top, pad_bottom;
 	union {
-		Str32 str;
-		EguiTexture texture;
-		EguiRect rect;
+		str128 str;
+		wzrd_texture texture;
+		wzrd_rect rect;
 		Line line;
 	};
+	bool scissor;
 } Item;
 
-typedef struct EguiButton {
-	float w, h;
-	Str32 str;
-	Str32 tooltip_str;
-	Str32 id;
-	float push;
-	bool is_label;
-	EguiTexture texture;
-} EguiButton;
+
+typedef enum ButtonType {ButtonType_None, ButtonType_Flat, ButtonType_ThreeDimensional} ButtonType;
+
 
 typedef struct Box {
-	Str32 name;
+	str128 name;
 	float x, y, w, h;
-	float per;
-	float fill;
-	EguiRect absolute_rect;
+	wzrd_rect absolute_rect;
 	bool row_mode;
-	EguiV2 padding;
-	EguiRect inner_padding;
-	float push;
-	EguiColor color;
-	int index;
+	float pad_right, pad_bottom, pad_left, pad_top;
+	wzrd_color color;
 	int window_index;
 	BorderType border_type;
-	Alignment alignment;
-	int n;
-	int children[256];
-	int num_children;
-	//int new_index;
+	int depth;
+#define MAX_NUM_CHILDREN 32
+	int children[MAX_NUM_CHILDREN];
+	int children_count;
 	SizeType size_type;
 	bool grow_horizontal;
 	bool grow_vertical;
-	Str32 str;
-	EguiTexture texture;
 	float child_gap;
 	bool center;
-	Item items[32];
+#define MAX_NUM_ITEMS 8
+	Item items[MAX_NUM_ITEMS];
 	int items_count;
-} Box;
+	bool three_dimensional_button;
+	bool flat_button;
+	int relative_box;
+	int index;
+	bool resizable;
+	bool fit_h, fit_w;
+	bool center_x, center_y;
+	bool is_crate;
+	int parent;
+	bool is_input_box;
+} wzrd_box;
 
 typedef struct Crate {
 	int id;
 	int index;
 
 	int box_stack[32];
-	int current_box_index;
+	int box_stack_count;
 
-	EguiV2 current_pos;
+	//EguiV2 current_pos;
 	bool current_column_mode;
 	int current_child_gap;
 } Crate;
@@ -220,15 +226,16 @@ typedef enum EguiDrawCommandType {
 	DrawCommandType_VerticalLine,
 	DrawCommandType_HorizontalLine,
 	DrawCommandType_String,
-	DrawCommandType_Texture
+	DrawCommandType_Texture,
+	DrawCommandType_IconClose
 } EguiDrawCommandType;
 
 typedef struct EguiDrawCommand {
 	EguiDrawCommandType type;
-	EguiRect dest_rect;
-	Str32 str;
-	EguiColor color;
-	EguiTexture texture;
+	wzrd_rect dest_rect, src_rect;
+	str128 str;
+	wzrd_color color;
+	wzrd_texture texture;
 } EguiDrawCommand;
 
 typedef struct EguiDrawCommandsBuffer {
@@ -236,16 +243,33 @@ typedef struct EguiDrawCommandsBuffer {
 	int num;
 } EguiDrawCommandsBuffer;
 
+
+
+typedef struct wzrd_keyboard_key {
+	char val;
+	wzrd_state state;
+} wzrd_keyboard_key;
+
+typedef struct wzrd_keyboard_keys {
+	wzrd_keyboard_key keys[32];
+	int count;
+} wzrd_keyboard_keys;
+
+typedef struct wzrd_icons {
+	wzrd_texture close, delete, entity, play, pause, stop, dropdown;
+} wzrd_icons;
+
+typedef enum EguiCursor { wzrd_cursor_default, EguiCursorHand, EguiCursorVerticalArrow, EguiCursorHorizontalArrow } EguiCursor;
+
 typedef struct Egui {
 
-	int box_count;
-	Box boxes[1024];
+	int boxes_count;
+#define MAX_NUM_BOXES 128
+	wzrd_box boxes[MAX_NUM_BOXES];
 
-	Str32 hot_item;
-	Str32 active_item;
+	str128 hot_item, active_item, clicked_item, right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
 
 	double time;
-
 
 	double tooltip_time;
 	bool tooltip_count_time;
@@ -260,25 +284,48 @@ typedef struct Egui {
 	int current_window_id;
 	int hot_window;
 
-	EguiV2 mouse_pos;
-	EguiV2 previous_mouse_pos;
+	wzrd_v2 mouse_pos;
+	wzrd_v2 previous_mouse_pos;
 
-	EguiV2 current_pos;
-	bool current_row_mode;
-	int current_child_gap;
+	//EguiV2 current_pos;
+	/*bool current_row_mode;
+	int current_child_gap;*/
 
 	Crate crates_stack[32];
 	int current_crate_index;
 
 	//PlatformFont font;
-	EguiState mouse_left, mouse_right;
+	wzrd_state mouse_left, mouse_right;
 
 	int commands_count;
 	EguiDrawCommand draw_commands[MAX_NUM_DRAW_COMMANDS];
 
+#define MAX_NUM_TOGGLES 256
+	struct { str128 name; bool val; } toggles[MAX_NUM_TOGGLES];
+	int toggles_count;
+
+	struct { str128 name; str128 val; } input_box_strings[MAX_NUM_TOGGLES];
+	int input_box_strings_count;
+
+	int line_size;
+
+	str128 active_input_box;
+
+	wzrd_keyboard_keys keyboard_keys;
+
+	wzrd_texture checkmark;
+
+	bool double_click;
+
+	EguiCursor cursor;
+
+	wzrd_icons icons;
+
+	float input_box_timer;
+
 } Egui;
 
-Egui egui;
+Egui wzrd_gui;
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
 
@@ -307,27 +354,27 @@ typedef struct WidgetData {
 
 typedef struct Editor {
 
-	EguiV2 offset;
+	wzrd_v2 offset;
 
 	bool column_mode;
 	char str[32];
 	int num_lines;
-	EguiV2 scroll;
+	wzrd_v2 scroll;
 	EditorWindow window;
 
 	// Data for modifying entities
 	bool show_modify_entity_box;
-	EguiV2 modify_entity_window_pos, modify_entity_window_size;
+	wzrd_v2 modify_entity_window_pos, modify_entity_window_size;
 	char entity_name[32];
-	EguiV2 entity_size;
-	EguiRect modify_entity_rect;
+	wzrd_v2 entity_size;
+	wzrd_rect modify_entity_rect;
 	char entity_width[32];
 	char entity_height[32];
 
 	// Drop down panel data
 	bool modify_entity_drop_down_panel;
 	//EntityId entity;
-	EguiV2 drop_down_panel_pos;
+	wzrd_v2 drop_down_panel_pos;
 
 	// Widgets
 	HashTable widgets_hashtable;
@@ -343,29 +390,53 @@ typedef struct Editor {
 	EditorTab editor_tab;
 
 	// Draw data
-	EguiV2 draw_tool_pos, draw_tool_size;
+	wzrd_v2 draw_tool_pos, draw_tool_size;
 	bool draw_tool_active;
 
 } Editor;
 
 Editor editor;
 
+typedef struct Label_list {
+	str128 val[32];
+	int count;
+} Label_list;
+
 
 // API
-void EguiBegin(double time, EguiV2 padding, EguiV2 mouse_pos, EguiState moues_left);
-EguiDrawCommandsBuffer EguiEnd();
-Str32 Str32Create();
-void EguiInit(int window_width, int window_height);
-void EguiBoxBegin(Box box);
-void EguiBoxEnd();
+void wzrd_begin(double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_texture checkmark);
+EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon);
+bool wzrd_box_begin(wzrd_box box);
+void wzrd_box_end();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
-void EguiBoxTexture(EguiRect rect, EguiTexture t);
-void EguiDrawText(const char* text, EguiRect bounds, int alignment, EguiColor color);
-Box* EguiBoxGetCurrent();
-void EguiLabel(Str32 str, EguiV2i v);
-void EguiItemAdd(Item item);
-Box* EguiBoxGetCurrent2();
-bool EguiDoButton(EguiButton button);
-Str128 Str128Create(const char* str);
-bool EguiButtonBegin(Box button);
-void EguiButtonEnd();
+void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color color);
+wzrd_box* wzrd_box_get_current();
+void EguiLabel(str128 str);
+void wzrd_item_add(Item item);
+bool EguiButtonRaw(wzrd_box box);
+bool EguiButton(str128 str);
+bool EguiButtonRawBegin(wzrd_box button);
+void EguiButtonRawEnd();
+bool IsStr32Equal(Str32 a, Str32 b);
+bool EguiBox(wzrd_box box);
+bool EguiLabelButton(str128 str);
+bool EguiLabelButtonBegin(str128 str);
+bool EguiLabelButtonEnd();
+str128 EguiInputBox(int max_num_keys);
+void EguiCrateBegin(int window_id, wzrd_box box);
+int wzrd_box_get_current_index();
+void EguiCrate(int window_id, wzrd_box box);
+int wzrd_dropdown(int* selected_text, str128* str, int str_count, int w, bool* active);
+void EguiToggleEnd();
+bool *EguiToggleBegin(wzrd_box box);
+bool *EguiToggle(wzrd_box box);
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
+void EguiStringAdd(str128 str);
+void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, str128 name, int parent);
+void EguiDialogEnd(bool active);
+void EguiBoxResize(wzrd_v2* size);
+wzrd_box* EguiHotItemGet();
+void wzrd_label_list(Label_list label_list, int *selected);
+bool wzrd_button_icon(wzrd_texture texture);
+void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
+void wzrd_input_box(str128* str, int max_num_keys);

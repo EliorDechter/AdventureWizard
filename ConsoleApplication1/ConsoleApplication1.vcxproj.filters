@@ -36,6 +36,45 @@
     <ClCompile Include="Renderer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Editor.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Textures.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Strings.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HashTable.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Handle.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Parser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Serialization.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pathfinding.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameState.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Inventory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Actions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Animation.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Platform.h">
@@ -55,6 +94,21 @@
     </ClInclude>
     <ClInclude Include="json.h">
       <Filter>Source Files\External</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Strings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Textures.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Handle.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
