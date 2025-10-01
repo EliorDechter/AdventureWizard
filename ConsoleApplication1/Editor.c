@@ -3,7 +3,7 @@
 #include "Textures.h"
 #include "Game.h"
 
-void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor) {
+void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor, bool *is_interacting_with_editor, bool *is_hovering) {
 	static int selected_item = -1;
 	static int selected_category;
 	Texture_handle handle = { 0 };
@@ -370,8 +370,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 		}
 	}
 
-	bool is_hovered = false;
-	wzrd_end(cursor, buffer, &is_hovered);
+	wzrd_end(cursor, buffer, is_interacting_with_editor, is_hovering);
 }
 
 void EditorSliceSpritesheet() {

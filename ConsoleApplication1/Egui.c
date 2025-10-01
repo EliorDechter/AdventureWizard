@@ -452,7 +452,7 @@ bool IsRectInsideRect(wzrd_rect a, wzrd_rect b) {
 	return res;
 }
 
-void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_hovered) {
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_interacting, bool *is_hovering) {
 
 	EguiCrateEnd();
 
@@ -649,21 +649,9 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 		}
 	}
 
-	// Exit early if window is unfocused
-	if (!wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
-		(wzrd_rect){0, 0, g_gui->window_width, g_gui->window_height})) {
-		*is_hovered = false;
-		g_gui = 0;
-		return;
-	}
-	else {
-		*is_hovered = true;
-	}
-
 	// Mouse interaction
 	*cursor = wzrd_cursor_default;
 	wzrd_box* hovered_box = 0;
-
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
 		wzrd_box* box = g_gui->boxes + i;
 		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
@@ -674,9 +662,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 	}
 
 	if (hovered_box) {
-		if (hovered_box->is_button) {
-			*cursor = wzrd_cursor_hand;
-		}
+		*is_hovering = true;
 	}
 
 	wzrd_box* hot_box = egui_box_get_by_name(g_gui->hot_item);
@@ -686,12 +672,17 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 		if (g_gui->mouse_left == EguiDeactivating) {
 			if (hot_box == active_box) {
 				g_gui->clicked_item = active_box->name;
-
 			}
 			g_gui->active_item = (str128){ 0 };
 		}
-	}
 
+		if (active_box->is_button || active_box->flat_button) {
+			*is_interacting = true;
+		}
+	}
+	else {
+		*is_interacting = false;
+	}
 	if (hot_box) {
 		if (hot_box->flat_button)
 			hot_box->color = EGUI_DARKBLUE;
@@ -705,6 +696,25 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 	}
 	else {
 		g_gui->hot_item = (str128){ 0 };
+	}
+
+	// Cursor 
+	if (*is_hovering) {
+		*cursor = DrawCommandType_Default;
+
+		wzrd_box* hot_box = egui_box_get_by_name(g_gui->hot_item);
+		wzrd_box* active_box = egui_box_get_by_name(g_gui->active_item);
+
+		if (hot_box) {
+			if (hot_box->is_button) {
+				*cursor = wzrd_cursor_hand;
+			}
+		}
+		if (active_box) {
+			if (active_box->is_button) {
+				*cursor = wzrd_cursor_hand;
+			}
+		}
 	}
 
 	// stuff
@@ -721,7 +731,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 	if (g_gui->mouse_left == EguiInactive) {
 		g_gui->clicked_item = (str128){ 0 };
 	}
-
 
 	// Border resize
 	{
@@ -760,14 +769,17 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 					g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
 					g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
 
-				if (is_inside_top_border || is_inside_bottom_border) {
-					*cursor = wzrd_cursor_vertical_arrow;
-				}
-				else if (is_inside_left_border || is_inside_right_border) {
-					*cursor = wzrd_cursor_horizontal_arrow;
+				if (str128_equal(g_gui->hot_item, child->name) || str128_equal(g_gui->active_item, child->name)) {
+
+					if (is_inside_top_border || is_inside_bottom_border) {
+						*cursor = wzrd_cursor_vertical_arrow;
+					}
+					else if (is_inside_left_border || is_inside_right_border) {
+						*cursor = wzrd_cursor_horizontal_arrow;
+					}
 				}
 
-				if (*g_gui->active_item.val) {
+				if (str128_equal(g_gui->active_item, child->name)) {
 					if (is_inside_bottom_border) {
 						child->color = EGUI_PURPLE;
 						g_gui->bottom_resized_item = child->name;
@@ -789,17 +801,28 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 		}
 	}
 
+	// Mouse position
+	g_gui->previous_mouse_pos = g_gui->mouse_pos;
+
+	// Exit early if window is unfocused
+	/*if (!wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
+		(wzrd_rect) {
+		0, 0, g_gui->window_width, g_gui->window_height
+	})) {
+		*is_hovered = false;
+		g_gui = 0;
+		return;
+	}
+	else {
+		*is_hovered = true;
+	}*/
+
 	// Drawing
 	wzrd_box boxes[MAX_NUM_BOXES] = { 0 };
 	memcpy(boxes, g_gui->boxes, sizeof(wzrd_box) * g_gui->boxes_count);
 	qsort(boxes, g_gui->boxes_count, sizeof(wzrd_box), CompareBoxes);
-
-	// Mouse position
-	g_gui->previous_mouse_pos = g_gui->mouse_pos;
-
-	// Draw boxes
+	
 	buffer->count = 0;
-
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
 
 		wzrd_box box = boxes[i];
@@ -849,7 +872,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_h
 			EguiRectDraw(buffer, right0, EGUI_GREEN);
 			EguiRectDraw(buffer, bottom1, EGUI_PURPLE);
 			EguiRectDraw(buffer, right1, EGUI_PURPLE);
-
 		}
 		else if (box.border_type == BorderType_Default) {
 			// Draw top and left lines
@@ -1563,10 +1585,6 @@ bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color) {
 	{
 
 		result = IsActive();
-
-		if (result) {
-			printf("asdf\n");
-		}
 
 	}
 	EguiCrateEnd();

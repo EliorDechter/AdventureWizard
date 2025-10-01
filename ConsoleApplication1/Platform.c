@@ -244,8 +244,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	// Editor
 	static Egui gui;
 	static wzrd_draw_commands_buffer buffer;
-	static wzrd_cursor cursor;
-	editor_do(&gui, &buffer, &cursor);
+	wzrd_cursor editor_cursor = wzrd_cursor_default;
+	bool is_interacting_with_editor = false;
+	bool is_hovering_over_editor = false;
+	editor_do(&gui, &buffer, &editor_cursor, &is_interacting_with_editor, &is_hovering_over_editor);
 
 	wzrd_box* box = wzrd_box_get_by_name(&gui, str128_create("Target"));
 	wzrd_rect rect = wzrd_box_get_rect(box);
@@ -258,9 +260,21 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	game.mouse_pos.y = mouse_y;
 
 	// ...
-	game_run((wzrd_v2){game_screen_rect.w, game_screen_rect.h}, &cursor);
+	wzrd_cursor game_cursor = wzrd_cursor_default;
+	bool is_interacting_with_game_gui = false;
+	bool is_hovering_over_game = false;
+	game_run((wzrd_v2){game_screen_rect.w, game_screen_rect.h}, &game_cursor, &is_interacting_with_game_gui, &is_hovering_over_game);
 
-	platform_cursor_set(*(PlatformCursor *)&cursor);
+	if (is_interacting_with_game_gui || is_hovering_over_game) {
+		platform_cursor_set(*(PlatformCursor*)&game_cursor);
+	}
+	else if (is_hovering_over_editor || is_interacting_with_editor) {
+		platform_cursor_set(*(PlatformCursor*)&editor_cursor);
+	}
+	else {
+		platform_cursor_set(wzrd_cursor_default);
+	}
+
 
 	// ...
 	game_draw_gui_commands(&buffer);

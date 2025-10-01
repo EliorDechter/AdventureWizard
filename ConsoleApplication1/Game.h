@@ -137,5 +137,5 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_run(wzrd_v2 window_size, wzrd_v2 *cursor);
+void game_run(wzrd_v2 window_size, wzrd_v2 *cursor, bool *game_gui_interaction, bool *is_hovering);
 void game_draw_gui_commands(wzrd_draw_commands_buffer *buffer);

@@ -373,7 +373,7 @@ typedef struct Label_list {
 
 // API
 void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color);
-void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool *is_hovered);
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool *is_interacting, bool *is_hovering);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
