@@ -124,6 +124,8 @@ typedef struct Game {
 
 	Entity_handle hot_entity, active_entity, selected_entity;
 
+	wzrd_icons icons;
+
 } Game;
 
 Game game;
@@ -132,7 +134,8 @@ Texture_handle game_texture_add(Texture texture);
 void game_texture_remove(Texture_handle handle);
 Texture* game_texture_get(Texture_handle handle);
 
-void DrawBatch();
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
+void game_run(wzrd_v2 window_size, wzrd_v2 *cursor);
+void game_draw_gui_commands(wzrd_draw_commands_buffer *buffer);

@@ -3,13 +3,7 @@
 #include "Textures.h"
 #include "Game.h"
 
-void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width, int window_height) {
-
-	assert(window_width);
-	assert(window_height);
-	wzrd_gui.window_width = window_width;
-	wzrd_gui.window_height = window_height;
-
+void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor) {
 	static int selected_item = -1;
 	static int selected_category;
 	Texture_handle handle = { 0 };
@@ -17,17 +11,12 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 	// Drawing data
 	wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
 
-	wzrd_keyboard_keys keys = (wzrd_keyboard_keys){
-		.count = platform.input_keys_count
-	};
-
-	for (int i = 0; i < keys.count; ++i) {
-		keys.keys[i] = *(wzrd_keyboard_key *)&platform.input_keys[i];
-		printf("%c\n", platform.keyboard_states[i]);
-	}
-
-	wzrd_begin(total_time_in_seconds,
-		mouse_pos, platform.mouse_left, keys, *(wzrd_texture*)&g_checkmark_texture);
+	wzrd_begin( gui, 0,
+		(wzrd_v2) {platform.mouse_x, platform.mouse_y },
+		platform.mouse_left,
+		*(wzrd_keyboard_keys *)&platform.keys_pressed,
+		(wzrd_v2) { platform.window_width, platform.window_height },
+		game.icons, EGUI_LIGHTGRAY);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -102,7 +91,7 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 					.w = 2
 			});
 
-			if (wzrd_button_icon(wzrd_gui.icons.delete)) {
+			if (wzrd_button_icon(game.icons.delete)) {
 				if (selected_category == 0) {
 					if (selected_item >= 0) {
 						game_texture_remove_by_index(selected_item);
@@ -116,7 +105,7 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 					.w = 2
 			});
 
-			if (wzrd_button_icon(wzrd_gui.icons.entity)) {
+			if (wzrd_button_icon(game.icons.entity)) {
 
 			}
 
@@ -126,15 +115,15 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 					.w = 2
 			});
 
-			if (wzrd_button_icon(wzrd_gui.icons.play)) {
+			if (wzrd_button_icon(game.icons.play)) {
 
 			}
 
-			if (wzrd_button_icon(wzrd_gui.icons.stop)) {
+			if (wzrd_button_icon(game.icons.stop)) {
 
 			}
 
-			if (wzrd_button_icon(wzrd_gui.icons.pause)) {
+			if (wzrd_button_icon(game.icons.pause)) {
 
 			}
 
@@ -180,7 +169,7 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 						Label_list label_list = (Label_list){
 							.count = game.textures_handle_map.count
 						};
-						
+
 #if 1
 						int c = 0;
 						for (int i = 0; i < game.textures_handle_map.count; ++i) {
@@ -194,11 +183,11 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 						Handle_iterator
 #endif
 
-						wzrd_label_list2(label_list,
-							(wzrd_box){
+							wzrd_label_list2(label_list,
+								(wzrd_box) {
 							.color = EGUI_WHITE, .border_type = BorderType_None,
 						},
-							&selected_item);
+								& selected_item);
 					}
 #if 0
 					EguiMenuNodeAdd(str128_create("MyGame"), 0, false);
@@ -381,9 +370,8 @@ void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width,
 		}
 	}
 
-	bool change_click_icon = false;
-	wzrd_end(&change_click_icon);
-	PlatformSetCursor(wzrd_gui.cursor);
+	bool is_hovered = false;
+	wzrd_end(cursor, buffer, &is_hovered);
 }
 
 void EditorSliceSpritesheet() {
@@ -548,67 +536,4 @@ bool IsNumber(const char* str) {
 	}
 
 	return true;
-}
-
-void EguiLog(wzrd_rect rect) {
-
-	static int num_lines;
-	static wzrd_v2 scroll;
-	static s_is_log_dirty;
-	static char log_buffer[128];
-	static char multi_line_text[128];
-
-	if (s_is_log_dirty) {
-		const int max_chars_in_line = 20;
-		int counter = 0;
-		int line_len = 0;
-		int line_num = 0;
-		multi_line_text[counter++] = line_num + '0';
-		multi_line_text[counter++] = ' ';
-		char line_num_string[8] = { 0 };
-		for (int i = 0; i < 1024 * 10; ++i) {
-			if (log_buffer[i] == '\0') {
-				multi_line_text[counter] = 0;
-				break;
-			}
-			else if (log_buffer[i] == '\n') {
-				line_len = 0;
-				line_num++;
-				multi_line_text[counter++] = '\n';
-				sprintf(line_num_string, "%d", line_num);
-				strcpy(multi_line_text + counter, line_num_string);
-				counter += strlen(line_num_string);
-				multi_line_text[counter++] = ' ';
-			}
-			else if (line_len == 50) {
-				multi_line_text[counter++] = '\n';
-				line_num++;
-				multi_line_text[counter++] = line_num + '0';
-				multi_line_text[counter++] = ' ';
-				line_len = 0;
-			}
-			else {
-				multi_line_text[counter++] = log_buffer[i];
-			}
-		}
-
-		num_lines = line_num;
-		scroll.y = -1 * 10 * (num_lines - 10);
-	}
-
-	wzrd_rect scissorRec = { 0 };
-	if (s_is_log_dirty) {
-		scroll.y = -(10 * (num_lines - 10));
-	}
-	//GuiScrollPanel(rect, "Log", (PlatformRect) { rect.x, rect.y, rect.width, 966 }, & scroll, & scissorRec);
-	BeginScissorMode(scissorRec.x, scissorRec.y, scissorRec.w, scissorRec.h);
-
-	wzrd_rect label_rect1 = (wzrd_rect){ rect.x + 10, rect.y + scroll.y + 30, rect.w, rect.h };
-	//GuiLabel(label_rect1, multi_line_text);
-
-	EndScissorMode();
-}
-
-void editor_entity_grab(Entity_handle handle) {
-
 }

@@ -1,5 +1,7 @@
-#pragma once
+#ifndef EDITOR_H
+#define EDITOR_H
 
-#include "egui.h"
+#include "Egui.h"
 
-void editor_do(float total_time_in_seconds, wzrd_v2 mouse_pos, int window_width, int window_height);
+void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor *cursor);
+#endif

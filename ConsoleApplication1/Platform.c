@@ -1,8 +1,8 @@
 #include "Platform.h"
-#include "Editor.h"
+//#include "Editor.h"
 #include <SDL3/SDL_main.h>
 #include "Game.h"
-
+#include "Editor.h"
 
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
 	TTF_Text* text = TTF_CreateText(sdl.engine, sdl.font, str, 0);
@@ -29,6 +29,7 @@ PlatformV2i PlatformTextGetSize(const char* str) {
 }
 
 void PlatformRectDraw(PlatformRect rect, platform_color color) {
+	SDL_SetRenderDrawBlendMode(sdl.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderDrawColor(sdl.renderer, color.r, color.g, color.b, color.a);
 	SDL_RenderFillRect(sdl.renderer, &rect);
 }
@@ -102,7 +103,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 		return SDL_APP_FAILURE;
 	}
 
-#if 1
 	TTF_Init();
 	sdl.font = TTF_OpenFont("C:\\Users\\elior\\AppData\\Local\\Microsoft\\Windows\\Fonts\\FragmentMono-Regular.ttf", PLATFORM_FONT_HEIGHT);
 	assert(sdl.font);
@@ -111,7 +111,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	assert(sdl.engine);
 
 	game_init();
-#endif
 
 	sdl.mutex =  SDL_CreateMutex();
 
@@ -185,7 +184,7 @@ SDL_AppResult handle_events(SDL_Event *event) {
 	}
 
 	if (keycode < 128 && keycode > 0) {
-		platform.input_keys[platform.input_keys_count++] = (PlatformKey){ .val = keycode, .state = platform.keyboard_states[keycode] };
+		platform.keys_pressed.keys[platform.keys_pressed.count++] = (PlatformKey){ .val = keycode, .state = platform.keyboard_states[keycode] };
 	}
 
 	return SDL_APP_CONTINUE;
@@ -199,7 +198,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	return result;
 }
 
-void PlatformSetCursor(PlatformCursor cursor) {
+void platform_cursor_set(PlatformCursor cursor) {
 	switch(cursor) {
 		case PlatformCursorDefault:
 			SDL_SetCursor(sdl.cursor_default);
@@ -243,38 +242,29 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	SDL_GetWindowSize(sdl.window, &platform.window_width, &platform.window_height);
 
 	// Editor
-	float time = 0;
-	editor_do(time, (wzrd_v2) {
-		platform.mouse_x, platform.mouse_y
-	}, platform.window_width, platform.window_height);
+	static Egui gui;
+	static wzrd_draw_commands_buffer buffer;
+	static wzrd_cursor cursor;
+	editor_do(&gui, &buffer, &cursor);
 
-	// Game mouse position
-	bool flag = false;
-	PlatformRect target_texture_rect = (PlatformRect){ 0 };
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		if (str128_equal(wzrd_gui.boxes[i].name, str128_create("Target"))) {
-			target_texture_rect = *(PlatformRect*)&wzrd_gui.boxes[i].absolute_rect;
-			flag = true;
-		}
-	}
-	assert(flag);
+	wzrd_box* box = wzrd_box_get_by_name(&gui, str128_create("Target"));
+	wzrd_rect rect = wzrd_box_get_rect(box);
+	PlatformRect game_screen_rect = *(PlatformRect*)&rect;
 
-	float mouse_x = platform.mouse_x - target_texture_rect.x;
-	float mouse_y = platform.mouse_y - target_texture_rect.y;
+	float mouse_x = platform.mouse_x - game_screen_rect.x;
+	float mouse_y = platform.mouse_y - game_screen_rect.y;
 	game.mouse_delta = (v2){ mouse_x - game.mouse_pos.x, mouse_y - game.mouse_pos.y };
 	game.mouse_pos.x = mouse_x;
 	game.mouse_pos.y = mouse_y;
 
 	// ...
-	game_run();
+	game_run((wzrd_v2){game_screen_rect.w, game_screen_rect.h}, &cursor);
+
+	platform_cursor_set(*(PlatformCursor *)&cursor);
 
 	// ...
-	DrawBatch();
+	game_draw_gui_commands(&buffer);
 
-	//char buff[8] = { 0 };
-	//sprintf(buff, "%u", delta_time);
-	//sdl.fps_text = TTF_CreateText(sdl.engine, sdl.font, buff, 0);
-	
 	SDL_RenderPresent(sdl.renderer);
 
 	unsigned int time1 = SDL_GetTicks();
@@ -289,7 +279,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	platform.previous_mouse_y = platform.mouse_y;
 
 	// Input
-	platform.input_keys_count = 0;
+	platform.keys_pressed.count = 0;
 
 	if (platform.mouse_left == Activating) {
 		platform.mouse_left = Active;

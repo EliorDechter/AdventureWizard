@@ -1,48 +1,47 @@
-#pragma once
-
 #include "Egui.h"
 #include "Strings.h"
 
+#if 1
 Crate* EguiGetCurrentWindow() {
-	Crate* result = &wzrd_gui.crates_stack[wzrd_gui.current_crate_index];
+	Crate* result = &g_gui->crates_stack[g_gui->current_crate_index];
 
 	return result;
 }
 
 Crate* EguiGetPreviousWindow() {
-	assert(wzrd_gui.current_crate_index > 0);
-	Crate* result = &wzrd_gui.crates_stack[wzrd_gui.current_crate_index - 1];
+	assert(g_gui->current_crate_index > 0);
+	Crate* result = &g_gui->crates_stack[g_gui->current_crate_index - 1];
 
 	return result;
 }
 
 wzrd_box* EguiBoxGetPrevious() {
-	if (wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack_count < 2) return 0;
-	int current_box_index = wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack_count - 2;
-	int final_index = wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack[current_box_index];
-	wzrd_box* result = &wzrd_gui.boxes[final_index];
+	if (g_gui->crates_stack[g_gui->current_crate_index].box_stack_count < 2) return 0;
+	int current_box_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack_count - 2;
+	int final_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack[current_box_index];
+	wzrd_box* result = &g_gui->boxes[final_index];
 
 	return result;
 }
 
 wzrd_box* wzrd_box_get_current() {
-	assert(wzrd_gui.current_crate_index >= 0);
-	int crate_index = wzrd_gui.current_crate_index;
+	assert(g_gui->current_crate_index >= 0);
+	int crate_index = g_gui->current_crate_index;
 
-	int current_box_index = wzrd_gui.crates_stack[crate_index].box_stack_count - 1;
+	int current_box_index = g_gui->crates_stack[crate_index].box_stack_count - 1;
 	if (current_box_index < 0) return 0;
-	int final_index = wzrd_gui.crates_stack[crate_index].box_stack[current_box_index];
+	int final_index = g_gui->crates_stack[crate_index].box_stack[current_box_index];
 	assert(current_box_index >= 0);
-	wzrd_box* result = &wzrd_gui.boxes[final_index];
+	wzrd_box* result = &g_gui->boxes[final_index];
 
 	return result;
 }
 
 int wzrd_box_get_current_index() {
-	assert(wzrd_gui.current_crate_index >= 0);
-	int current_box_index = wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack_count - 1;
+	assert(g_gui->current_crate_index >= 0);
+	int current_box_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack_count - 1;
 	if (current_box_index < 0) return 0;
-	int final_index = wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack[current_box_index];
+	int final_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack[current_box_index];
 	int result = final_index;
 
 	return result;
@@ -71,26 +70,26 @@ void EguiBoxResize(wzrd_v2* size) {
 
 	box->resizable = true;
 
-	float mouse_delta_x = wzrd_gui.mouse_pos.x - wzrd_gui.previous_mouse_pos.x;
-	float mouse_delta_y = wzrd_gui.mouse_pos.y - wzrd_gui.previous_mouse_pos.y;
+	float mouse_delta_x = g_gui->mouse_pos.x - g_gui->previous_mouse_pos.x;
+	float mouse_delta_y = g_gui->mouse_pos.y - g_gui->previous_mouse_pos.y;
 
 	if (previous_box->row_mode) {
-		if (str128_equal(box->name, wzrd_gui.left_resized_item)) {
+		if (str128_equal(box->name, g_gui->left_resized_item)) {
 			if (size->x - mouse_delta_x >= 0)
 				size->x -= mouse_delta_x;
 		}
 
-		else if (str128_equal(box->name, wzrd_gui.right_resized_item)) {
+		else if (str128_equal(box->name, g_gui->right_resized_item)) {
 			if (size->x + mouse_delta_x >= 0)
 				size->x += mouse_delta_x;
 		}
 	}
 	else {
-		if (str128_equal(box->name, wzrd_gui.top_resized_item)) {
+		if (str128_equal(box->name, g_gui->top_resized_item)) {
 			if (size->y - mouse_delta_y <= 0)
 				size->y -= mouse_delta_y;
 		}
-		else if (str128_equal(box->name, wzrd_gui.bottom_resized_item)) {
+		else if (str128_equal(box->name, g_gui->bottom_resized_item)) {
 			if (size->y + mouse_delta_y >= 0)
 				size->y += mouse_delta_y;
 		}
@@ -102,7 +101,7 @@ void EguiBoxResize(wzrd_v2* size) {
 
 bool wzrd_box_begin(wzrd_box box) {
 
-	assert(wzrd_gui.boxes_count < MAX_NUM_BOXES - 1);
+	assert(g_gui->boxes_count < MAX_NUM_BOXES - 1);
 
 	if (box.w == 0 && !box.fit_w)
 		box.grow_horizontal = true;
@@ -110,19 +109,19 @@ bool wzrd_box_begin(wzrd_box box) {
 		box.grow_vertical = true;
 
 	if (box.fit_w) {
-		box.w += 4 * wzrd_gui.line_size;
+		box.w += 4 * g_gui->line_size;
 	}
 	if (box.fit_h) {
-		box.h += 4 * wzrd_gui.line_size;
+		box.h += 4 * g_gui->line_size;
 	}
 
-	box.depth = wzrd_gui.current_crate_index;
+	box.depth = g_gui->current_crate_index;
 	wzrd_box* current_box = wzrd_box_get_current();
 
 	// Test for repeating id's
 	if (box.name.len) {
-		for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-			assert(!str128_equal(box.name, wzrd_gui.boxes[i].name));
+		for (int i = 0; i < g_gui->boxes_count; ++i) {
+			assert(!str128_equal(box.name, g_gui->boxes[i].name));
 		}
 	}
 	else {
@@ -130,9 +129,9 @@ bool wzrd_box_begin(wzrd_box box) {
 	}
 
 	// Increment the panel index in the window's stack
-	wzrd_gui.total_num_panels++;
+	g_gui->total_num_panels++;
 
-	box.window_index = wzrd_gui.current_crate_index;
+	box.window_index = g_gui->current_crate_index;
 
 	if (current_box) {
 
@@ -146,26 +145,25 @@ bool wzrd_box_begin(wzrd_box box) {
 
 		// Children
 		assert(current_box->children_count < MAX_NUM_CHILDREN);
-		current_box->children[current_box->children_count++] = wzrd_gui.boxes_count;
-
+		current_box->children[current_box->children_count++] = g_gui->boxes_count;
 	}
 
 	// Default color 
-	if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
-		//box.color = EguiBoxGetCurrent()->color;
-		box.color = EGUI_LIGHTGRAY;
+	if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0) {
+		box.color = g_gui->default_color;
+	}
 
 	// Add box
-	assert(wzrd_gui.boxes_count < 256);
-	box.index = wzrd_gui.boxes_count;
-	assert(wzrd_gui.current_crate_index >= 0);
-	wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack_count++;
-	wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack[wzrd_gui.crates_stack[wzrd_gui.current_crate_index].box_stack_count - 1] = wzrd_gui.boxes_count;
-	wzrd_gui.boxes[wzrd_gui.boxes_count++] = box;
+	assert(g_gui->boxes_count < 256);
+	box.index = g_gui->boxes_count;
+	assert(g_gui->current_crate_index >= 0);
+	g_gui->crates_stack[g_gui->current_crate_index].box_stack_count++;
+	g_gui->crates_stack[g_gui->current_crate_index].box_stack[g_gui->crates_stack[g_gui->current_crate_index].box_stack_count - 1] = g_gui->boxes_count;
+	g_gui->boxes[g_gui->boxes_count++] = box;
 
 	// Return if clicked
 	bool result = false;
-	if (str128_equal(box.name, wzrd_gui.clicked_item)) {
+	if (str128_equal(box.name, g_gui->clicked_item)) {
 		result = true;
 	}
 
@@ -173,9 +171,9 @@ bool wzrd_box_begin(wzrd_box box) {
 }
 
 void wzrd_box_end() {
-	wzrd_gui.total_num_panels--;
-	assert(wzrd_gui.total_num_panels >= 0);
-	assert(wzrd_gui.current_window_id != 0);
+	g_gui->total_num_panels--;
+	assert(g_gui->total_num_panels >= 0);
+	assert(g_gui->current_window_id != 0);
 
 	wzrd_box* current_box = wzrd_box_get_current();
 	Crate* current_crate = EguiGetCurrentWindow();
@@ -246,7 +244,7 @@ bool* EguiToggle(wzrd_box box) {
 }
 
 bool IsClicked() {
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.clicked_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->clicked_item)) {
 		return true;
 	}
 
@@ -254,7 +252,7 @@ bool IsClicked() {
 }
 
 bool IsHovered() {
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.hot_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->hot_item)) {
 		return true;
 	}
 
@@ -262,30 +260,29 @@ bool IsHovered() {
 }
 
 bool* EguiToggleBegin(wzrd_box box) {
+
+	box.is_button = true;
+
 	wzrd_box_begin(box);
 
 	bool found = false;
 	bool* toggle = 0;
-	for (int i = 0; i < wzrd_gui.toggles_count; ++i) {
-		if (str128_equal(wzrd_gui.toggles[i].name, wzrd_box_get_current()->name)) {
-			toggle = &wzrd_gui.toggles[i].val;
+	for (int i = 0; i < g_gui->toggles_count; ++i) {
+		if (str128_equal(g_gui->toggles[i].name, wzrd_box_get_current()->name)) {
+			toggle = &g_gui->toggles[i].val;
 			found = true;
 		}
 	}
 
 	if (!found) {
-		wzrd_gui.toggles[wzrd_gui.toggles_count].name = wzrd_box_get_current()->name;
-		wzrd_gui.toggles[wzrd_gui.toggles_count].val = false;
-		toggle = &wzrd_gui.toggles[wzrd_gui.toggles_count].val;
-		wzrd_gui.toggles_count++;
+		g_gui->toggles[g_gui->toggles_count].name = wzrd_box_get_current()->name;
+		g_gui->toggles[g_gui->toggles_count].val = false;
+		toggle = &g_gui->toggles[g_gui->toggles_count].val;
+		g_gui->toggles_count++;
 	}
 
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.clicked_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->clicked_item)) {
 		*toggle = !*toggle;
-	}
-
-	if (IsHovered()) {
-		wzrd_gui.cursor = EguiCursorHand;
 	}
 
 	return toggle;
@@ -307,31 +304,10 @@ void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size) {
 	});
 }
 
-bool* EguiCheckMark() {
-	bool* result = EguiToggleBegin((wzrd_box) { .w = 35, .h = 35, .color = EGUI_GREEN });
-	{
-		if (*result)
-			wzrd_texture_add(wzrd_gui.checkmark, (wzrd_v2) { 35, 35 });
-	}
-	EguiToggleEnd();
-
-	return result;
-}
-
-wzrd_box_text(str128 txt) {
-	wzrd_box box = (wzrd_box){ .w = FONT_WIDTH * txt.len, .h = WZRD_FONT_HEIGHT,
-		.border_type = BorderType_None, .color = EGUI_WHITE };
-	wzrd_box_begin(box);
-	{
-		EguiStringAdd(txt);
-	}
-	wzrd_box_end();
-}
-
 wzrd_box* EguiHotItemGet() {
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		if (str128_equal(wzrd_gui.boxes[i].name, wzrd_gui.hot_item)) {
-			return wzrd_gui.boxes + i;
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		if (str128_equal(g_gui->boxes[i].name, g_gui->hot_item)) {
+			return g_gui->boxes + i;
 		}
 	}
 
@@ -341,33 +317,29 @@ wzrd_box* EguiHotItemGet() {
 
 void EguiCrateBegin(int window_id, wzrd_box box) {
 
-	wzrd_gui.total_num_windows++;
-	wzrd_gui.current_crate_index++;
+	g_gui->total_num_windows++;
+	g_gui->current_crate_index++;
 
 	Crate* current_window = EguiGetCurrentWindow();
 
 	// Set current hot window
-	if (wzrd_v2_is_inside_rect((wzrd_v2) { wzrd_gui.mouse_pos.x, wzrd_gui.mouse_pos.y },
+	if (wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
 		(wzrd_rect) {
 		box.x, box.y, box.w, box.h
 	})) {
-		if (window_id > wzrd_gui.hot_window)
-			wzrd_gui.hot_window = window_id;
+		if (window_id > g_gui->hot_window)
+			g_gui->hot_window = window_id;
 	}
 	else {
-		if (window_id == wzrd_gui.hot_window) wzrd_gui.hot_window = 0;
+		if (window_id == g_gui->hot_window) g_gui->hot_window = 0;
 	}
 
 	// Set new window
-	*current_window = (Crate){ .id = window_id, .index = wzrd_gui.current_crate_index, };
+	*current_window = (Crate){ .id = window_id, .index = g_gui->current_crate_index, };
 
 	// Set window id
 	assert(window_id != 0);
-	wzrd_gui.current_window_id = window_id;
-
-	// Set color
-	if (box.color.r == 0 && box.color.g == 0 && box.color.b == 0 && box.color.a == 0)
-		box.color = EGUI_LIGHTGRAY;
+	g_gui->current_window_id = window_id;
 
 	// Begin drawing panel
 
@@ -375,23 +347,23 @@ void EguiCrateBegin(int window_id, wzrd_box box) {
 	wzrd_box_begin(box);
 }
 
-EguiCrateEnd() {
+void EguiCrateEnd() {
 
 	// Count number of windows for debugging
-	wzrd_gui.total_num_windows--;
+	g_gui->total_num_windows--;
 
 	wzrd_box_end();
 
-	if (wzrd_gui.current_crate_index > 0) {
+	if (g_gui->current_crate_index > 0) {
 		Crate* previous_window = EguiGetPreviousWindow();
 
 		assert(previous_window->id != 0);
-		wzrd_gui.current_window_id = previous_window->id;
+		g_gui->current_window_id = previous_window->id;
 
 	}
 
-	wzrd_gui.current_crate_index--;
-	assert(wzrd_gui.current_crate_index >= -1);
+	g_gui->current_crate_index--;
+	assert(g_gui->current_crate_index >= -1);
 }
 
 void EguiCrate(int window_id, wzrd_box box) {
@@ -399,56 +371,49 @@ void EguiCrate(int window_id, wzrd_box box) {
 	EguiCrateEnd();
 }
 
-void wzrd_begin(double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, wzrd_texture checkmark) {
-	wzrd_gui.cursor = wzrd_cursor_default;
-	wzrd_gui.keyboard_keys = keys;
-	wzrd_gui.checkmark = checkmark;
-	// Set parameters
-	wzrd_gui.time = time_in_ms;
-	wzrd_gui.mouse_left = mouse_left;
-	wzrd_gui.mouse_pos = mouse_pos;
-	wzrd_gui.commands_count = 0;
-	wzrd_gui.current_crate_index = -1;
-	wzrd_gui.boxes_count = 0;
+void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, wzrd_v2 window_size, wzrd_icons icons, wzrd_color default_color) {
+
+	g_gui = gui;
+	g_gui->default_color = default_color;
+	g_gui->icons = icons;
+	g_gui->keyboard_keys = keys;
+	g_gui->time = time_in_ms;
+	g_gui->mouse_left = mouse_left;
+	g_gui->mouse_pos = mouse_pos;
+	g_gui->current_crate_index = -1;
+	g_gui->boxes_count = 0;
+	g_gui->window_width = window_size.w;
+	g_gui->window_height = window_size.h;
+
 
 	// Move out of the function
-	wzrd_gui.line_size = 1;
+	g_gui->line_size = 1;
 
 	// Zero out stuff
-	memset(wzrd_gui.boxes, 0, sizeof(wzrd_box) * wzrd_gui.boxes_count);
+	memset(g_gui->boxes, 0, sizeof(wzrd_box) * g_gui->boxes_count);
 
-	static double last_time_clicked;
 	static double time = 0;
 	time += 16.7;
-
-	if (mouse_left == EguiDeactivating) {
-		if (time - last_time_clicked <= 500) {
-			wzrd_gui.double_click = true;
-		}
-		else {
-			wzrd_gui.double_click = false;
-		}
-		last_time_clicked = time;
-	}
 
 	// Begin drawing first window
 	static EguiV2i pos;
 	EguiCrateBegin(
 		CrateId_Screen,
 		(wzrd_box) {
-		.w = wzrd_gui.window_width,
-			.h = wzrd_gui.window_height,
+		.w = g_gui->window_width,
+			.h = g_gui->window_height,
 			.name = str128_create("Main window"),
 			.pad_left = 5, .pad_top = 5,
 			.pad_right = 5,
 			.pad_bottom = 5,
 			.child_gap = 5,
+			.border_type = BorderType_None
 	});
 
-	wzrd_gui.input_box_timer += 16.7;
+	g_gui->input_box_timer += 16.7;
 }
 
-void EguiRectDraw(wzrd_rect rect, wzrd_color color) {
+void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color color) {
 
 	EguiDrawCommand command = (EguiDrawCommand){
 		.type = DrawCommandType_Rect,
@@ -456,22 +421,22 @@ void EguiRectDraw(wzrd_rect rect, wzrd_color color) {
 		.color = color
 	};
 
-	assert(command.dest_rect.x >= 0);
+	/*assert(command.dest_rect.x >= 0);
 	assert(command.dest_rect.y >= 0);
 	assert(command.dest_rect.w >= 0);
-	assert(command.dest_rect.h >= 0);
-	assert(command.dest_rect.x + command.dest_rect.w <= wzrd_gui.window_width);
-	assert(command.dest_rect.y + command.dest_rect.h <= wzrd_gui.window_height);
+	assert(command.dest_rect.h >= 0);*/
+	/*assert(command.dest_rect.x + command.dest_rect.w <= g_gui->window_width);
+	assert(command.dest_rect.y + command.dest_rect.h <= g_gui->window_height);*/
 
-	assert(wzrd_gui.commands_count < MAX_NUM_DRAW_COMMANDS - 1);
-	wzrd_gui.draw_commands[wzrd_gui.commands_count++] = command;
+	assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+	buffer->commands[buffer->count++] = command;
 }
 
 wzrd_box* egui_box_get_by_name(str128 name) {
 	if (!name.len) return 0;
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		if (str128_equal(name, wzrd_gui.boxes[i].name)) {
-			return wzrd_gui.boxes + i;
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		if (str128_equal(name, g_gui->boxes[i].name)) {
+			return g_gui->boxes + i;
 		}
 	}
 
@@ -487,20 +452,20 @@ bool IsRectInsideRect(wzrd_rect a, wzrd_rect b) {
 	return res;
 }
 
-EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool* is_hovered) {
 
 	EguiCrateEnd();
 
 	// Test each opened panel has been closed
-	if (wzrd_gui.total_num_panels != 0) {
+	if (g_gui->total_num_panels != 0) {
 		assert(0);
 	}
 
-	assert(wzrd_gui.total_num_windows == 0);
+	assert(g_gui->total_num_windows == 0);
 
 	// Calculate size
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		wzrd_box* owner = &wzrd_gui.boxes[i];
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		wzrd_box* owner = &g_gui->boxes[i];
 
 		owner->absolute_rect.w = owner->w;
 		owner->absolute_rect.h = owner->h;
@@ -508,7 +473,7 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		float max_w = 0, max_h = 0;
 		float children_h = 0, children_w = 0;
 		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &wzrd_gui.boxes[owner->children[j]];
+			wzrd_box* child = &g_gui->boxes[owner->children[j]];
 
 			if (child->is_crate) continue;
 
@@ -520,8 +485,8 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		}
 
 		// Default resizing
-		float available_w = owner->w - owner->pad_left - owner->pad_right - 4 * wzrd_gui.line_size;
-		float available_h = owner->h - owner->pad_top - owner->pad_bottom - 4 * wzrd_gui.line_size;
+		float available_w = owner->w - owner->pad_left - owner->pad_right - 4 * g_gui->line_size;
+		float available_h = owner->h - owner->pad_top - owner->pad_bottom - 4 * g_gui->line_size;
 
 		if (owner->children_count) {
 			if (owner->row_mode)
@@ -532,7 +497,7 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 
 		// Handle growing
 		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &wzrd_gui.boxes[owner->children[j]];
+			wzrd_box* child = &g_gui->boxes[owner->children[j]];
 
 			if (child->grow_horizontal) {
 				if (owner->row_mode) {
@@ -565,7 +530,7 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		{
 			float w = 0, h = 0;
 			for (int j = 0; j < owner->children_count; ++j) {
-				wzrd_box* child = &wzrd_gui.boxes[owner->children[j]];
+				wzrd_box* child = &g_gui->boxes[owner->children[j]];
 				if (owner->row_mode)
 					w += child->absolute_rect.w;
 				else
@@ -574,23 +539,22 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 			//assert(w <= owner->absolute_rect.w);
 			//assert(h <= owner->absolute_rect.h);
 		}
+
 	}
 
-
-
 	// Calculate positions
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		wzrd_box* owner = &wzrd_gui.boxes[i];
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		wzrd_box* owner = &g_gui->boxes[i];
 
 		if (owner->is_crate) {
 			if (owner->parent) {
-				owner->x += wzrd_gui.boxes[owner->parent].x;
-				owner->y += wzrd_gui.boxes[owner->parent].y;
+				owner->x += g_gui->boxes[owner->parent].x;
+				owner->y += g_gui->boxes[owner->parent].y;
 
 			}
 			else {
-				owner->x += owner->x;
-				owner->y += owner->y;
+				//owner->x += owner->x;
+				//owner->y += owner->y;
 			}
 
 			owner->absolute_rect.x = owner->x;
@@ -599,13 +563,13 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 
 		float x = owner->x + owner->pad_left, y = owner->y + owner->pad_top;
 
-		x += 2 * wzrd_gui.line_size;
-		y += 2 * wzrd_gui.line_size;
+		x += 2 * g_gui->line_size;
+		y += 2 * g_gui->line_size;
 
 		// Center
 		float w = 0, h = 0, max_w = 0, max_h = 0;
 		for (int i = 0; i < owner->children_count; ++i) {
-			wzrd_box* child = &wzrd_gui.boxes[owner->children[i]];
+			wzrd_box* child = &g_gui->boxes[owner->children[i]];
 
 			if (child->w > max_w)
 				max_w = child->w;
@@ -637,24 +601,24 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		}
 
 		if (owner->center_x && owner->row_mode) {
-			x += (owner->w - 4 * wzrd_gui.line_size - owner->pad_left - owner->pad_right) / 2 - w / 2;
+			x += (owner->w - 4 * g_gui->line_size - owner->pad_left - owner->pad_right) / 2 - w / 2;
 		}
 		if (owner->center_y && !owner->row_mode) {
-			y += (owner->h - 4 * wzrd_gui.line_size - owner->pad_top - owner->pad_bottom) / 2 - h / 2;
+			y += (owner->h - 4 * g_gui->line_size - owner->pad_top - owner->pad_bottom) / 2 - h / 2;
 		}
 
 		// Calc positions
 		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &wzrd_gui.boxes[owner->children[j]];
+			wzrd_box* child = &g_gui->boxes[owner->children[j]];
 
 			child->x += x;
 			child->y += y;
 
 			if (owner->center_y && owner->row_mode) {
-				child->y += (owner->h - 4 * wzrd_gui.line_size - owner->pad_top - owner->pad_bottom) / 2 - child->h / 2;
+				child->y += (owner->h - 4 * g_gui->line_size - owner->pad_top - owner->pad_bottom) / 2 - child->h / 2;
 			}
 			if (owner->center_x && !owner->row_mode) {
-				child->x += (owner->w - 4 * wzrd_gui.line_size - owner->pad_top - owner->pad_bottom) / 2 - child->w / 2;
+				child->x += (owner->w - 4 * g_gui->line_size - owner->pad_top - owner->pad_bottom) / 2 - child->w / 2;
 			}
 
 			if (owner->row_mode) {
@@ -674,136 +638,151 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		}
 	}
 
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		for (int j = 0; j < wzrd_gui.boxes[i].children_count; ++j) {
-			wzrd_box* owner = wzrd_gui.boxes + i;
-			wzrd_box* child = wzrd_gui.boxes + wzrd_gui.boxes[i].children[j];
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		for (int j = 0; j < g_gui->boxes[i].children_count; ++j) {
+			wzrd_box* owner = g_gui->boxes + i;
+			wzrd_box* child = g_gui->boxes + g_gui->boxes[i].children[j];
 			if (!IsRectInsideRect(child->absolute_rect, owner->absolute_rect)) {
 				owner->color = EGUI_ORANGE;
 				child->color = EGUI_RED;
 			}
 		}
 	}
-	
-	// Mouse interaction
-	wzrd_box* hovered_box = 0;
-	int depth = 0;
 
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-		wzrd_box* box = wzrd_gui.boxes + i;
-		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { wzrd_gui.mouse_pos.x, wzrd_gui.mouse_pos.y },
+	// Exit early if window is unfocused
+	if (!wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
+		(wzrd_rect){0, 0, g_gui->window_width, g_gui->window_height})) {
+		*is_hovered = false;
+		g_gui = 0;
+		return;
+	}
+	else {
+		*is_hovered = true;
+	}
+
+	// Mouse interaction
+	*cursor = wzrd_cursor_default;
+	wzrd_box* hovered_box = 0;
+
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		wzrd_box* box = g_gui->boxes + i;
+		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
 			box->absolute_rect);
-		if (is_hover
-			&& box->depth >= depth
-			) {
+		if (is_hover) {
 			hovered_box = box;
-			depth = box->depth;
 		}
 	}
 
-	wzrd_box* hot_box = egui_box_get_by_name(wzrd_gui.hot_item);
-	wzrd_box* active_box = egui_box_get_by_name(wzrd_gui.active_item);
+	if (hovered_box) {
+		if (hovered_box->is_button) {
+			*cursor = wzrd_cursor_hand;
+		}
+	}
+
+	wzrd_box* hot_box = egui_box_get_by_name(g_gui->hot_item);
+	wzrd_box* active_box = egui_box_get_by_name(g_gui->active_item);
 
 	if (active_box) {
-		if (wzrd_gui.mouse_left == EguiDeactivating) {
+		if (g_gui->mouse_left == EguiDeactivating) {
 			if (hot_box == active_box) {
-				wzrd_gui.clicked_item = active_box->name;
+				g_gui->clicked_item = active_box->name;
 
 			}
-			wzrd_gui.active_item = (str128){ 0 };
+			g_gui->active_item = (str128){ 0 };
 		}
 	}
 
 	if (hot_box) {
 		if (hot_box->flat_button)
 			hot_box->color = EGUI_DARKBLUE;
-		if (wzrd_gui.mouse_left == EguiActivating) {
-			wzrd_gui.active_item = hot_box->name;
+		if (g_gui->mouse_left == EguiActivating) {
+			g_gui->active_item = hot_box->name;
 		}
 	}
 
 	if (hovered_box) {
-		wzrd_gui.hot_item = hovered_box->name;
+		g_gui->hot_item = hovered_box->name;
 	}
 	else {
-		wzrd_gui.hot_item = (str128){ 0 };
+		g_gui->hot_item = (str128){ 0 };
 	}
 
 	// stuff
-	if (wzrd_gui.clicked_item.len) {
-		wzrd_box* clicked_box = egui_box_get_by_name(wzrd_gui.clicked_item);
+	if (g_gui->clicked_item.len) {
+		wzrd_box* clicked_box = egui_box_get_by_name(g_gui->clicked_item);
 		if (clicked_box->is_input_box) {
-			wzrd_gui.active_input_box = clicked_box->name;
+			g_gui->active_input_box = clicked_box->name;
 		}
 		else {
-			wzrd_gui.active_input_box = (str128){ 0 };
+			g_gui->active_input_box = (str128){ 0 };
 		}
 	}
 
-	if (wzrd_gui.mouse_left == EguiInactive) {
-		wzrd_gui.clicked_item = (str128){ 0 };
+	if (g_gui->mouse_left == EguiInactive) {
+		g_gui->clicked_item = (str128){ 0 };
 	}
+
 
 	// Border resize
 	{
-		wzrd_gui.left_resized_item = (str128){ 0 };
-		wzrd_gui.right_resized_item = (str128){ 0 };
-		wzrd_gui.top_resized_item = (str128){ 0 };
-		wzrd_gui.bottom_resized_item = (str128){ 0 };
+		g_gui->left_resized_item = (str128){ 0 };
+		g_gui->right_resized_item = (str128){ 0 };
+		g_gui->top_resized_item = (str128){ 0 };
+		g_gui->bottom_resized_item = (str128){ 0 };
 
-		for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
-			wzrd_box* owner = wzrd_gui.boxes + i;
+		for (int i = 0; i < g_gui->boxes_count; ++i) {
+			wzrd_box* owner = g_gui->boxes + i;
 			for (int j = 0; j < owner->children_count; ++j) {
-				wzrd_box* child = &wzrd_gui.boxes[owner->children[j]];
+				wzrd_box* child = &g_gui->boxes[owner->children[j]];
 
 				float border_size = 2;
 
 				if (!child->resizable) continue;
 
 				bool is_inside_left_border =
-					wzrd_gui.mouse_pos.x >= child->absolute_rect.x &&
-					wzrd_gui.mouse_pos.y >= child->absolute_rect.y &&
-					wzrd_gui.mouse_pos.x < child->absolute_rect.x + border_size &&
-					wzrd_gui.mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+					g_gui->mouse_pos.x >= child->absolute_rect.x &&
+					g_gui->mouse_pos.y >= child->absolute_rect.y &&
+					g_gui->mouse_pos.x < child->absolute_rect.x + border_size &&
+					g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
 				bool is_inside_right_border =
-					wzrd_gui.mouse_pos.x >= child->absolute_rect.x + child->absolute_rect.w - border_size &&
-					wzrd_gui.mouse_pos.y >= child->absolute_rect.y &&
-					wzrd_gui.mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-					wzrd_gui.mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+					g_gui->mouse_pos.x >= child->absolute_rect.x + child->absolute_rect.w - border_size &&
+					g_gui->mouse_pos.y >= child->absolute_rect.y &&
+					g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+					g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
 				bool is_inside_top_border =
-					wzrd_gui.mouse_pos.x >= child->absolute_rect.x &&
-					wzrd_gui.mouse_pos.y >= child->absolute_rect.y &&
-					wzrd_gui.mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-					wzrd_gui.mouse_pos.y < child->absolute_rect.y + border_size;
+					g_gui->mouse_pos.x >= child->absolute_rect.x &&
+					g_gui->mouse_pos.y >= child->absolute_rect.y &&
+					g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+					g_gui->mouse_pos.y < child->absolute_rect.y + border_size;
 				bool is_inside_bottom_border =
-					wzrd_gui.mouse_pos.x >= child->absolute_rect.x &&
-					wzrd_gui.mouse_pos.y >= child->absolute_rect.y + child->absolute_rect.h - border_size &&
-					wzrd_gui.mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-					wzrd_gui.mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+					g_gui->mouse_pos.x >= child->absolute_rect.x &&
+					g_gui->mouse_pos.y >= child->absolute_rect.y + child->absolute_rect.h - border_size &&
+					g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+					g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
 
 				if (is_inside_top_border || is_inside_bottom_border) {
-					wzrd_gui.cursor = EguiCursorVerticalArrow;
+					*cursor = wzrd_cursor_vertical_arrow;
 				}
 				else if (is_inside_left_border || is_inside_right_border) {
-					wzrd_gui.cursor = EguiCursorHorizontalArrow;
+					*cursor = wzrd_cursor_horizontal_arrow;
 				}
 
-				if (*wzrd_gui.active_item.val) {
+				if (*g_gui->active_item.val) {
 					if (is_inside_bottom_border) {
 						child->color = EGUI_PURPLE;
-						wzrd_gui.bottom_resized_item = child->name;
+						g_gui->bottom_resized_item = child->name;
 					}
 					else if (is_inside_top_border) {
 						child->color = EGUI_PURPLE;
-						wzrd_gui.top_resized_item = child->name;
+						g_gui->top_resized_item = child->name;
 					}
 					else if (is_inside_left_border) {
 						child->color = EGUI_PURPLE;
-						wzrd_gui.left_resized_item = child->name;
+						g_gui->left_resized_item = child->name;
 					}
 					else if (is_inside_right_border) {
 						child->color = EGUI_PURPLE;
-						wzrd_gui.right_resized_item = child->name;
+						g_gui->right_resized_item = child->name;
 					}
 				}
 			}
@@ -812,18 +791,20 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 
 	// Drawing
 	wzrd_box boxes[MAX_NUM_BOXES] = { 0 };
-	memcpy(boxes, wzrd_gui.boxes, sizeof(wzrd_box) * wzrd_gui.boxes_count);
-	qsort(boxes, wzrd_gui.boxes_count, sizeof(wzrd_box), CompareBoxes);
+	memcpy(boxes, g_gui->boxes, sizeof(wzrd_box) * g_gui->boxes_count);
+	qsort(boxes, g_gui->boxes_count, sizeof(wzrd_box), CompareBoxes);
 
 	// Mouse position
-	wzrd_gui.previous_mouse_pos = wzrd_gui.mouse_pos;
+	g_gui->previous_mouse_pos = g_gui->mouse_pos;
 
 	// Draw boxes
-	for (int i = 0; i < wzrd_gui.boxes_count; ++i) {
+	buffer->count = 0;
+
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
 
 		wzrd_box box = boxes[i];
 
-		EguiRectDraw((wzrd_rect) {
+		EguiRectDraw(buffer, (wzrd_rect) {
 			.x = box.absolute_rect.x,
 				.y = box.absolute_rect.y,
 				.h = box.absolute_rect.h,
@@ -832,7 +813,7 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 			box.color);
 
 		// Borders (1215 x 810)
-		int line_size = wzrd_gui.line_size;
+		int line_size = g_gui->line_size;
 
 		wzrd_rect top0 = (wzrd_rect){ box.absolute_rect.x, box.absolute_rect.y, box.absolute_rect.w - line_size, line_size };
 		wzrd_rect left0 = (wzrd_rect){ box.absolute_rect.x, box.absolute_rect.y, line_size, box.absolute_rect.h };
@@ -858,77 +839,77 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 		bool debug = false;
 		if (debug) {
 			// Draw top and left lines
-			EguiRectDraw(top0, EGUI_BLUE);
-			EguiRectDraw(left0, EGUI_BLUE);
-			EguiRectDraw(top1, EGUI_ORANGE);
-			EguiRectDraw(left1, EGUI_ORANGE);
+			EguiRectDraw(buffer, top0, EGUI_BLUE);
+			EguiRectDraw(buffer, left0, EGUI_BLUE);
+			EguiRectDraw(buffer, top1, EGUI_ORANGE);
+			EguiRectDraw(buffer, left1, EGUI_ORANGE);
 
 			// Draw bottom and right lines
-			EguiRectDraw(bottom0, EGUI_GREEN);
-			EguiRectDraw(right0, EGUI_GREEN);
-			EguiRectDraw(bottom1, EGUI_PURPLE);
-			EguiRectDraw(right1, EGUI_PURPLE);
+			EguiRectDraw(buffer, bottom0, EGUI_GREEN);
+			EguiRectDraw(buffer, right0, EGUI_GREEN);
+			EguiRectDraw(buffer, bottom1, EGUI_PURPLE);
+			EguiRectDraw(buffer, right1, EGUI_PURPLE);
 
 		}
 		else if (box.border_type == BorderType_Default) {
 			// Draw top and left lines
-			EguiRectDraw(top0, EGUI_WHITE2);
-			EguiRectDraw(left0, EGUI_WHITE2);
-			EguiRectDraw(top1, EGUI_LIGHTGRAY);
-			EguiRectDraw(left1, EGUI_LIGHTGRAY);
+			EguiRectDraw(buffer, top0, EGUI_WHITE2);
+			EguiRectDraw(buffer, left0, EGUI_WHITE2);
+			EguiRectDraw(buffer, top1, EGUI_LIGHTGRAY);
+			EguiRectDraw(buffer, left1, EGUI_LIGHTGRAY);
 
 			// Draw bottom and right lines
-			EguiRectDraw(bottom0, EGUI_BLACK);
-			EguiRectDraw(right0, EGUI_BLACK);
-			EguiRectDraw(bottom1, EGUI_GRAY);
-			EguiRectDraw(right1, EGUI_GRAY);
+			EguiRectDraw(buffer, bottom0, EGUI_BLACK);
+			EguiRectDraw(buffer, right0, EGUI_BLACK);
+			EguiRectDraw(buffer, bottom1, EGUI_GRAY);
+			EguiRectDraw(buffer, right1, EGUI_GRAY);
 		}
 		else if (box.border_type == BorderType_Clicked) {
 			// Draw top and left lines
-			EguiRectDraw(top0, EGUI_BLACK);
-			EguiRectDraw(left0, EGUI_BLACK);
-			EguiRectDraw(top1, EGUI_GRAY);
-			EguiRectDraw(left1, EGUI_GRAY);
+			EguiRectDraw(buffer, top0, EGUI_BLACK);
+			EguiRectDraw(buffer, left0, EGUI_BLACK);
+			EguiRectDraw(buffer, top1, EGUI_GRAY);
+			EguiRectDraw(buffer, left1, EGUI_GRAY);
 
 			// Draw bottom and right lines
-			EguiRectDraw(bottom0, EGUI_WHITE2);
-			EguiRectDraw(right0, EGUI_WHITE2);
-			EguiRectDraw(bottom1, EGUI_LIGHTESTGRAY);
-			EguiRectDraw(right1, EGUI_LIGHTESTGRAY);
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2);
+			EguiRectDraw(buffer, right0, EGUI_WHITE2);
+			EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY);
+			EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY);
 		}
 		else if (box.border_type == BorderType_InputBox) {
 			// Draw top and left lines
-			EguiRectDraw(top0, EGUI_GRAY);
-			EguiRectDraw(left0, EGUI_GRAY);
-			EguiRectDraw(top1, EGUI_BLACK);
-			EguiRectDraw(left1, EGUI_BLACK);
+			EguiRectDraw(buffer, top0, EGUI_GRAY);
+			EguiRectDraw(buffer, left0, EGUI_GRAY);
+			EguiRectDraw(buffer, top1, EGUI_BLACK);
+			EguiRectDraw(buffer, left1, EGUI_BLACK);
 
 			// Draw bottom and right lines
-			EguiRectDraw(bottom0, EGUI_WHITE2);
-			EguiRectDraw(right0, EGUI_WHITE2);
-			EguiRectDraw(bottom1, EGUI_LIGHTESTGRAY);
-			EguiRectDraw(right1, EGUI_LIGHTESTGRAY);
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2);
+			EguiRectDraw(buffer, right0, EGUI_WHITE2);
+			EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY);
+			EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY);
 		}
 		else if (box.border_type == BorderType_Black) {
 			// Draw top and left lines
-			EguiRectDraw(top0, EGUI_BLACK);
-			EguiRectDraw(left0, EGUI_BLACK);
-			EguiRectDraw(top1, EGUI_WHITE2);
-			EguiRectDraw(left1, EGUI_WHITE2);
+			EguiRectDraw(buffer, top0, EGUI_BLACK);
+			EguiRectDraw(buffer, left0, EGUI_BLACK);
+			EguiRectDraw(buffer, top1, EGUI_WHITE2);
+			EguiRectDraw(buffer, left1, EGUI_WHITE2);
 
 			// Draw bottom and right lines
-			EguiRectDraw(bottom0, EGUI_BLACK);
-			EguiRectDraw(right0, EGUI_BLACK);
-			EguiRectDraw(bottom1, EGUI_WHITE2);
-			EguiRectDraw(right1, EGUI_WHITE2);
+			EguiRectDraw(buffer, bottom0, EGUI_BLACK);
+			EguiRectDraw(buffer, right0, EGUI_BLACK);
+			EguiRectDraw(buffer, bottom1, EGUI_WHITE2);
+			EguiRectDraw(buffer, right1, EGUI_WHITE2);
 		}
 		else if (box.border_type == BorderType_BottomLine) {
-			EguiRectDraw(bottom0, EGUI_WHITE2);
-			EguiRectDraw(bottom1, EGUI_GRAY);
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2);
+			EguiRectDraw(buffer, bottom1, EGUI_GRAY);
 		}
 		else if (box.border_type == BorderType_LeftLine) {
-			EguiRectDraw(left0, EGUI_GRAY);
-			EguiRectDraw(left1, EGUI_WHITE2);
+			EguiRectDraw(buffer, left0, EGUI_GRAY);
+			EguiRectDraw(buffer, left1, EGUI_WHITE2);
 		}
 
 		for (int j = 0; j < box.items_count; ++j) {
@@ -1060,16 +1041,17 @@ EguiDrawCommandsBuffer wzrd_end(bool* change_click_icon) {
 			command.dest_rect.x += item.pad_left;
 			command.dest_rect.y += item.pad_top;
 
-			Draw(command);
+			assert(command.dest_rect.x >= 0);
+			assert(command.dest_rect.y >= 0);
+			assert(command.dest_rect.w >= 0);
+			assert(command.dest_rect.h >= 0);
+
+			assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+			buffer->commands[buffer->count++] = command;
 		}
 	}
 
-	// Return
-	EguiDrawCommandsBuffer result = { 0 };
-	memcpy(result.commands, wzrd_gui.draw_commands, wzrd_gui.commands_count * sizeof(EguiDrawCommand));
-	result.num = wzrd_gui.commands_count;
-
-	return result;
+	g_gui = 0;
 }
 
 bool EguiButtonIcon2(wzrd_texture texture) {
@@ -1108,8 +1090,29 @@ bool wzrd_button_icon2(wzrd_box box, wzrd_texture texture) {
 	return result;
 }
 
+wzrd_box* wzrd_box_get_by_name(Egui* gui, str128 str) {
+	bool flag = false;
+	wzrd_box* result = 0;
+	for (int i = 0; i < gui->boxes_count; ++i) {
+		if (str128_equal(gui->boxes[i].name, str128_create("Target"))) {
+			flag = true;
+			result = gui->boxes + i;
+			break;
+		}
+	}
+	assert(flag);
+
+	return result;
+}
+
+wzrd_rect wzrd_box_get_rect(wzrd_box* box) {
+	assert(box);
+
+	return box->absolute_rect;
+}
+
 bool IsActive() {
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.active_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->active_item)) {
 		return true;
 	}
 
@@ -1122,7 +1125,7 @@ bool wzrd_button_icon(wzrd_texture texture) {
 	result |= EguiButtonRawBegin((wzrd_box) { .w = 24, .h = 22, .center = true });
 	{
 		active = IsActive();
-		
+
 		result |= EguiButtonRawBegin((wzrd_box) { .border_type = BorderType_None, .w = 16, .h = 16 });
 		{
 			active |= IsActive();
@@ -1143,85 +1146,6 @@ bool wzrd_button_icon(wzrd_texture texture) {
 
 	return result;
 }
-
-// Draw tooltip using control bounds
-static void EguiTooltip(wzrd_rect controlRec, Str32 str)
-{
-	if (str.val != 0)
-	{
-		wzrd_v2 textSize = { 0 };//MeasureTextEx(GuiGetFont(), str.str, (float)GuiGetStyle(DEFAULT, TEXT_SIZE), (float)GuiGetStyle(DEFAULT, TEXT_SPACING));
-
-		if ((controlRec.x + textSize.x + 16) > GetScreenWidth()) controlRec.x -= (textSize.x + 16 - controlRec.w);
-
-		wzrd_rect rect = (wzrd_rect){ controlRec.x, controlRec.y + controlRec.h + 4, textSize.x + 16, 0 + 8.0f };
-
-		//EguiCrateBegin(Str32Create("Tooltip"), (EguiV2) { rect.x, rect.y }, (Vector2) { rect.width, rect.height }, (Vector2) { 0 }, BorderType_Black, (PlatformColor) { 255, 255, 204, 255 }, CrateId_Tooltip, EguiCrateBegin);
-#if 0
-		EguiCrateBegin(false, (EguiV2) { rect.x, rect.y }, (EguiV2) { rect.w, rect.h },
-			CrateId_Tooltip,
-			(Box) {
-			.name = Str128Create("Tooltip"),
-				.border_type = BorderType_Black,
-				.color = (EguiColor){ 255, 255, 204, 255 }
-		});
-		{
-			//EguiLabel((EguiRect) { controlRec.x, controlRec.y + controlRec.h + 4, textSize.x + 16, 8.0f }, str.str);
-		}
-		EguiCrateEnd();
-#endif
-	}
-}
-
-typedef enum {
-	STATE_NORMAL = 0,
-	STATE_FOCUSED,
-	STATE_PRESSED,
-	STATE_DISABLED
-} GuiState;
-
-GuiState guiState;
-// Panel control
-#if 0
-int EguiPanel(PlatformRect bounds, const char* text)
-{
-#if !defined(RAYGUI_PANEL_BORDER_WIDTH)
-#define RAYGUI_PANEL_BORDER_WIDTH   1
-#endif
-
-	int result = 0;
-	GuiState state = guiState;
-
-	// Text will be drawn as a header bar (if provided)
-	PlatformRect statusBar = { bounds.x, bounds.y, bounds.width, bounds.height };
-	//if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT * 2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT * 2.0f;
-
-	if (text != NULL)
-	{
-		// Move panel bounds after the header bar
-		bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
-		bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
-	}
-
-	// Draw control
-	//--------------------------------------------------------------------
-	if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar
-
-#if 0
-	EguiDrawRect(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED) ? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)),
-		GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED) ? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR)));
-#else 
-	EguiDrawRect((PlatformRect) { bounds.x, bounds.y, bounds.width, 1 }, 0, BLACK, BLACK);
-	EguiDrawRect((PlatformRect) { bounds.x, bounds.y, 1, bounds.height }, 0, BLACK, BLACK);
-	EguiDrawRect((PlatformRect) { bounds.x, bounds.y + bounds.height, bounds.width, 1 }, 0, LIGHTGRAY, LIGHTGRAY);
-	EguiDrawRect((PlatformRect) { bounds.x + bounds.width, bounds.y, 1, bounds.height }, 0, LIGHTGRAY, LIGHTGRAY);
-
-#endif
-
-	//--------------------------------------------------------------------
-
-	return result;
-}
-#endif
 
 bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active) {
 	bool b1 = false, b2 = false;
@@ -1274,8 +1198,8 @@ bool EguiButton2(wzrd_box box, str128 str, wzrd_color color) {
 	EguiButtonRawEnd();
 
 	if (flag) {
-		wzrd_gui.boxes[wzrd_gui.boxes_count - 1].color = EGUI_DARKBLUE;
-		wzrd_gui.boxes[wzrd_gui.boxes_count - 2].color = EGUI_DARKBLUE;
+		g_gui->boxes[g_gui->boxes_count - 1].color = EGUI_DARKBLUE;
+		g_gui->boxes[g_gui->boxes_count - 2].color = EGUI_DARKBLUE;
 
 	}
 
@@ -1284,14 +1208,11 @@ bool EguiButton2(wzrd_box box, str128 str, wzrd_color color) {
 
 bool EguiButtonRawBegin(wzrd_box box) {
 	bool result = false;
+	box.is_button = true;
 	wzrd_box_begin(box);
 
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.clicked_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->clicked_item)) {
 		result = true;
-	}
-
-	if (IsHovered()) {
-		wzrd_gui.cursor = EguiCursorHand;
 	}
 
 	return result;
@@ -1332,7 +1253,7 @@ void EguiLabel(str128 str) {
 
 bool wzrd_is_active() {
 	bool result = false;
-	if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.active_item)) {
+	if (str128_equal(wzrd_box_get_current()->name, g_gui->active_item)) {
 		result = true;
 	}
 
@@ -1358,10 +1279,10 @@ void wzrd_input_box(str128* str, int max_num_keys) {
 		{
 			str128 str2 = *str;
 
-			if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.active_input_box)) {
+			if (str128_equal(wzrd_box_get_current()->name, g_gui->active_input_box)) {
 
-				for (int i = 0; i < wzrd_gui.keyboard_keys.count; ++i) {
-					wzrd_keyboard_key key = wzrd_gui.keyboard_keys.keys[i];
+				for (int i = 0; i < g_gui->keyboard_keys.count; ++i) {
+					wzrd_keyboard_key key = g_gui->keyboard_keys.keys[i];
 
 					if (key.val == '\b' &&
 						str->len > 0 &&
@@ -1383,8 +1304,8 @@ void wzrd_input_box(str128* str, int max_num_keys) {
 
 				static bool show_caret;
 
-				if (wzrd_gui.input_box_timer - wzrd_gui.time > 500) {
-					wzrd_gui.input_box_timer = 0;
+				if (g_gui->input_box_timer - g_gui->time > 500) {
+					g_gui->input_box_timer = 0;
 					show_caret = !show_caret;
 				}
 
@@ -1395,7 +1316,7 @@ void wzrd_input_box(str128* str, int max_num_keys) {
 
 			}
 
-			/*if (str128_equal(wzrd_gui.active_input_box, wzrd_box_get_current()->name)) {
+			/*if (str128_equal(g_gui->active_input_box, wzrd_box_get_current()->name)) {
 				wzrd_box_get_current()->color = EGUI_PINK;
 			}*/
 
@@ -1417,14 +1338,11 @@ bool EguiLabelButtonBegin(str128 str) {
 			.w = v.x,
 			.h = v.y,
 			.flat_button = true,
+			.is_button = true
 			//.center = true,
 	});
 	{
 		wzrd_item_add((Item) { .type = wzrd_item_type_str, .str = str128_create(str.val) });
-	}
-
-	if (IsHovered()) {
-		wzrd_gui.cursor = EguiCursorHand;
 	}
 
 	return result;
@@ -1432,7 +1350,6 @@ bool EguiLabelButtonBegin(str128 str) {
 
 bool EguiLabelButtonEnd() {
 	wzrd_box_end();
-
 }
 
 bool EguiLabelButton(str128 str) {
@@ -1456,9 +1373,9 @@ void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, str128 name, in
 				.color = (wzrd_color){ 57, 77, 205 }
 		});
 		{
-			if (str128_equal(wzrd_box_get_current()->name, wzrd_gui.active_item)) {
-				pos->x += wzrd_gui.mouse_pos.x - wzrd_gui.previous_mouse_pos.x;
-				pos->y += wzrd_gui.mouse_pos.y - wzrd_gui.previous_mouse_pos.y;
+			if (str128_equal(wzrd_box_get_current()->name, g_gui->active_item)) {
+				pos->x += g_gui->mouse_pos.x - g_gui->previous_mouse_pos.x;
+				pos->y += g_gui->mouse_pos.y - g_gui->previous_mouse_pos.y;
 			}
 		}
 		wzrd_box_end();
@@ -1473,7 +1390,7 @@ void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, str128 name, in
 			{
 				b |= EguiButtonRawBegin((wzrd_box) { .w = 12, .h = 12, .border_type = BorderType_None });
 				{
-					wzrd_item_add((Item) { .texture = wzrd_gui.icons.close, .type = ItemType_Texture });
+					wzrd_item_add((Item) { .texture = g_gui->icons.close, .type = ItemType_Texture });
 				}
 				EguiButtonRawEnd();
 			}
@@ -1499,7 +1416,7 @@ void EguiDialogEnd(bool active) {
 		EguiCrateEnd();
 }
 
-int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int w, bool *active) {
+int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int w, bool* active) {
 	assert(texts);
 	assert(texts_count);
 	assert(selected_text);
@@ -1521,7 +1438,7 @@ int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int 
 				.border_type = BorderType_None,
 				.color = EGUI_WHITE,
 				.w = w,
-				.h = WZRD_FONT_HEIGHT + 4 * wzrd_gui.line_size
+				.h = WZRD_FONT_HEIGHT + 4 * g_gui->line_size
 		};
 
 		wzrd_box b = box;
@@ -1529,17 +1446,17 @@ int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int 
 		int parent = 0;
 		EguiButton2(box, texts[*selected_text], EGUI_DARKBLUE);
 
-		parent = wzrd_gui.boxes_count - 1;
+		parent = g_gui->boxes_count - 1;
 
 		box.border_type = BorderType_None;
 
 		//bool* toggle2;
 
-		bool button = wzrd_button_icon2((wzrd_box) { .w = 20, .h = WZRD_FONT_HEIGHT + 4 * wzrd_gui.line_size, .center = true }, wzrd_gui.icons.dropdown);
+		bool button = wzrd_button_icon2((wzrd_box) { .w = 20, .h = WZRD_FONT_HEIGHT + 4 * g_gui->line_size, .center = true }, g_gui->icons.dropdown);
 		if (button) {
 			*active = !*active;
 		}
-		
+
 		if (*active) {
 			char str[128];
 			sprintf(str, "%s-dropdown", wzrd_box_get_current()->name.val);
@@ -1548,8 +1465,8 @@ int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int 
 			EguiCrateBegin(6, (wzrd_box) {
 				.parent = parent,
 					.y = box.h,
-					.w = box.w + 4 * wzrd_gui.line_size,
-					.h = box.h * texts_count + 4 * wzrd_gui.line_size,
+					.w = box.w + 4 * g_gui->line_size,
+					.h = box.h * texts_count + 4 * g_gui->line_size,
 					.name = str128_create(str),
 					.border_type = BorderType_Black,
 			});
@@ -1638,4 +1555,25 @@ void wzrd_label_list(Label_list label_list, int* selected) {
 	wzrd_box_end();
 }
 
+bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color) {
+	bool result = false;
+	bool active = false;
 
+	EguiCrateBegin(1, (wzrd_box) { .is_button = true, .color = color, .border_type = BorderType_None, .x = pos.x, .y = pos.y, .w = size.w, .h = size.h, .name = str128_create("wowy") });
+	{
+
+		result = IsActive();
+
+		if (result) {
+			printf("asdf\n");
+		}
+
+	}
+	EguiCrateEnd();
+
+
+	return result;
+}
+
+
+#endif

@@ -23,3 +23,4 @@ Texture_system texture_system;
 
 
 Texture texture_get_by_name(str128 s);
+void textures_load();

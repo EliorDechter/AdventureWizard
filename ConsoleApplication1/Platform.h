@@ -1,12 +1,11 @@
-#pragma once
+#ifndef PLATFORM_H
+#define PLATFORM_H
 
-//#define RAYGUI_IMPLEMENTATION
-//#include "raylib.h"
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <assert.h >
-#include <SDL3_image/SDL_image.h >
+#include <assert.h>
+#include <SDL3_image/SDL_image.h>
 #include <stdio.h>
 
 #define TARGET_TEXTURE_WIDTH 1920
@@ -125,6 +124,11 @@ typedef struct PlatformKey {
 	State state;
 } PlatformKey;
 
+typedef struct KeysPressed {
+	PlatformKey keys[32];
+	int count;
+} KeysPressed;
+
 typedef struct PlatformSystem {
 	State keyboard[128];
 	State mouse_left, mouse_right;
@@ -132,8 +136,7 @@ typedef struct PlatformSystem {
 	float previous_mouse_x, previous_mouse_y;
 	int window_width, window_height;
 	State keyboard_states[128];
-	PlatformKey input_keys[32];
-	int input_keys_count;
+	KeysPressed keys_pressed;
 	bool focus;
 } PlatformSystem;
 
@@ -145,7 +148,7 @@ typedef struct PlatformTargetTexture {
 	float h;
 } PlatformTargetTexture;
 
-#define TEXTURES_MAX_COUNT 128
+#define SDL_TEXTURES_MAX_COUNT 1024
 
 typedef struct Sdl {
 	SDL_Renderer* renderer;
@@ -160,7 +163,7 @@ typedef struct Sdl {
 	SDL_Mutex *mutex;
 	SDL_Cursor* cursor_hand, *cursor_default, *cursor_horizontal_arrow, *cursor_vertical_arrow;
 
-	SDL_Texture textures[TEXTURES_MAX_COUNT];
+	SDL_Texture textures[SDL_TEXTURES_MAX_COUNT];
 	int textures_count;
 } Sdl;
 
@@ -185,6 +188,8 @@ void PlatformLineDraw(float x0, float y0, float x1, float y1, float r, float g, 
 void PlatformTextureBeginTarget(PlatformTargetTexture texture);
 void PlatformTextureEndTarget();
 PlatformTargetTexture PlatformTargetTextureCreate();
-void PlatformSetCursor(PlatformCursor cursor);
+void platform_cursor_set(PlatformCursor cursor);
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a);
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color);
+
+#endif

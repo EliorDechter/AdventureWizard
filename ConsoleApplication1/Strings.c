@@ -15,7 +15,6 @@ bool str128_equal(str128 a, str128 b) {
 	return result;
 }
 
-
 void str128_concat(str128* dest, const str128* src) {
 	strcat(dest->val, src->val);
 	dest->len = strlen(dest->val);

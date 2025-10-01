@@ -1,28 +1,14 @@
 #include "Game.h"
 #include "Editor.h"
 
-#define MAX_NUM_DRAW_COMMANDS 1024
-
-void Draw(EguiDrawCommand command) {
-	assert(command.dest_rect.x >= 0);
-	assert(command.dest_rect.y >= 0);
-	assert(command.dest_rect.w >= 0);
-	assert(command.dest_rect.h >= 0);
-	//assert(command.rect_color.a);
-
-	assert(wzrd_gui.commands_count < MAX_NUM_DRAW_COMMANDS - 1);
-	wzrd_gui.draw_commands[wzrd_gui.commands_count++] = command;
-}
-
-void DrawBatch() {
-	for (int i = 0; i < wzrd_gui.commands_count; ++i) {
-		EguiDrawCommand command = wzrd_gui.draw_commands[i];
+void game_draw_gui_commands(wzrd_draw_commands_buffer* buffer) {
+	for (int i = 0; i < buffer->count; ++i) {
+		EguiDrawCommand command = buffer->commands[i];
 		if (command.type == DrawCommandType_Texture) {
 			PlatformTextureDrawFromSource(*(PlatformTexture*)&command.texture,
 				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
 		}
 		else if (command.type == DrawCommandType_String) {
-			//assert(!*command.str.str);
 			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y);
 		}
 		else if (command.type == DrawCommandType_Rect) {
@@ -46,10 +32,6 @@ void DrawBatch() {
 			//assert(0);
 		}
 	}
-}
-
-void DrawEditor(EguiDrawCommandsBuffer commands) {
-
 }
 
 EguiV2i TextGetSize(const char* str) {
@@ -95,129 +77,6 @@ typedef struct EguiMenuNode {
 } EguiMenuNode;
 
 
-bool EguiMenuNodeAdd(str128 str, int depth, bool expandable) {
-	bool result = false;
-	int minimized_depth = -1;
-	bool disable_next_depth = false;
-	bool* is_toggled = 0;
-
-	if (depth < minimized_depth)
-		disable_next_depth = false;
-
-	if (disable_next_depth)
-		return;
-
-	wzrd_box_begin((wzrd_box) {
-		.row_mode = true,
-			.h = 20,
-
-			.color = EGUI_WHITE,
-			.border_type = BorderType_None,
-	});
-	{
-		if (depth > 0) {
-			// Space
-			if (depth > 1)
-				EguiBox((wzrd_box) { .border_type = BorderType_None, .w = EDITOR_ICON_SIZE * (depth - 1), .h = EDITOR_ICON_SIZE });
-
-			// Lines and button
-			wzrd_box_begin((wzrd_box) {
-				.border_type = BorderType_None, .w = EDITOR_ICON_SIZE, .h = EDITOR_ICON_SIZE + 2
-			});
-			{
-				wzrd_item_add((Item) { .type = ItemType_TopVerticalDottedLine });
-
-				wzrd_item_add((Item) { .type = ItemType_RightHorizontalDottedLine });
-
-				// Button
-				if (expandable) {
-					wzrd_rect new_rect = EguiRectScale((wzrd_rect) { 0, 0, wzrd_box_get_current()->w, wzrd_box_get_current()->h }, 0.5);
-					is_toggled = EguiToggleBegin((wzrd_box) {
-						.border_type = BorderType_None, .color = EGUI_WHITE,
-							.x = new_rect.x, .y = new_rect.y, .w = new_rect.w, .h = new_rect.h
-					});
-					{
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0, 0, new_rect.w, 1 },
-								.color = EGUI_GRAY
-						});
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0 + new_rect.w - 1, 0, 1, new_rect.h },
-								.color = EGUI_GRAY
-						});
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0, 0 + new_rect.h - 1, new_rect.w, 1
-							},
-								.color = EGUI_GRAY
-						});
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0, 0, 1, new_rect.h },
-								.color = EGUI_GRAY
-						});
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0 + new_rect.w / 2, 0 + 3, 1, new_rect.h - 6 },
-								.color = EGUI_BLACK
-						});
-						wzrd_item_add((Item) {
-							.type = ItemType_Rect,
-								.rect = (wzrd_rect){ 0 + 3, 0 + new_rect.w / 2, new_rect.w - 6, 1 },
-								.color = EGUI_BLACK
-						});
-					}
-					EguiToggleEnd();
-
-					if (*is_toggled) {
-						disable_next_depth = true;
-					}
-				}
-			}
-			wzrd_box_end();
-		}
-
-		// Icon
-		char buff[64] = { 0 };
-		//sprintf(buff, "icon %d", i);
-		wzrd_box_begin((wzrd_box) {
-			.border_type = BorderType_None,
-				.color = EGUI_WHITE,
-				.w = 15,
-				.h = 15,
-				//.name = Str128Create(buff)
-		});
-		{
-			if (depth)
-				wzrd_item_add((Item) { .type = ItemType_LeftHorizontalDottedLine });
-
-			wzrd_item_add((Item) {
-				.type = ItemType_Texture,
-					.size = (wzrd_v2){ 30, 30 },
-					.texture = *(wzrd_texture*)&g_texture
-			});
-		}
-		wzrd_box_end();
-
-		// Name
-		if (EguiLabelButton(str)) {
-			if (!expandable) result = true;
-		}
-	}
-	wzrd_box_end();
-
-	PlatformV2i size = PlatformTextGetSize(str.val);
-	if (EguiLabelButton(str)) {
-		printf("asd");
-	}
-
-	if (is_toggled)
-		result = *is_toggled;
-
-	return result;
-}
 
 #if 0
 void nodes() {
@@ -333,18 +192,6 @@ void nodes() {
 }
 #endif
 
-str128 EguiMenu(EguiMenuNode nodes[], int nodes_count) {
-	int minimized_depth = -1;
-	bool disable_next_depth = false;
-	str128 result = { 0 };
-	for (int i = 0; i < nodes_count; ++i) {
-		EguiMenuNodeAdd(nodes[i].str, nodes[i].depth, nodes[i].expandable);
-
-	}
-
-	return result;
-}
-
 EguiV2i EguiV2iAdd(EguiV2i a, EguiV2i b) {
 	EguiV2i result = (EguiV2i){ a.x + b.x, a.y + b.y };
 
@@ -397,6 +244,8 @@ void game_entity_remove(Entity_handle handle) {
 
 Entity* game_entity_get(Entity_handle handle) {
 	int index = handle_get(&game.entities_handle_map, handle.val);
+
+	if (!index) return 0;
 
 	Entity* result = game.entities + index;
 
@@ -797,10 +646,10 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 	return result;*/
 }
 
-void game_run() {
+void game_run(wzrd_v2 window_size, wzrd_v2 *cursor) {
 
 	// entity mouse interaction 
-	{
+	if (game.mouse_pos.x >= 0 && game.mouse_pos.y >= 0 && game.mouse_pos.x <= window_size.x && game.mouse_pos.y <= window_size.y){
 		Entity_handle hovered_entity = { 0 };
 		int iterator_index = 1;
 		Entity_handle entity_handle = { 0 };
@@ -812,50 +661,54 @@ void game_run() {
 			}
 		}
 
-		if (game.active_entity.val.index) {
-			if (wzrd_gui.mouse_left == EguiDeactivating) {
-				game.active_entity = (Entity_handle){ 0 };
+		if (hovered_entity.val.index) {
+
+			if (game.active_entity.val.index) {
+				if (platform.mouse_left == EguiDeactivating) {
+					game.active_entity = (Entity_handle){ 0 };
+				}
+			}
+
+			if (platform.mouse_left == EguiDeactivating) {
+				if (!handle_equal(game.hot_entity.val, game.selected_entity.val)) {
+					Entity* clicked_entity = game_entity_get(game.selected_entity);
+					if (clicked_entity)
+						clicked_entity->color = (wzrd_color){ 255, 255, 255, 255 };
+				}
+			}
+
+			if (game.hot_entity.val.index) {
+				if (platform.mouse_left == EguiActivating) {
+					game.active_entity = game.hot_entity;
+
+					game.selected_entity = game.active_entity;
+
+					Entity* active_entity = game_entity_get(game.active_entity);
+				}
+			}
+
+			if (hovered_entity.val.index) {
+				game.hot_entity = hovered_entity;
+			}
+			else {
+				game.hot_entity = (Entity_handle){ 0 };
 			}
 		}
-
-		if (wzrd_gui.mouse_left == EguiDeactivating) {
-			if (!handle_equal(game.hot_entity.val, game.selected_entity.val)) {
-				Entity* clicked_entity = game_entity_get(game.selected_entity);
-				clicked_entity->color = (wzrd_color){ 255, 255, 255, 255 };
+		else {
+			if (platform.mouse_left == EguiDeactivating) {
 				game.selected_entity = (Entity_handle){ 0 };
 			}
 		}
-
-		if (game.hot_entity.val.index) {
-			if (wzrd_gui.mouse_left == EguiActivating) {
-				game.active_entity = game.hot_entity;
-
-				game.selected_entity = game.active_entity;
-
-
-				Entity* active_entity = game_entity_get(game.active_entity);
-			}
-		}
-
-		if (hovered_entity.val.index) {
-			game.hot_entity = hovered_entity;
-		}
-		else {
-			game.hot_entity = (Entity_handle){ 0 };
-		}
 	}
-
 	if (game.selected_entity.val.index) {
 		Entity* clicked_entity = game_entity_get(game.selected_entity);
 	}
 
 	Entity* active_entity = game_entity_get(game.active_entity);
 	if (active_entity) {
-		active_entity->rect.x += game.mouse_delta.x;
-		active_entity->rect.y += game.mouse_delta.y;
+		//active_entity->rect.x += game.mouse_delta.x;
+		//active_entity->rect.y += game.mouse_delta.y;
 	}
-
-
 
 	// Draw
 	PlatformTextureBeginTarget(game.target_texture);
@@ -876,10 +729,43 @@ void game_run() {
 			}, wzrd_color_to_platform_color(entity->color));
 		}
 
-		if (selected_entity) {
-			PlatformRect rect = (PlatformRect){ selected_entity->rect.x - 3, selected_entity->rect.y - 3, 6, 6 };
-			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
+		static Egui gui;
+		static wzrd_draw_commands_buffer buffer;
+
+#if 1
+		bool is_hovered = false;
+		wzrd_begin(&gui, 0,
+			(wzrd_v2) {
+			game.mouse_pos.x, game.mouse_pos.y
+		},
+			platform.mouse_left,
+			* (wzrd_keyboard_keys*)&platform.keys_pressed,
+		window_size	
+		, game.icons,
+			(wzrd_color) {
+			0, 0, 0, 0
+		});
+		{
+			if (selected_entity) {
+				bool button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 });
+				if (button) {
+					if (active_entity) {
+						active_entity->rect.x += game.mouse_delta.x;
+						active_entity->rect.y += game.mouse_delta.y;
+					}
+				}
+
+			}
 		}
+		wzrd_end(cursor, &buffer, &is_hovered);
+		if (is_hovered) {
+			//printf("%d\n", cursor);
+		}
+
+		game_draw_gui_commands(&buffer);
+
+#endif
+
 	}
 	PlatformTextureEndTarget();
 }
@@ -905,7 +791,7 @@ void game_init() {
 	PlatformTexture icon_stop = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\stop.png");
 	PlatformTexture icon_dropdown = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\icon_dropdown.png");
 
-	wzrd_gui.icons = (wzrd_icons){
+	game.icons = (wzrd_icons){
 		.close = *(wzrd_texture*)&g_close_texture,
 		.delete = *(wzrd_texture*)&icon_delete,
 		.entity = *(wzrd_texture*)&icon_entity,
@@ -925,7 +811,6 @@ void game_init() {
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
 			.color = (wzrd_color){ 255, 255, 255, 255 }
 	});
-
 
 }
 

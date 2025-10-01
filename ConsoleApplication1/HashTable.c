@@ -12,7 +12,7 @@ void hashtable_remove(hashtable* hashtable, str128 key) {
 void hashtable_add(hashtable* hashtable, str128 key, int value) {
 
 	for (int i = 0; i < MAX_NUM_HASHTABLE_ELEMENTS; ++i) {
-		if (strcmp(hashtable->elements[i].key.val, key) == 0) {
+		if (strcmp(hashtable->elements[i].key.val, key.val) == 0) {
 			hashtable->elements[i].value = value;
 		}
 	}
@@ -30,7 +30,7 @@ void hashtable_add(hashtable* hashtable, str128 key, int value) {
 
 int hashtable_get(hashtable hashtable, str128 key) {
 	for (int i = 1; i < MAX_NUM_HASHTABLE_ELEMENTS; ++i) {
-		if (strcmp(key, hashtable.elements[i].key) == 0)
+		if (strcmp(key.val, hashtable.elements[i].key.val) == 0)
 			return hashtable.elements[i].value;
 	}
 
