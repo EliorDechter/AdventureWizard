@@ -3,7 +3,7 @@
 #include "Textures.h"
 #include "Game.h"
 
-void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor, bool *is_interacting_with_editor, bool *is_hovering) {
+void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor, bool *is_interacting_with_editor, bool *is_hovering, bool enable_input) {
 	static int selected_item = -1;
 	static int selected_category;
 	Texture_handle handle = { 0 };
@@ -16,7 +16,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 		platform.mouse_left,
 		*(wzrd_keyboard_keys *)&platform.keys_pressed,
 		(wzrd_v2) { platform.window_width, platform.window_height },
-		game.icons, EGUI_LIGHTGRAY);
+		game.icons, EGUI_LIGHTGRAY, enable_input);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -212,10 +212,11 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 				wzrd_box_begin(((wzrd_box) {
 					//.h = 500,
 					0,
+						.disable = true,
 						.border_type = BorderType_Clicked
 				}));
 				{
-					wzrd_box_begin(((wzrd_box) { .name = str128_create("Target") }));
+					wzrd_box_begin(((wzrd_box) { .name = str128_create("Target"), .disable = true }));
 					{
 						wzrd_item_add((Item) {
 							.type = ItemType_Texture,
@@ -370,7 +371,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 		}
 	}
 
-	wzrd_end(cursor, buffer, is_interacting_with_editor, is_hovering);
+	wzrd_end(cursor, buffer);
 }
 
 void EditorSliceSpritesheet() {

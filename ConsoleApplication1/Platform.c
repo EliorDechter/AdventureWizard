@@ -241,15 +241,25 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	SDL_RenderClear(sdl.renderer);
 	SDL_GetWindowSize(sdl.window, &platform.window_width, &platform.window_height);
 
-	// Editor
-	static Egui gui;
-	static wzrd_draw_commands_buffer buffer;
-	wzrd_cursor editor_cursor = wzrd_cursor_default;
-	bool is_interacting_with_editor = false;
-	bool is_hovering_over_editor = false;
-	editor_do(&gui, &buffer, &editor_cursor, &is_interacting_with_editor, &is_hovering_over_editor);
+	// Interaction
+	//static bool is_interacting_with_editor = false;
+	//static bool is_hovering_over_editor = false;
 
-	wzrd_box* box = wzrd_box_get_by_name(&gui, str128_create("Target"));
+	//static bool is_interacting_with_game_gui = false;
+	//static bool is_hovering_over_game = false;
+
+	// Editor
+	static Egui editor_gui, game_gui;
+	static wzrd_draw_commands_buffer editor_buffer;
+	wzrd_cursor editor_cursor = wzrd_cursor_default;
+	bool enable_editor_input = true;
+	if (game_gui.is_interacting)
+	{
+		enable_editor_input = false;
+	}
+	editor_do(&editor_gui, &editor_buffer, &editor_cursor, &editor_gui.is_interacting, &editor_gui.is_hovering, enable_editor_input);
+
+	wzrd_box* box = wzrd_box_get_by_name(&editor_gui, str128_create("Target"));
 	wzrd_rect rect = wzrd_box_get_rect(box);
 	PlatformRect game_screen_rect = *(PlatformRect*)&rect;
 
@@ -258,27 +268,27 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	game.mouse_delta = (v2){ mouse_x - game.mouse_pos.x, mouse_y - game.mouse_pos.y };
 	game.mouse_pos.x = mouse_x;
 	game.mouse_pos.y = mouse_y;
+	//printf("%f %f\n", game.mouse_pos.x, game.mouse_pos.y);
 
-	// ...
+	// Game
 	wzrd_cursor game_cursor = wzrd_cursor_default;
-	bool is_interacting_with_game_gui = false;
-	bool is_hovering_over_game = false;
-	game_run((wzrd_v2){game_screen_rect.w, game_screen_rect.h}, &game_cursor, &is_interacting_with_game_gui, &is_hovering_over_game);
-
-	if (is_interacting_with_game_gui || is_hovering_over_game) {
-		platform_cursor_set(*(PlatformCursor*)&game_cursor);
+	v2 window_size = (v2) { game_screen_rect.w, game_screen_rect.h };
+	static wzrd_draw_commands_buffer game_gui_buffer;
+	bool enable_game_input = true;
+	if (editor_gui.is_interacting || editor_gui.is_hovering)
+	{
+		enable_game_input = false;
+		static int i;
+		i++;
+		printf("%d\n", i);
 	}
-	else if (is_hovering_over_editor || is_interacting_with_editor) {
-		platform_cursor_set(*(PlatformCursor*)&editor_cursor);
-	}
-	else {
-		platform_cursor_set(wzrd_cursor_default);
-	}
+	game_run(window_size, enable_game_input && !game_gui.is_interacting);
+	game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&window_size, &game_cursor, enable_game_input);
 
-
-	// ...
-	game_draw_gui_commands(&buffer);
-
+	game_draw();
+	game_draw_gui(&game_gui_buffer);
+	game_draw_gui_commands(&editor_buffer);
+	
 	SDL_RenderPresent(sdl.renderer);
 
 	unsigned int time1 = SDL_GetTicks();
@@ -300,6 +310,17 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	}
 	else if (platform.mouse_left == Deactivating) {
 		platform.mouse_left = Inactive;
+	}
+
+	// Cursor
+	if (enable_game_input) {
+		platform_cursor_set(*(PlatformCursor*)&game_cursor);
+	}
+	else if (enable_editor_input) {
+		platform_cursor_set(*(PlatformCursor*)&editor_cursor);
+	}
+	else {
+		platform_cursor_set(wzrd_cursor_default);
 	}
 
 	return SDL_APP_CONTINUE;

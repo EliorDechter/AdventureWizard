@@ -646,15 +646,13 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 	return result;*/
 }
 
-void game_run(wzrd_v2 window_size, wzrd_v2* cursor, bool *game_gui_interaction, bool *is_hovering) {
-
+void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input) {
 	// game screen gui
-	static Egui gui;
-	static wzrd_draw_commands_buffer gui_draw_commands_buffer;
 	bool blue_button = false;
-	wzrd_begin(&gui, 0,
+	wzrd_begin(gui, 0,
 		(wzrd_v2) {
-		game.mouse_pos.x, game.mouse_pos.y
+		game.mouse_pos.x, game.mouse_pos.y,
+			
 	},
 		platform.mouse_left,
 		* (wzrd_keyboard_keys*)&platform.keys_pressed,
@@ -662,19 +660,39 @@ void game_run(wzrd_v2 window_size, wzrd_v2* cursor, bool *game_gui_interaction, 
 		, game.icons,
 		(wzrd_color) {
 		0, 0, 0, 0
-	});
+	},
+		enable_input);
 	{
-	
+
 		if (game.selected_entity.val.index) {
 			Entity* selected_entity = game_entity_get(game.selected_entity);
 			blue_button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 });
+			// Late logic
+			if (blue_button)
+			{
+				Entity* selected_entity = game_entity_get(game.selected_entity);
+
+				if (selected_entity) {
+					selected_entity->rect.x += game.mouse_delta.x;
+					selected_entity->rect.y += game.mouse_delta.y;
+
+					wzrd_box* button = wzrd_box_get_previous();
+					button->x += game.mouse_delta.x;
+					button->y += game.mouse_delta.y;
+
+				}
+			}
 		}
 	}
-	wzrd_end(cursor, &gui_draw_commands_buffer, game_gui_interaction, is_hovering);
+	wzrd_end(cursor, buffer);
+}
+
+void game_run(v2 window_size, bool enable) {
 
 	// entity mouse interaction 
-	if (*game_gui_interaction == false)
+	if (enable)
 	{
+		//printf("%f %f\n", game.mouse_pos.x, game.mouse_pos.y);
 		if (game.mouse_pos.x >= 0 && game.mouse_pos.y >= 0 && game.mouse_pos.x <= window_size.x && game.mouse_pos.y <= window_size.y) {
 			Entity_handle hovered_entity = { 0 };
 			int iterator_index = 1;
@@ -715,18 +733,19 @@ void game_run(wzrd_v2 window_size, wzrd_v2* cursor, bool *game_gui_interaction, 
 			}
 		}
 	}
+}
+
+void game_draw() {
 
 	// Draw
 	PlatformTextureBeginTarget(game.target_texture);
 	{
-
 		// Draw selected entity border
 		Entity* selected_entity = game_entity_get(game.selected_entity);
 		if (selected_entity) {
 			PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
 			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
 		}
-
 
 		// Draw entities
 		int iterator_index = 0;
@@ -738,23 +757,14 @@ void game_run(wzrd_v2 window_size, wzrd_v2* cursor, bool *game_gui_interaction, 
 				0, 0, texture->val.w, texture->val.h
 			}, wzrd_color_to_platform_color(entity->color));
 		}
-
-		// Draw gui
-		game_draw_gui_commands(&gui_draw_commands_buffer);
 	}
 	PlatformTextureEndTarget();
+}
 
-	// Late logic
-	if (blue_button) 
-	{
-		Entity* selected_entity = game_entity_get(game.selected_entity);
-
-		if (selected_entity) {
-			selected_entity->rect.x += game.mouse_delta.x;
-			selected_entity->rect.y += game.mouse_delta.y;
-		}
-	}
-
+void game_draw_gui(wzrd_draw_commands_buffer* buffer) {
+	PlatformTextureBeginTarget(game.target_texture);
+	game_draw_gui_commands(buffer);
+	PlatformTextureEndTarget();
 }
 
 void game_init() {

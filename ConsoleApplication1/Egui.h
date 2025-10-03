@@ -176,10 +176,12 @@ typedef struct Box {
 	int parent;
 	bool is_input_box;
 	bool is_button;
+	int z;
+	bool disable;
 } wzrd_box;
 
 typedef struct Crate {
-	int id;
+	int z;
 	int index;
 
 	int box_stack[32];
@@ -253,9 +255,6 @@ typedef struct Egui {
 
 	int window_width, window_height;
 
-	int current_window_id;
-	int hot_window;
-
 	wzrd_v2 mouse_pos, previous_mouse_pos;
 
 	//EguiV2 current_pos;
@@ -285,13 +284,15 @@ typedef struct Egui {
 
 	bool double_click;
 
-
 	wzrd_icons icons;
 
 	float input_box_timer;
 
 	wzrd_color default_color;
 
+	bool enable_input;
+
+	bool is_interacting, is_hovering;
 } Egui;
 
 Egui *g_gui;
@@ -371,14 +372,17 @@ typedef struct Label_list {
 	int count;
 } Label_list;
 
+
 // API
-void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color);
-void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, bool *is_interacting, bool *is_hovering);
+void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color, bool enable_input);
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
 void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color color);
 wzrd_box* wzrd_box_get_current();
+wzrd_box* wzrd_box_get_parent();
+wzrd_box* wzrd_box_get_previous();
 void EguiLabel(str128 str);
 void wzrd_item_add(Item item);
 bool EguiButtonRaw(wzrd_box box);
