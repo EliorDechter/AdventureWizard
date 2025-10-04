@@ -96,7 +96,7 @@ typedef struct EntitySystem {
 
 } EntitySystem;
 
-EntitySystem entity_system;
+static EntitySystem g_entity_system;
 
 typedef struct GrabSystem {
 
@@ -109,7 +109,7 @@ typedef struct GrabSystem {
 	GrabStatus grab_status;
 } GrabSystem;
 
-GrabSystem grab_system;
+static GrabSystem g_grab_system;
 
 typedef struct Game {
 	Handle_map textures_handle_map;
@@ -128,12 +128,12 @@ typedef struct Game {
 
 } Game;
 
-Game game;
+extern Game g_game;
 
+PlatformTargetTexture game_target_texture_get();
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove(Texture_handle handle);
 Texture* game_texture_get(Texture_handle handle);
-
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
@@ -142,3 +142,5 @@ void game_run(v2 window_size, bool enable);
 void game_draw_gui_commands(wzrd_draw_commands_buffer *buffer);
 void game_draw();
 void game_draw_gui(wzrd_draw_commands_buffer* buffer);
+wzrd_icons game_icons_get();
+Entity* entity_get_next(int* iterator_index);

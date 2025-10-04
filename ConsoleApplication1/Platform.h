@@ -8,6 +8,7 @@
 #include <SDL3_image/SDL_image.h>
 #include <stdio.h>
 
+
 #define TARGET_TEXTURE_WIDTH 1920
 #define TARGET_TEXTURE_HEIGHT 1080
 
@@ -115,8 +116,8 @@ typedef struct PlatformRect {
 	float x, y, w, h;
 } PlatformRect;
 
-PlatformRenderTexture target;
-PlatformRenderTexture drop_down_panel_target;
+//PlatformRenderTexture target;
+//PlatformRenderTexture drop_down_panel_target;
 
 
 typedef struct PlatformKey {
@@ -140,7 +141,7 @@ typedef struct PlatformSystem {
 	bool focus;
 } PlatformSystem;
 
-PlatformSystem platform;
+extern PlatformSystem g_platform;
 
 typedef struct PlatformTargetTexture {
 	SDL_Texture* data;
@@ -167,12 +168,14 @@ typedef struct Sdl {
 	int textures_count;
 } Sdl;
 
-Sdl sdl;
+static Sdl g_sdl;
 
+#if 0
 PlatformTexture g_texture;
 PlatformTexture g_checkmark_texture;
 PlatformTargetTexture g_target;
 PlatformTexture g_close_texture;
+#endif
 
 typedef enum PlatformCursor { PlatformCursorDefault, PlatformCursorHand, PlatformCursorVerticalArrow, PlatformCursorHorizontalArrow } PlatformCursor;
 

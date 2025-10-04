@@ -153,7 +153,7 @@ typedef struct Box {
 	wzrd_color color;
 	int window_index;
 	BorderType border_type;
-	int depth;
+	//int depth;
 #define MAX_NUM_CHILDREN 32
 	int children[MAX_NUM_CHILDREN];
 	int children_count;
@@ -178,6 +178,7 @@ typedef struct Box {
 	bool is_button;
 	int z;
 	bool disable;
+	bool is_draggable;
 } wzrd_box;
 
 typedef struct Crate {
@@ -202,7 +203,6 @@ typedef enum EguiDrawCommandType {
 	DrawCommandType_HorizontalLine,
 	DrawCommandType_String,
 	DrawCommandType_Texture,
-	DrawCommandType_IconClose
 } EguiDrawCommandType;
 
 typedef struct EguiDrawCommand {
@@ -241,7 +241,7 @@ typedef struct Egui {
 #define MAX_NUM_BOXES 128
 	wzrd_box boxes[MAX_NUM_BOXES];
 
-	str128 hot_item, active_item, clicked_item, right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
+	str128 hot_item, active_item, clicked_item, right_resized_item, left_resized_item, bottom_resized_item, top_resized_item, half_clicked_item;
 
 	double time;
 
@@ -255,7 +255,7 @@ typedef struct Egui {
 
 	int window_width, window_height;
 
-	wzrd_v2 mouse_pos, previous_mouse_pos;
+	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta;
 
 	//EguiV2 current_pos;
 	/*bool current_row_mode;
@@ -293,9 +293,12 @@ typedef struct Egui {
 	bool enable_input;
 
 	bool is_interacting, is_hovering;
+
+	wzrd_box hovered_cached_box, dragged_box;
+
 } Egui;
 
-Egui *g_gui;
+static Egui *g_gui;
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
 
@@ -321,51 +324,6 @@ typedef struct WidgetData {
 #define EDITOR_BUTTON_SIZE_X 72
 #define EDITOR_BUTTON_SIZE_Y 24
 
-
-typedef struct Editor {
-
-	wzrd_v2 offset;
-
-	bool column_mode;
-	char str[32];
-	int num_lines;
-	wzrd_v2 scroll;
-	EditorWindow window;
-
-	// Data for modifying entities
-	bool show_modify_entity_box;
-	wzrd_v2 modify_entity_window_pos, modify_entity_window_size;
-	char entity_name[32];
-	wzrd_v2 entity_size;
-	wzrd_rect modify_entity_rect;
-	char entity_width[32];
-	char entity_height[32];
-
-	// Drop down panel data
-	bool modify_entity_drop_down_panel;
-	//EntityId entity;
-	wzrd_v2 drop_down_panel_pos;
-
-	// Widgets
-	HashTable widgets_hashtable;
-	Widget widgets[MAX_NUM_WIDGETS];
-	int num_widgets;
-
-	bool windows[MAX_NUM_WIDGETS];
-	bool show_add_entity_box;
-	bool show_add_item_box;
-
-	//asd
-	EditorWindow editor_window;
-	EditorTab editor_tab;
-
-	// Draw data
-	wzrd_v2 draw_tool_pos, draw_tool_size;
-	bool draw_tool_active;
-
-} Editor;
-
-Editor editor;
 
 typedef struct Label_list {
 	str128 val[32];
@@ -395,9 +353,9 @@ bool EguiLabelButton(str128 str);
 bool EguiLabelButtonBegin(str128 str);
 bool EguiLabelButtonEnd();
 str128 EguiInputBox(int max_num_keys);
-void EguiCrateBegin(int window_id, wzrd_box box);
+void wzrd_crate_begin(int window_id, wzrd_box box);
 int wzrd_box_get_current_index();
-void EguiCrate(int window_id, wzrd_box box);
+void wzrd_crate(int window_id, wzrd_box box);
 int wzrd_dropdown(int* selected_text, const str128* str, int str_count, int w, bool* active);
 void EguiToggleEnd();
 bool *EguiToggleBegin(wzrd_box box);
@@ -413,8 +371,10 @@ bool wzrd_button_icon(wzrd_texture texture);
 void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
 wzrd_rect wzrd_box_get_rect(wzrd_box * box);
 void wzrd_input_box(str128* str, int max_num_keys);
-void EguiCrateEnd();
+void wzrd_crate_end();
 wzrd_box* wzrd_box_get_by_name(Egui* gui, str128 str);
 bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color);
-
+void wzrd_drag(wzrd_box box, wzrd_v2* pos, bool *drag);
+wzrd_box* wzrd_box_get_last();
+bool wzrd_box_is_active(wzrd_box *box);
 #endif

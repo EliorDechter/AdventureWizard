@@ -1,6 +1,8 @@
 #include "Game.h"
 #include "Editor.h"
 
+Game g_game;
+
 void game_draw_gui_commands(wzrd_draw_commands_buffer* buffer) {
 	for (int i = 0; i < buffer->count; ++i) {
 		EguiDrawCommand command = buffer->commands[i];
@@ -23,10 +25,6 @@ void game_draw_gui_commands(wzrd_draw_commands_buffer* buffer) {
 		}
 		else if (command.type == DrawCommandType_HorizontalLine) {
 			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
-		}
-		else if (command.type == DrawCommandType_IconClose) {
-			PlatformTextureDraw(*(PlatformTexture*)&g_close_texture,
-				*(PlatformRect*)&command.dest_rect);
 		}
 		else {
 			//assert(0);
@@ -199,9 +197,9 @@ EguiV2i EguiV2iAdd(EguiV2i a, EguiV2i b) {
 }
 
 Texture_handle game_texture_add(Texture texture) {
-	Handle handle = handle_create(&game.textures_handle_map);
-	int index = handle_get(&game.textures_handle_map, handle);
-	game.textures[index] = texture;
+	Handle handle = handle_create(&g_game.textures_handle_map);
+	int index = handle_get(&g_game.textures_handle_map, handle);
+	g_game.textures[index] = texture;
 
 	Texture_handle result = (Texture_handle){ .val = handle };
 
@@ -209,25 +207,29 @@ Texture_handle game_texture_add(Texture texture) {
 }
 
 void game_texture_remove_by_index(int index) {
-	handle_remove_by_index(&game.textures_handle_map, index);
+	handle_remove_by_index(&g_game.textures_handle_map, index);
 }
 
 void game_texture_remove(Texture_handle handle) {
-	handle_remove(&game.textures_handle_map, handle.val);
+	handle_remove(&g_game.textures_handle_map, handle.val);
 }
 
 Texture* game_texture_get(Texture_handle handle) {
-	int index = handle_get(&game.textures_handle_map, handle.val);
+	int index = handle_get(&g_game.textures_handle_map, handle.val);
+	Texture* result = 0;
 
-	Texture* result = game.textures + index;
+	if (index)
+	{
+		result = g_game.textures + index;
+	}
 
 	return result;
 }
 
 Entity_handle game_entity_add(Entity entity) {
-	Handle handle = handle_create(&game.entities_handle_map);
-	int index = handle_get(&game.entities_handle_map, handle);
-	game.entities[index] = entity;
+	Handle handle = handle_create(&g_game.entities_handle_map);
+	int index = handle_get(&g_game.entities_handle_map, handle);
+	g_game.entities[index] = entity;
 
 	Entity_handle result = (Entity_handle){ .val = handle };
 
@@ -235,19 +237,19 @@ Entity_handle game_entity_add(Entity entity) {
 }
 
 void game_entity_remove_by_index(int index) {
-	handle_remove_by_index(&game.entities_handle_map, index);
+	handle_remove_by_index(&g_game.entities_handle_map, index);
 }
 
 void game_entity_remove(Entity_handle handle) {
-	handle_remove(&game.entities_handle_map, handle.val);
+	handle_remove(&g_game.entities_handle_map, handle.val);
 }
 
 Entity* game_entity_get(Entity_handle handle) {
-	int index = handle_get(&game.entities_handle_map, handle.val);
+	int index = handle_get(&g_game.entities_handle_map, handle.val);
 
 	if (!index) return 0;
 
-	Entity* result = game.entities + index;
+	Entity* result = g_game.entities + index;
 
 	return result;
 }
@@ -373,8 +375,8 @@ EntityId GetAvailableId() {
 }
 
 void DestroyId(EntityId id) {
-	assert(entity_system.num_available_handles < MAX_NUM_ENTITIES);
-	entity_system.available_handles[entity_system.num_available_handles++] = (EntityId){ .index = id.index, .generation = id.generation + 1 };
+	assert(g_entity_system.num_available_handles < MAX_NUM_ENTITIES);
+	g_entity_system.available_handles[g_entity_system.num_available_handles++] = (EntityId){ .index = id.index, .generation = id.generation + 1 };
 }
 
 #define MAX_NUM_STACK 64
@@ -388,7 +390,7 @@ typedef struct UndoSystem {
 UndoSystem undo_system;
 
 void UndoSystemDo() {
-	undo_system.entity_system_stack[undo_system.num_stack] = entity_system;
+	undo_system.entity_system_stack[undo_system.num_stack] = g_entity_system;
 	undo_system.index = undo_system.num_stack;
 	undo_system.num_stack = (undo_system.num_stack + 1) % MAX_NUM_STACK;
 }
@@ -414,7 +416,7 @@ void AddHoveredEntity(EntityId entity) {
 
 Entity* GetEntity(EntityId id) {
 
-	Entity* entity = &entity_system.entities[id.index];
+	Entity* entity = &g_entity_system.entities[id.index];
 
 	return entity;
 }
@@ -462,8 +464,8 @@ EntityId* GetOrderedEntities() {
 void DestroyEntityByName(const char* str) {
 	//TODO: delete from entity map too!
 	for (int i = 0; i < MAX_NUM_ENTITIES; ++i) {
-		if (strcmp(str, entity_system.entities[i].name.val) == 0) {
-			DestroyEntity(entity_system.entities[i].id);
+		if (strcmp(str, g_entity_system.entities[i].name.val) == 0) {
+			DestroyEntity(g_entity_system.entities[i].id);
 		}
 	}
 }
@@ -484,13 +486,13 @@ Entity* GetEntityByName(char* name) {
 
 void ResetEntitySystem() {
 	//entity_system.num_entities = 0;
-	entity_system.entities_map.num = 0;
+	g_entity_system.entities_map.num = 0;
 	Entity nop = { 0 };
-	grab_system.num_hovered_entities = 0;
+	g_grab_system.num_hovered_entities = 0;
 }
 
 bool IsRectHovered(Rect r) {
-	v2 mouse_pos = (v2){ platform.mouse_x, platform.mouse_y };
+	v2 mouse_pos = (v2){ g_platform.mouse_x, g_platform.mouse_y };
 
 	if (mouse_pos.x < r.x + r.w &&
 		mouse_pos.x > r.x &&
@@ -503,7 +505,7 @@ bool IsRectHovered(Rect r) {
 }
 
 bool IsRectClicked(Rect r) {
-	return IsRectHovered(r) && platform.mouse_left == Deactivating;
+	return IsRectHovered(r) && g_platform.mouse_left == Deactivating;
 }
 
 PixelPos GetEntityPixelPos(EntityId id) {
@@ -617,15 +619,15 @@ EntityId CreateCharacter(const char* name, v2 pos, v2 size) {
 Entity* entity_get_next(int* iterator_index) {
 	Handle handle = { 0 };
 	Entity* result = 0;
-	if (handle_get_next(&game.entities_handle_map, iterator_index, &handle)) {
-		result = &game.entities[handle.index];
+	if (handle_get_next(&g_game.entities_handle_map, iterator_index, &handle)) {
+		result = &g_game.entities[handle.index];
 	}
 
 	return result;
 }
 
 bool entity_get_next_handle(int* iterator_index, Entity_handle* handle) {
-	bool result = handle_get_next(&game.entities_handle_map, iterator_index, handle);
+	bool result = handle_get_next(&g_game.entities_handle_map, iterator_index, handle);
 
 	return result;
 }
@@ -651,34 +653,34 @@ void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_si
 	bool blue_button = false;
 	wzrd_begin(gui, 0,
 		(wzrd_v2) {
-		game.mouse_pos.x, game.mouse_pos.y,
+		g_game.mouse_pos.x, g_game.mouse_pos.y,
 			
 	},
-		platform.mouse_left,
-		* (wzrd_keyboard_keys*)&platform.keys_pressed,
+		g_platform.mouse_left,
+		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
 		window_size
-		, game.icons,
+		, g_game.icons,
 		(wzrd_color) {
 		0, 0, 0, 0
 	},
 		enable_input);
 	{
 
-		if (game.selected_entity.val.index) {
-			Entity* selected_entity = game_entity_get(game.selected_entity);
+		if (g_game.selected_entity.val.index) {
+			Entity* selected_entity = game_entity_get(g_game.selected_entity);
 			blue_button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 });
 			// Late logic
 			if (blue_button)
 			{
-				Entity* selected_entity = game_entity_get(game.selected_entity);
+				Entity* selected_entity = game_entity_get(g_game.selected_entity);
 
 				if (selected_entity) {
-					selected_entity->rect.x += game.mouse_delta.x;
-					selected_entity->rect.y += game.mouse_delta.y;
+					selected_entity->rect.x += g_game.mouse_delta.x;
+					selected_entity->rect.y += g_game.mouse_delta.y;
 
 					wzrd_box* button = wzrd_box_get_previous();
-					button->x += game.mouse_delta.x;
-					button->y += game.mouse_delta.y;
+					button->x += g_game.mouse_delta.x;
+					button->y += g_game.mouse_delta.y;
 
 				}
 			}
@@ -693,42 +695,42 @@ void game_run(v2 window_size, bool enable) {
 	if (enable)
 	{
 		//printf("%f %f\n", game.mouse_pos.x, game.mouse_pos.y);
-		if (game.mouse_pos.x >= 0 && game.mouse_pos.y >= 0 && game.mouse_pos.x <= window_size.x && game.mouse_pos.y <= window_size.y) {
+		if (g_game.mouse_pos.x >= 0 && g_game.mouse_pos.y >= 0 && g_game.mouse_pos.x <= window_size.x && g_game.mouse_pos.y <= window_size.y) {
 			Entity_handle hovered_entity = { 0 };
 			int iterator_index = 1;
 			Entity_handle entity_handle = { 0 };
 			while (entity_get_next_handle(&iterator_index, &entity_handle)) {
 				Entity* entity = game_entity_get(entity_handle);
-				bool is_hover = v2_is_inside_rect((v2) { game.mouse_pos.x, game.mouse_pos.y }, entity->rect);
+				bool is_hover = v2_is_inside_rect((v2) { g_game.mouse_pos.x, g_game.mouse_pos.y }, entity->rect);
 				if (is_hover) {
 					hovered_entity = entity_handle;
 				}
 			}
 
 			if (hovered_entity.val.index) {
-				if (game.active_entity.val.index) {
-					if (platform.mouse_left == EguiDeactivating) {
-						game.selected_entity = game.active_entity;
-						game.active_entity = (Entity_handle){ 0 };
+				if (g_game.active_entity.val.index) {
+					if (g_platform.mouse_left == EguiDeactivating) {
+						g_game.selected_entity = g_game.active_entity;
+						g_game.active_entity = (Entity_handle){ 0 };
 					}
 				}
 
-				if (game.hot_entity.val.index) {
-					if (platform.mouse_left == EguiActivating) {
-						game.active_entity = game.hot_entity;
+				if (g_game.hot_entity.val.index) {
+					if (g_platform.mouse_left == EguiActivating) {
+						g_game.active_entity = g_game.hot_entity;
 					}
 				}
 
 				if (hovered_entity.val.index) {
-					game.hot_entity = hovered_entity;
+					g_game.hot_entity = hovered_entity;
 				}
 				else {
-					game.hot_entity = (Entity_handle){ 0 };
+					g_game.hot_entity = (Entity_handle){ 0 };
 				}
 			}
 			else {
-				if (platform.mouse_left == EguiDeactivating) {
-					game.selected_entity = (Entity_handle){ 0 };
+				if (g_platform.mouse_left == EguiDeactivating) {
+					g_game.selected_entity = (Entity_handle){ 0 };
 				}
 			}
 		}
@@ -738,10 +740,10 @@ void game_run(v2 window_size, bool enable) {
 void game_draw() {
 
 	// Draw
-	PlatformTextureBeginTarget(game.target_texture);
+	PlatformTextureBeginTarget(g_game.target_texture);
 	{
 		// Draw selected entity border
-		Entity* selected_entity = game_entity_get(game.selected_entity);
+		Entity* selected_entity = game_entity_get(g_game.selected_entity);
 		if (selected_entity) {
 			PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
 			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
@@ -752,17 +754,28 @@ void game_draw() {
 		Entity* entity = 0;
 		while (entity = entity_get_next(&iterator_index)) {
 			Texture* texture = game_texture_get(entity->texture);
-			PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
-				(PlatformRect) {
-				0, 0, texture->val.w, texture->val.h
-			}, wzrd_color_to_platform_color(entity->color));
+			if (texture)
+			{
+				PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
+					(PlatformRect) {
+					0, 0, texture->val.w, texture->val.h
+				}, wzrd_color_to_platform_color(entity->color));
+			}
+			else {
+				PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
+			}
+			
 		}
 	}
 	PlatformTextureEndTarget();
 }
 
+PlatformTargetTexture game_target_texture_get() {
+	return g_game.target_texture;
+}
+
 void game_draw_gui(wzrd_draw_commands_buffer* buffer) {
-	PlatformTextureBeginTarget(game.target_texture);
+	PlatformTextureBeginTarget(g_game.target_texture);
 	game_draw_gui_commands(buffer);
 	PlatformTextureEndTarget();
 }
@@ -771,13 +784,15 @@ void game_init() {
 
 	textures_load();
 
+#if 0
 	g_texture = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\ass.png");
 	g_checkmark_texture = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\checkmark.png");
-	g_target = PlatformTargetTextureCreate();
-	g_close_texture = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\x.png");
-	PlatformTextureBeginTarget(g_target);
+#endif
+	g_game.target_texture = PlatformTargetTextureCreate();
+
+	PlatformTextureBeginTarget(g_game.target_texture);
 	{
-		SDL_SetRenderDrawColor(sdl.renderer, 255, 255, 255, 255);
+		SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
 	}
 	PlatformTextureEndTarget();
 
@@ -787,9 +802,10 @@ void game_init() {
 	PlatformTexture icon_pause = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\pause.png");
 	PlatformTexture icon_stop = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\stop.png");
 	PlatformTexture icon_dropdown = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\icon_dropdown.png");
+	PlatformTexture close_icon = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\x.png");
 
-	game.icons = (wzrd_icons){
-		.close = *(wzrd_texture*)&g_close_texture,
+	g_game.icons = (wzrd_icons){
+		.close = *(wzrd_texture*)&close_icon,
 		.delete = *(wzrd_texture*)&icon_delete,
 		.entity = *(wzrd_texture*)&icon_entity,
 		.play = *(wzrd_texture*)&icon_play,
@@ -798,7 +814,8 @@ void game_init() {
 		.dropdown = *(wzrd_texture*)&icon_dropdown,
 	};
 
-	game.target_texture = g_target;
+	// Empty texture
+	game_texture_add((Texture) { 0 });
 
 	// Empty entity
 	game_entity_add((Entity) { 0 });
@@ -829,6 +846,8 @@ void DoAnimations() {
 		}
 	}
 }
+
+
 
 void DrawCurrentPath() {
 
@@ -1001,3 +1020,7 @@ Vector2 GetScreenCenter() {
 }
 
 #endif
+
+wzrd_icons game_icons_get() {
+	return g_game.icons;
+}

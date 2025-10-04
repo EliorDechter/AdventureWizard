@@ -19,7 +19,7 @@ typedef struct Texture_system {
 	int textures_count;
 } Texture_system;
 
-Texture_system texture_system;
+static Texture_system g_texture_system;
 
 
 Texture texture_get_by_name(str128 s);

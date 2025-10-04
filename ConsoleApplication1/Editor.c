@@ -3,7 +3,7 @@
 #include "Textures.h"
 #include "Game.h"
 
-void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor, bool *is_interacting_with_editor, bool *is_hovering, bool enable_input) {
+void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, bool enable_input, PlatformTargetTexture target_texture, wzrd_icons icons) {
 	static int selected_item = -1;
 	static int selected_category;
 	Texture_handle handle = { 0 };
@@ -11,12 +11,16 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 	// Drawing data
 	wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
 
-	wzrd_begin( gui, 0,
-		(wzrd_v2) {platform.mouse_x, platform.mouse_y },
-		platform.mouse_left,
-		*(wzrd_keyboard_keys *)&platform.keys_pressed,
-		(wzrd_v2) { platform.window_width, platform.window_height },
-		game.icons, EGUI_LIGHTGRAY, enable_input);
+	wzrd_begin(gui, 0,
+		(wzrd_v2) {
+		g_platform.mouse_x, g_platform.mouse_y
+	},
+		g_platform.mouse_left,
+		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
+		(wzrd_v2) {
+		g_platform.window_width, g_platform.window_height
+	},
+		icons, EGUI_LIGHTGRAY, enable_input);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -42,7 +46,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 			{
 				if (f) {
 					static EguiV2i pos;
-					EguiCrate(
+					wzrd_crate(
 						6,
 						(wzrd_box) {
 						.name = str128_create("Main window2 bla bla"),
@@ -91,7 +95,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 					.w = 2
 			});
 
-			if (wzrd_button_icon(game.icons.delete)) {
+			if (wzrd_button_icon(icons.delete)) {
 				if (selected_category == 0) {
 					if (selected_item >= 0) {
 						game_texture_remove_by_index(selected_item);
@@ -105,9 +109,12 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 					.w = 2
 			});
 
-			if (wzrd_button_icon(game.icons.entity)) {
-
+			static bool b = false;
+			if (wzrd_button_icon(icons.entity)) 
+			{
 			}
+
+			EguiBox((wzrd_box){ .w = 10, .h = 10, .is_draggable = true });
 
 			// Seperator
 			EguiBox((wzrd_box) {
@@ -115,15 +122,15 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 					.w = 2
 			});
 
-			if (wzrd_button_icon(game.icons.play)) {
+			if (wzrd_button_icon(icons.play)) {
 
 			}
 
-			if (wzrd_button_icon(game.icons.stop)) {
+			if (wzrd_button_icon(icons.stop)) {
 
 			}
 
-			if (wzrd_button_icon(game.icons.pause)) {
+			if (wzrd_button_icon(icons.pause)) {
 
 			}
 
@@ -156,7 +163,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 
 				EguiBoxResize(&size_offset);
 
-				str128 texts[] = { str128_create("Textures"), str128_create("Entities"), str128_create("Actions") };
+				str128 texts[] = { str128_create("Entities"), str128_create("Textures"), str128_create("Actions") };
 				static bool active;
 				wzrd_dropdown(&selected_category, texts, 3, 100, &active);
 
@@ -167,39 +174,47 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 
 					if (selected_category == 0) {
 						Label_list label_list = (Label_list){
-							.count = game.textures_handle_map.count
+							.count = g_game.entities_handle_map.count - 1
 						};
 
-#if 1
-						int c = 0;
-						for (int i = 0; i < game.textures_handle_map.count; ++i) {
-							Handle_internal handle = game.textures_handle_map.handles[i];
-							if (handle.used) {
-								int index = i;
-								label_list.val[c++] = game.textures[index].name;
-							}
+						int it = 1;
+						int i = 0;
+						Entity* entity = 0;
+						while (entity = entity_get_next(&it)) {
+							label_list.val[i++] = entity->name;
 						}
-#else
-						Handle_iterator
-#endif
 
-							wzrd_label_list2(label_list,
-								(wzrd_box) {
+						wzrd_label_list2(label_list,
+							(wzrd_box) {
 							.color = EGUI_WHITE, .border_type = BorderType_None,
 						},
-								& selected_item);
+							& selected_item);
+
 					}
+
+					if (selected_category == 0) {
 #if 0
-					EguiMenuNodeAdd(str128_create("MyGame"), 0, false);
-					static bool c = false;
-					if (EguiMenuNodeAdd(str128_create("Entities"), 1, false)) {
-						c = true;
-					}
-					static EguiV2i pos;
-					if (c) {
-						EguiCrate(0, (Box) { .w = 100, .h = 100 });
-					}
+						Label_list label_list = (Label_list){
+							.count = textures_handle_map.count
+						};
+
+						int c = 0;
+						for (int i = 0; i < textures_handle_map.count; ++i) {
+							Handle_internal handle = textures_handle_map.handles[i];
+							if (handle.used) {
+								int index = i;
+								label_list.val[c++] = textures[index].name;
+							}
+						}
+
+						wzrd_label_list2(label_list,
+							(wzrd_box) {
+							.color = EGUI_WHITE, .border_type = BorderType_None,
+						},
+							& selected_item);
 #endif
+
+					}
 				}
 				wzrd_box_end();
 			}
@@ -220,7 +235,7 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 					{
 						wzrd_item_add((Item) {
 							.type = ItemType_Texture,
-								.texture = *(wzrd_texture*)&g_target,
+								.texture = *(wzrd_texture*)&target_texture,
 								.scissor = true
 						});
 					}
@@ -228,14 +243,14 @@ void editor_do(Egui *gui, wzrd_draw_commands_buffer *buffer, wzrd_cursor *cursor
 				}
 				wzrd_box_end();
 
-				PlatformTextureBeginTarget(g_target);
+				PlatformTextureBeginTarget(target_texture);
 				{
-					SDL_SetRenderDrawColor(sdl.renderer, 255, 255, 255, 255);
-					SDL_RenderClear(sdl.renderer);
+					SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
+					SDL_RenderClear(g_sdl.renderer);
 
 					int size = 16;
-					int rects_in_row_count = g_target.data->w / size;
-					int rects_in_column_count = g_target.data->h / size;
+					int rects_in_row_count = target_texture.data->w / size;
+					int rects_in_column_count = target_texture.data->h / size;
 					int x = 0, y = 0;
 					bool flip = false;
 					platform_color color1 = (platform_color){ 0xDA, 0xB1, 0xDA, 255 };

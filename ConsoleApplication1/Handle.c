@@ -42,10 +42,12 @@ Handle handle_create(Handle_map* map) {
 int handle_get(const Handle_map* map, Handle handle) {
 	Handle_internal handle_internal = map->handles[handle.index];
 
-	assert(handle_internal.generation == handle.generation);
-	assert(handle_internal.used);
+	int result = 0;
 
-	int result = handle.index;
+	if (handle_internal.used && handle_internal.generation == handle.generation)
+	{
+		result = handle.index;
+	}
 
 	return result;
 }

@@ -1,8 +1,8 @@
 #include "Textures.h"
 
 Texture texture_get_by_name(str128 s) {
-	int i = hashtable_get(texture_system.hashtable, s);
-	Texture result = texture_system.textures[i];
+	int i = hashtable_get(g_texture_system.hashtable, s);
+	Texture result = g_texture_system.textures[i];
 
 	return result;
 }
@@ -24,8 +24,8 @@ SDL_EnumerationResult enumerate_directory(void* userdata, const char* dirname, c
 		}
 	}
 
-	texture_system.textures[texture_system.textures_count++] = (Texture){ .val = texture, .name = name };
-	hashtable_add(&texture_system.hashtable, name, texture_system.textures_count - 1);
+	g_texture_system.textures[g_texture_system.textures_count++] = (Texture){ .val = texture, .name = name };
+	hashtable_add(&g_texture_system.hashtable, name, g_texture_system.textures_count - 1);
 
 	return SDL_ENUM_CONTINUE;
 }

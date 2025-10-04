@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include "Egui.h"
+#include "Platform.h"
+void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, bool enable_input, PlatformTargetTexture target_texture, wzrd_icons icons);
 
-void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor *cursor, bool * is_interacting_with_editor, bool *is_hovering, bool enable_input);
 #endif
