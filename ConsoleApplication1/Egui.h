@@ -177,8 +177,9 @@ typedef struct Box {
 	bool is_input_box;
 	bool is_button;
 	int z;
-	bool disable;
-	bool is_draggable;
+	bool disable_input;
+	bool is_draggable, is_slot;
+	bool disable_hover;
 } wzrd_box;
 
 typedef struct Crate {
@@ -241,7 +242,8 @@ typedef struct Egui {
 #define MAX_NUM_BOXES 128
 	wzrd_box boxes[MAX_NUM_BOXES];
 
-	str128 hot_item, active_item, clicked_item, right_resized_item, left_resized_item, bottom_resized_item, top_resized_item, half_clicked_item;
+	str128 hot_item, active_item, clicked_item, right_resized_item, released_item,
+		left_resized_item, bottom_resized_item, top_resized_item, half_clicked_item, dragged_item;
 
 	double time;
 
@@ -372,9 +374,15 @@ void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
 wzrd_rect wzrd_box_get_rect(wzrd_box * box);
 void wzrd_input_box(str128* str, int max_num_keys);
 void wzrd_crate_end();
-wzrd_box* wzrd_box_get_by_name(Egui* gui, str128 str);
+wzrd_box* wzrd_box_get_by_name(str128 str);
 bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color);
 void wzrd_drag(wzrd_box box, wzrd_v2* pos, bool *drag);
 wzrd_box* wzrd_box_get_last();
 bool wzrd_box_is_active(wzrd_box *box);
+bool wzrd_box_is_dragged(wzrd_box* box);
+bool wzrd_box_is_hot(wzrd_box* box);
+wzrd_box *wzrd_box_get_released();
+wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name);
+bool wzrd_is_releasing();
+bool wzrd_is_releasing();
 #endif

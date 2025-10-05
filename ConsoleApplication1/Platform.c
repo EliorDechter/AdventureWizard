@@ -264,7 +264,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 	editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
 
-	wzrd_box* box = wzrd_box_get_by_name(&editor_gui, str128_create("Target"));
+	wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
 	wzrd_rect rect = wzrd_box_get_rect(box);
 	PlatformRect game_screen_rect = *(PlatformRect*)&rect;
 

@@ -110,11 +110,27 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			});
 
 			static bool b = false;
-			if (wzrd_button_icon(icons.entity)) 
+			if (wzrd_button_icon(icons.entity))
 			{
 			}
 
-			EguiBox((wzrd_box){ .w = 10, .h = 10, .is_draggable = true });
+			static bool not_show;
+			not_show |= wzrd_box_is_dragged(&(wzrd_box){.name = "hi" });
+			if (!not_show)
+			{
+				EguiBox((wzrd_box) { .w = 25, .h = 25, .is_draggable = true, .name = str128_create("hi") });
+			}
+
+			static wzrd_color color = { 100, 100, 100, 255 };
+			EguiBox((wzrd_box) { .w = 25, .h = 25, .is_slot = true, .color = color, .name = str128_create("bye") });
+
+			//if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_box_get_released())
+			if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_is_releasing())
+			{
+				color = EGUI_LIME;
+				not_show |= true;
+			}
+
 
 			// Seperator
 			EguiBox((wzrd_box) {
@@ -227,11 +243,11 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				wzrd_box_begin(((wzrd_box) {
 					//.h = 500,
 					0,
-						.disable = true,
+						.disable_input = true,
 						.border_type = BorderType_Clicked
 				}));
 				{
-					wzrd_box_begin(((wzrd_box) { .name = str128_create("Target"), .disable = true }));
+					wzrd_box_begin(((wzrd_box) { .name = str128_create("Target"), .disable_input = true }));
 					{
 						wzrd_item_add((Item) {
 							.type = ItemType_Texture,

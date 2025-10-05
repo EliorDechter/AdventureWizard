@@ -401,7 +401,7 @@ void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mous
 			.pad_bottom = 5,
 			.child_gap = 5,
 			.border_type = BorderType_None,
-			.disable = true
+			.disable_input = true
 	});
 
 	g_gui->input_box_timer += 16.7;
@@ -426,7 +426,7 @@ void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color 
 	buffer->commands[buffer->count++] = command;
 }
 
-wzrd_box* egui_box_get_by_name(str128 name) {
+wzrd_box* wzrd_box_get_by_name(str128 name) {
 	if (!name.len) return 0;
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
 		if (str128_equal(name, g_gui->boxes[i].name)) {
@@ -435,6 +435,14 @@ wzrd_box* egui_box_get_by_name(str128 name) {
 	}
 
 	return 0;
+}
+
+wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name) {
+	g_gui = gui;
+	wzrd_box* result = wzrd_box_get_by_name(name);
+	g_gui = 0;
+
+	return result;
 }
 
 bool IsRectInsideRect(wzrd_rect a, wzrd_rect b) {
@@ -458,7 +466,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 	// Dragging
 	if (g_gui->dragged_box.name.len)
 	{
-
 		g_gui->dragged_box.x += g_gui->mouse_delta.x;
 		g_gui->dragged_box.y += g_gui->mouse_delta.y;
 
@@ -673,7 +680,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			wzrd_box* box = g_gui->boxes + i;
 			bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
 				box->absolute_rect);
-			if (is_hover)
+			if (is_hover && !box->disable_hover)
 			{
 				if (box->z >= max_z)
 				{
@@ -684,14 +691,26 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		}
 
 		// ...
-		wzrd_box* half_clicked_box = egui_box_get_by_name(g_gui->half_clicked_item);
+		wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
 		if (half_clicked_box && g_gui->mouse_left == EguiActive)
 		{
 			g_gui->half_clicked_item = (str128){ 0 };
 		}
 
-		wzrd_box* hot_box = egui_box_get_by_name(g_gui->hot_item);
-		wzrd_box* active_box = egui_box_get_by_name(g_gui->active_item);
+		wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
+		wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
+
+		if (g_gui->mouse_left == EguiDeactivating)
+		{
+			g_gui->released_item = g_gui->dragged_item;
+			g_gui->dragged_box = (wzrd_box){ 0 };
+			g_gui->dragged_item = (str128){ 0 };
+		}
+
+		if (g_gui->mouse_left == EguiInactive)
+		{
+			g_gui->released_item = (str128){ 0 };
+		}
 
 		if (active_box) {
 			if (g_gui->mouse_left == EguiDeactivating) {
@@ -699,9 +718,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 					g_gui->clicked_item = active_box->name;
 				}
 				g_gui->active_item = (str128){ 0 };
-
-				g_gui->dragged_box = (wzrd_box){ 0 };
-
 			}
 
 			//if (active_box->is_button || active_box->flat_button) {
@@ -715,13 +731,13 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		g_gui->is_interacting = false;
 		g_gui->is_hovering = false;
 		if (hot_box) {
-			if (!hot_box->disable) {
+			if (!hot_box->disable_input) {
 				g_gui->is_hovering = true;
 			}
 
 		}
 		if (active_box) {
-			if (!active_box->disable) {
+			if (!active_box->disable_input) {
 				g_gui->is_interacting = true;
 			}
 		}
@@ -734,9 +750,12 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 				
 				g_gui->half_clicked_item = hot_box->name;
 
+
 				// Dragging
-				wzrd_box *half_clicked_box = egui_box_get_by_name(g_gui->half_clicked_item);
+				wzrd_box *half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
 				if (half_clicked_box->is_draggable) {
+					g_gui->dragged_item = half_clicked_box->name;
+
 					g_gui->dragged_box = *half_clicked_box;
 					g_gui->dragged_box.x = g_gui->dragged_box.absolute_rect.x;
 					g_gui->dragged_box.y = g_gui->dragged_box.absolute_rect.y;
@@ -744,6 +763,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 					g_gui->dragged_box.h = g_gui->dragged_box.absolute_rect.h;
 					g_gui->dragged_box.name = str128_create("drag");
 					g_gui->dragged_box.absolute_rect = (wzrd_rect){ 0 };
+					g_gui->dragged_box.disable_hover = true;
 				}
 			}
 		}
@@ -755,14 +775,12 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			g_gui->hot_item = (str128){ 0 };
 		}
 
-		
-
 		// Cursor 
 		if (g_gui->is_hovering) {
 			*cursor = DrawCommandType_Default;
 
-			wzrd_box* hot_box = egui_box_get_by_name(g_gui->hot_item);
-			wzrd_box* active_box = egui_box_get_by_name(g_gui->active_item);
+			wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
+			wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
 
 			if (hot_box) {
 				if (hot_box->is_button) {
@@ -778,7 +796,8 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 
 		// stuff
 		if (g_gui->clicked_item.len) {
-			wzrd_box* clicked_box = egui_box_get_by_name(g_gui->clicked_item);
+			wzrd_box* clicked_box = wzrd_box_get_by_name(g_gui->clicked_item);
+			assert(clicked_box);
 			if (clicked_box->is_input_box) {
 				g_gui->active_input_box = clicked_box->name;
 			}
@@ -1162,21 +1181,6 @@ bool wzrd_button_icon2(wzrd_box box, wzrd_texture texture) {
 		EguiButtonRawEnd();
 	}
 	EguiButtonRawEnd();
-
-	return result;
-}
-
-wzrd_box* wzrd_box_get_by_name(Egui* gui, str128 str) {
-	bool flag = false;
-	wzrd_box* result = 0;
-	for (int i = 0; i < gui->boxes_count; ++i) {
-		if (str128_equal(gui->boxes[i].name, str128_create("Target"))) {
-			flag = true;
-			result = gui->boxes + i;
-			break;
-		}
-	}
-	assert(flag);
 
 	return result;
 }
@@ -1679,5 +1683,42 @@ bool wzrd_box_is_half_clicked(wzrd_box* box) {
 	return false;
 }
 
+bool wzrd_box_is_dragged(wzrd_box* box) {
+	if (str128_equal(box->name, g_gui->dragged_item)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool wzrd_box_is_hot(wzrd_box* box) {
+	if (str128_equal(box->name, g_gui->hot_item)) {
+		return true;
+	}
+
+	return false;
+}
+
+wzrd_box* wzrd_box_get_released()
+{
+	wzrd_box* result = 0;
+
+	if (g_gui->released_item.len)
+	{
+		result = wzrd_box_get_by_name(g_gui->released_item);
+	}
+
+	return result;
+}
+
+bool wzrd_is_releasing() {
+	bool result = false;
+	if (g_gui->released_item.len)
+	{
+		result = true;
+	}
+
+	return result;
+}
 
 #endif
