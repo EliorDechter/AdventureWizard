@@ -20,7 +20,8 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 		(wzrd_v2) {
 		g_platform.window_width, g_platform.window_height
 	},
-		icons, EGUI_LIGHTGRAY, enable_input);
+		icons, EGUI_LIGHTGRAY, enable_input,
+		1);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -45,15 +46,26 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			if (EguiLabelButtonBegin(str128_create("File"))) f = !f;
 			{
 				if (f) {
-					static EguiV2i pos;
+					wzrd_v2 origin = (wzrd_v2){ 40, wzrd_box_get_current()->h };
+					static wzrd_v2 offset;
 					wzrd_crate(
 						6,
 						(wzrd_box) {
 						.name = str128_create("Main window2 bla bla"),
-							.y = wzrd_box_get_current()->h,
+							.x = origin.x,
+							.y = origin.y + offset.y,
 							.w = 50,
 							.h = 50
 					});
+
+					if (wzrd_box_is_hot(wzrd_box_get_last()))
+					{
+						offset = wzrd_lerp(offset, (wzrd_v2) { 0,30 });
+					}
+					else 
+					{
+						offset = wzrd_lerp(offset, (wzrd_v2) { 0, 0});
+					}
 				}
 			}
 			EguiLabelButtonEnd();
@@ -114,9 +126,9 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			{
 			}
 
-			static bool not_show;
-			not_show |= wzrd_box_is_dragged(&(wzrd_box){.name = "hi" });
-			if (!not_show)
+			static bool finish;
+			bool is_dragged = wzrd_box_is_dragged(&(wzrd_box){.name = "hi" });
+			if (!is_dragged && !finish)
 			{
 				EguiBox((wzrd_box) { .w = 25, .h = 25, .is_draggable = true, .name = str128_create("hi") });
 			}
@@ -124,13 +136,11 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			static wzrd_color color = { 100, 100, 100, 255 };
 			EguiBox((wzrd_box) { .w = 25, .h = 25, .is_slot = true, .color = color, .name = str128_create("bye") });
 
-			//if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_box_get_released())
 			if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_is_releasing())
 			{
 				color = EGUI_LIME;
-				not_show |= true;
+				finish = true;
 			}
-
 
 			// Seperator
 			EguiBox((wzrd_box) {
@@ -147,7 +157,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			}
 
 			if (wzrd_button_icon(icons.pause)) {
-
+				
 			}
 
 			// Seperator
@@ -156,6 +166,16 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					.w = 2
 			});
 
+			static wzrd_v2 p;
+			EguiBox((wzrd_box) { .w = 25, .h = 25, .x = p.x, .y = p.y, .name = str128_create("die") });
+
+			if (wzrd_box_is_hot(wzrd_box_get_last()))
+			{
+				p = wzrd_lerp(p, (wzrd_v2) { 0, 5 });
+			}
+			else {
+				p = wzrd_lerp(p, (wzrd_v2) { 0, 0 });
+			}
 		}
 		wzrd_box_end();
 
@@ -242,12 +262,14 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				// Target
 				wzrd_box_begin(((wzrd_box) {
 					//.h = 500,
-					0,
+					//0,
+					.center = true,
+						.color = EGUI_PINK,
 						.disable_input = true,
 						.border_type = BorderType_Clicked
 				}));
 				{
-					wzrd_box_begin(((wzrd_box) { .name = str128_create("Target"), .disable_input = true }));
+					wzrd_box_begin(((wzrd_box) { .w = 1920 / 6, .h = 1080 / 6, .best_fit = true, .name = str128_create("Target"), .disable_input = true }));
 					{
 						wzrd_item_add((Item) {
 							.type = ItemType_Texture,
@@ -269,25 +291,10 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					int rects_in_column_count = target_texture.data->h / size;
 					int x = 0, y = 0;
 					bool flip = false;
-					platform_color color1 = (platform_color){ 0xDA, 0xB1, 0xDA, 255 };
-					platform_color color2 = (platform_color){ 150, 150, 150, 255 };
-					//(PlatformColor){ 200, 200, 200, 255 };
-					for (int i = 0; i < rects_in_column_count; ++i) {
-						for (int j = 0; j < rects_in_row_count; ++j) {
-							platform_color color = { 0 };
-							if ((j + i * rects_in_row_count) % 2 == 0) {
-								if (!flip)
-									color = color1;
-								else
-									color = color2;
-							}
-							else {
-								if (!flip)
-									color = color2;
-								else
-									color = color1;
-							}
-							PlatformRectDraw((PlatformRect) { x, y, size, size }, color);
+					for (int i = 1; i < rects_in_column_count; ++i) {
+						for (int j = 1; j < rects_in_row_count; ++j) {
+							
+							PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
 
 							x += size;
 						}

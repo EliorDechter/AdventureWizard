@@ -84,16 +84,17 @@ typedef struct wzrd_rect {
 	float x, y, w, h;
 } wzrd_rect;
 
-typedef struct EguiV2 {
+typedef struct wzrd_v2 {
 	union {
 		struct { float x, y; };
-		struct { float w, h; };
+		//struct { float w, h; };
 	};
 } wzrd_v2;
 
-typedef struct EguiV2i {
+typedef struct wzrd_v2i {
 	int x, y;
-} EguiV2i;
+} wzrd_v2i;
+
 #define DEBUG_PANELS 0
 
 typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_Tooltip, CrateId_DropDown, CrateId_Total } CrateId;
@@ -180,6 +181,7 @@ typedef struct Box {
 	bool disable_input;
 	bool is_draggable, is_slot;
 	bool disable_hover;
+	bool best_fit;
 } wzrd_box;
 
 typedef struct Crate {
@@ -189,7 +191,6 @@ typedef struct Crate {
 	int box_stack[32];
 	int box_stack_count;
 
-	//EguiV2 current_pos;
 	bool current_column_mode;
 	int current_child_gap;
 } Crate;
@@ -298,6 +299,8 @@ typedef struct Egui {
 
 	wzrd_box hovered_cached_box, dragged_box;
 
+	int scale;
+
 } Egui;
 
 static Egui *g_gui;
@@ -334,7 +337,7 @@ typedef struct Label_list {
 
 
 // API
-void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color, bool enable_input);
+void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color, bool enable_input, unsigned int scale);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
@@ -385,4 +388,5 @@ wzrd_box *wzrd_box_get_released();
 wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name);
 bool wzrd_is_releasing();
 bool wzrd_is_releasing();
+wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
 #endif

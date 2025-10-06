@@ -1,7 +1,6 @@
 #include "Egui.h"
 #include "Strings.h"
 
-#if 1
 Crate* EguiGetCurrentWindow() {
 	Crate* result = &g_gui->crates_stack[g_gui->current_crate_index];
 
@@ -359,7 +358,7 @@ void wzrd_crate(int window_id, wzrd_box box) {
 	wzrd_crate_end();
 }
 
-void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, wzrd_v2 window_size, wzrd_icons icons, wzrd_color default_color, bool enable_input) {
+void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, wzrd_v2 window_size, wzrd_icons icons, wzrd_color default_color, bool enable_input, unsigned int scale) {
 
 	g_gui = gui;
 	g_gui->enable_input = enable_input;
@@ -371,9 +370,11 @@ void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mous
 	g_gui->mouse_pos = mouse_pos;
 	g_gui->current_crate_index = -1;
 	g_gui->boxes_count = 0;
-	g_gui->window_width = window_size.w;
-	g_gui->window_height = window_size.h;
+	g_gui->window_width = window_size.x;
+	g_gui->window_height = window_size.y;
 
+	assert(scale);
+	g_gui->scale = scale;
 
 	g_gui->mouse_delta.x = g_gui->mouse_pos.x - g_gui->previous_mouse_pos.x;
 	g_gui->mouse_delta.y = g_gui->mouse_pos.y - g_gui->previous_mouse_pos.y;
@@ -389,7 +390,7 @@ void wzrd_begin(Egui* gui, double time_in_ms, wzrd_v2 mouse_pos, wzrd_state mous
 	time += 16.7;
 
 	// Begin drawing first window
-	static EguiV2i pos;
+	static wzrd_v2i pos;
 	wzrd_crate_begin(
 		CrateId_Screen,
 		(wzrd_box) {
@@ -483,18 +484,18 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 
 	// Calculate size
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
-		wzrd_box* owner = &g_gui->boxes[i];
+		wzrd_box* parent = &g_gui->boxes[i];
 
-		assert(owner->w);
-		assert(owner->h);
+		assert(parent->w);
+		assert(parent->h);
 
-		owner->absolute_rect.w = owner->w;
-		owner->absolute_rect.h = owner->h;
+		parent->absolute_rect.w = parent->w;
+		parent->absolute_rect.h = parent->h;
 
 		float max_w = 0, max_h = 0;
 		float children_h = 0, children_w = 0;
-		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &g_gui->boxes[owner->children[j]];
+		for (int j = 0; j < parent->children_count; ++j) {
+			wzrd_box* child = &g_gui->boxes[parent->children[j]];
 
 			if (child->is_crate) continue;
 
@@ -506,22 +507,22 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		}
 
 		// Default resizing
-		float available_w = owner->w - owner->pad_left - owner->pad_right - 4 * g_gui->line_size;
-		float available_h = owner->h - owner->pad_top - owner->pad_bottom - 4 * g_gui->line_size;
+		float available_w = parent->w - parent->pad_left - parent->pad_right - 4 * g_gui->line_size;
+		float available_h = parent->h - parent->pad_top - parent->pad_bottom - 4 * g_gui->line_size;
 
-		if (owner->children_count) {
-			if (owner->row_mode)
-				available_w -= owner->child_gap * (owner->children_count - 1);
+		if (parent->children_count) {
+			if (parent->row_mode)
+				available_w -= parent->child_gap * (parent->children_count - 1);
 			else
-				available_h -= owner->child_gap * (owner->children_count - 1);
+				available_h -= parent->child_gap * (parent->children_count - 1);
 		}
 
 		// Handle growing
-		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &g_gui->boxes[owner->children[j]];
+		for (int j = 0; j < parent->children_count; ++j) {
+			wzrd_box* child = &g_gui->boxes[parent->children[j]];
 
 			if (child->grow_horizontal) {
-				if (owner->row_mode) {
+				if (parent->row_mode) {
 					child->w = available_w - children_w;
 				}
 				else {
@@ -532,12 +533,31 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			}
 
 			if (child->grow_vertical) {
-				if (!owner->row_mode) {
+				if (!parent->row_mode) {
 					child->h = available_h - children_h;
 				}
 				else {
 					child->h = available_h;
 				}
+			}
+
+			if (child->best_fit)
+			{
+				int ratio_a = parent->w / parent->h;
+				int ratio_b = child->w / child->h;
+				int ratio = 0;
+
+				if (ratio_a >= ratio_b)
+				{
+					ratio = parent->w / child->w;
+				}
+				else
+				{
+					ratio = parent->h / child->h;
+				}
+
+				child->w = child->w * ratio;
+				child->h = child->h * ratio;
 			}
 
 			child->absolute_rect.w = child->w;
@@ -550,9 +570,9 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		// assert
 		{
 			float w = 0, h = 0;
-			for (int j = 0; j < owner->children_count; ++j) {
-				wzrd_box* child = &g_gui->boxes[owner->children[j]];
-				if (owner->row_mode)
+			for (int j = 0; j < parent->children_count; ++j) {
+				wzrd_box* child = &g_gui->boxes[parent->children[j]];
+				if (parent->row_mode)
 					w += child->absolute_rect.w;
 				else
 					h += child->absolute_rect.h;
@@ -654,8 +674,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			child->absolute_rect.x = child->x;
 			child->absolute_rect.y = child->y;
 
-			//assert(child->absolute_rect.x >= 0);
-			//assert(child->absolute_rect.y >= 0);
 		}
 	}
 
@@ -678,8 +696,15 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		int max_z = 0;
 		for (int i = 0; i < g_gui->boxes_count; ++i) {
 			wzrd_box* box = g_gui->boxes + i;
-			bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
-				box->absolute_rect);
+
+			wzrd_rect scaled_rect = { box->absolute_rect.x * g_gui->scale, box->absolute_rect.y * g_gui->scale, box->absolute_rect.w * g_gui->scale, box->absolute_rect.h * g_gui->scale };
+
+			/*if (g_gui->scale > 1)
+				printf("%f %f | %f %f %f %f\n", g_gui->mouse_pos.x , g_gui->mouse_pos.y , scaled_rect.x, scaled_rect.y, scaled_rect.w, scaled_rect.h);*/
+
+			bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x , g_gui->mouse_pos.y },
+				scaled_rect);
+
 			if (is_hover && !box->disable_hover)
 			{
 				if (box->z >= max_z)
@@ -1317,7 +1342,7 @@ void wzrd_item_add(Item item) {
 }
 
 void EguiLabel(str128 str) {
-	EguiV2i size = { FONT_WIDTH * str.len, WZRD_FONT_HEIGHT };
+	wzrd_v2i size = { FONT_WIDTH * str.len, WZRD_FONT_HEIGHT };
 
 	wzrd_box_begin((wzrd_box) {
 		.border_type = BorderType_None,
@@ -1411,7 +1436,7 @@ void wzrd_input_box(str128* str, int max_num_keys) {
 }
 
 bool EguiLabelButtonBegin(str128 str) {
-	EguiV2i v = { FONT_WIDTH * str.len, WZRD_FONT_HEIGHT };
+	wzrd_v2i v = { FONT_WIDTH * str.len, WZRD_FONT_HEIGHT };
 	bool result = wzrd_box_begin((wzrd_box) {
 		.border_type = BorderType_None,
 			.color = wzrd_box_get_current()->color,
@@ -1540,7 +1565,7 @@ int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int 
 		if (*active) {
 			char str[128];
 			sprintf(str, "%s-dropdown", wzrd_box_get_current()->name.val);
-			static EguiV2i pos;
+			static wzrd_v2i pos;
 
 			wzrd_crate_begin(2, (wzrd_box) {
 				.parent = parent,
@@ -1568,7 +1593,7 @@ int wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, int 
 }
 
 bool EguiButton(str128 str) {
-	EguiV2i v = { FONT_WIDTH * str.len + 12, WZRD_FONT_HEIGHT + 12 };
+	wzrd_v2i v = { FONT_WIDTH * str.len + 12, WZRD_FONT_HEIGHT + 12 };
 	bool result = EguiButtonRawBegin((wzrd_box) {
 		.w = v.x,
 			.h = v.y,
@@ -1639,7 +1664,7 @@ bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color) {
 	bool result = false;
 	bool active = false;
 
-	wzrd_crate_begin(1, (wzrd_box) { .is_button = true, .color = color, .border_type = BorderType_None, .x = pos.x, .y = pos.y, .w = size.w, .h = size.h, .name = str128_create("wowy") });
+	wzrd_crate_begin(1, (wzrd_box) { .is_button = true, .color = color, .border_type = BorderType_None, .x = pos.x, .y = pos.y, .w = size.x, .h = size.y, .name = str128_create("wowy") });
 	{
 		result = IsActive();
 	}
@@ -1660,6 +1685,7 @@ void wzrd_drag(wzrd_box box2, wzrd_v2* pos, bool* drag) {
 	}
 
 	if (!(*drag)) return;
+
 
 	g_gui->dragged_box.x += g_gui->mouse_delta.x;
 	g_gui->dragged_box.y += g_gui->mouse_delta.y;
@@ -1721,4 +1747,17 @@ bool wzrd_is_releasing() {
 	return result;
 }
 
-#endif
+wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos) {
+	float lerp_amount = 0.2;
+	float delta = 0.1;
+	if (abs(end_pos.x - pos.x) > delta) {
+		pos.x = pos.x + lerp_amount * (end_pos.x - pos.x);
+	}
+
+	if (abs(end_pos.y - pos.y) > delta) {
+		pos.y = pos.y + lerp_amount * (end_pos.y - pos.y);
+	}
+
+	return pos;
+}
+

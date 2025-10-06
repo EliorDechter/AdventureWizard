@@ -47,8 +47,9 @@ void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, P
 }
 
 PlatformTargetTexture PlatformTargetTextureCreate() {
-	SDL_Texture* texture = SDL_CreateTexture(g_sdl.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, TARGET_TEXTURE_WIDTH, TARGET_TEXTURE_HEIGHT);
-	PlatformTargetTexture result = { .data = texture, .w = TARGET_TEXTURE_WIDTH , .h = TARGET_TEXTURE_HEIGHT };
+	SDL_Texture* texture = SDL_CreateTexture(g_sdl.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, GAME_WIDTH, GAME_HEIGHT);
+	SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+	PlatformTargetTexture result = { .data = texture, .w = GAME_WIDTH , .h = GAME_HEIGHT };
 
 	return result;
 }
@@ -100,13 +101,14 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
 	/* Create the window */
-	if (!SDL_CreateWindowAndRenderer("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE, &g_sdl.window, &g_sdl.renderer)) {
+	if (!SDL_CreateWindowAndRenderer("Hello World", EDITOR_WIDTH, EDITOR_HEIGHT, SDL_WINDOW_RESIZABLE, &g_sdl.window, &g_sdl.renderer)) {
 		SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
 	TTF_Init();
-	g_sdl.font = TTF_OpenFont("C:\\Users\\elior\\AppData\\Local\\Microsoft\\Windows\\Fonts\\FragmentMono-Regular.ttf", PLATFORM_FONT_HEIGHT);
+#
+	g_sdl.font = TTF_OpenFont("C:\\Users\\elior\\AppData\\Local\\Microsoft\\Windows\\Fonts\\FragmentMono-Regular.ttf", 13);
 	assert(g_sdl.font);
 
 	g_sdl.engine = TTF_CreateRendererTextEngine(g_sdl.renderer);
@@ -192,7 +194,6 @@ SDL_AppResult handle_events(SDL_Event *event) {
 	return SDL_APP_CONTINUE;
 }
 
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
 	SDL_AppResult result = handle_events(event);
@@ -215,6 +216,15 @@ void platform_cursor_set(PlatformCursor cursor) {
 			SDL_SetCursor(g_sdl.cursor_vertical_arrow);
 			break;
 	}
+}
+
+platform_debug_view_add(str128 str)
+{
+	//platform
+}
+
+void platform_debug_view_draw() {
+	PlatformRectDraw((PlatformRect) { g_platform.window_width - 300, 10, 295, 500 }, (platform_color){50, 50, 50, 200});
 }
 
 /* This function runs once per frame, and is the heart of the program. */
@@ -262,6 +272,14 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 	wzrd_icons icons = game_icons_get();
 
+	// Clear target
+	PlatformTextureBeginTarget(game_target_texture_get());
+	{
+		SDL_SetRenderDrawColor(g_sdl.renderer, 0xc3, 0xc3, 0xc3, 255);
+		SDL_RenderClear(g_sdl.renderer);
+	}
+	PlatformTextureEndTarget();
+
 	editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
 
 	wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
@@ -277,20 +295,26 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 	// Game
 	wzrd_cursor game_cursor = wzrd_cursor_default;
-	v2 window_size = (v2) { game_screen_rect.w, game_screen_rect.h };
+	v2 game_screen_size = (v2) { game_screen_rect.w, game_screen_rect.h };
 	static wzrd_draw_commands_buffer game_gui_buffer;
 	bool enable_game_input = true;
 	if (editor_gui.is_interacting || editor_gui.is_hovering)
 	{
 		enable_game_input = false;
 	}
-	game_run(window_size, enable_game_input && !game_gui.is_interacting);
-	game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&window_size, &game_cursor, enable_game_input);
 
-	game_draw();
+	unsigned int scale = game_screen_size.x / game_target_texture_get().w;
+
+	game_run(game_screen_size, enable_game_input && !game_gui.is_interacting, scale);
+
+	game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&game_screen_size, &game_cursor, enable_game_input, scale);
+
+	game_draw(game_screen_size);
 	game_draw_gui(&game_gui_buffer);
 	game_draw_gui_commands(&editor_buffer);
 	
+	platform_debug_view_draw();
+
 	SDL_RenderPresent(g_sdl.renderer);
 
 	unsigned int time1 = SDL_GetTicks();

@@ -32,18 +32,18 @@ void game_draw_gui_commands(wzrd_draw_commands_buffer* buffer) {
 	}
 }
 
-EguiV2i TextGetSize(const char* str) {
+wzrd_v2i TextGetSize(const char* str) {
 	PlatformV2i result = PlatformTextGetSize(str);
-	return *(EguiV2i*)&result;
+	return *(wzrd_v2i*)&result;
 }
 
-EguiV2i TextGetSizeFromLength(int len) {
+wzrd_v2i TextGetSizeFromLength(int len) {
 	assert(len < 128);
 	str128 str = { 0 };
 	for (int i = 0; i < len; ++i)
 		str.val[i] = 'a';
 	PlatformV2i result = PlatformTextGetSize(str.val);
-	return *(EguiV2i*)&result;
+	return *(wzrd_v2i*)&result;
 
 }
 
@@ -190,8 +190,8 @@ void nodes() {
 }
 #endif
 
-EguiV2i EguiV2iAdd(EguiV2i a, EguiV2i b) {
-	EguiV2i result = (EguiV2i){ a.x + b.x, a.y + b.y };
+wzrd_v2i EguiV2iAdd(wzrd_v2i a, wzrd_v2i b) {
+	wzrd_v2i result = (wzrd_v2i){ a.x + b.x, a.y + b.y };
 
 	return result;
 }
@@ -530,8 +530,8 @@ PixelPos MovePos(PixelPos current_pos, PixelPos dest) {
 	current_pos.pos.x += direction.x * speed;
 	current_pos.pos.y += direction.y * speed;
 
-	assert(current_pos.pos.x < GAME_SCREEN_WIDTH);
-	assert(current_pos.pos.y < GAME_SCREEN_HEIGHT);
+	//assert(current_pos.pos.x < GAME_SCREEN_WIDTH);
+	//assert(current_pos.pos.y < GAME_SCREEN_HEIGHT);
 
 	return current_pos;
 }
@@ -648,13 +648,13 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 	return result;*/
 }
 
-void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input) {
+void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale) {
 	// game screen gui
 	bool blue_button = false;
 	wzrd_begin(gui, 0,
 		(wzrd_v2) {
 		g_game.mouse_pos.x, g_game.mouse_pos.y,
-			
+				
 	},
 		g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
@@ -663,7 +663,8 @@ void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_si
 		(wzrd_color) {
 		0, 0, 0, 0
 	},
-		enable_input);
+		enable_input,
+		scale);
 	{
 
 		if (g_game.selected_entity.val.index) {
@@ -675,12 +676,14 @@ void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_si
 				Entity* selected_entity = game_entity_get(g_game.selected_entity);
 
 				if (selected_entity) {
-					selected_entity->rect.x += g_game.mouse_delta.x;
-					selected_entity->rect.y += g_game.mouse_delta.y;
+					printf("%f %f\n", g_game.mouse_delta.x, g_game.mouse_delta.y);
+
+					selected_entity->rect.x += g_game.mouse_delta.x / scale;
+					selected_entity->rect.y += g_game.mouse_delta.y / scale;
 
 					wzrd_box* button = wzrd_box_get_previous();
-					button->x += g_game.mouse_delta.x;
-					button->y += g_game.mouse_delta.y;
+					button->x += g_game.mouse_delta.x / scale;
+					button->y += g_game.mouse_delta.y / scale;
 
 				}
 			}
@@ -689,19 +692,21 @@ void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_si
 	wzrd_end(cursor, buffer);
 }
 
-void game_run(v2 window_size, bool enable) {
+void game_run(v2 window_size, bool enable, unsigned int scale) {
 
 	// entity mouse interaction 
 	if (enable)
 	{
-		//printf("%f %f\n", game.mouse_pos.x, game.mouse_pos.y);
 		if (g_game.mouse_pos.x >= 0 && g_game.mouse_pos.y >= 0 && g_game.mouse_pos.x <= window_size.x && g_game.mouse_pos.y <= window_size.y) {
 			Entity_handle hovered_entity = { 0 };
 			int iterator_index = 1;
 			Entity_handle entity_handle = { 0 };
 			while (entity_get_next_handle(&iterator_index, &entity_handle)) {
 				Entity* entity = game_entity_get(entity_handle);
-				bool is_hover = v2_is_inside_rect((v2) { g_game.mouse_pos.x, g_game.mouse_pos.y }, entity->rect);
+
+				Rect scaled_rect = (Rect){ entity->rect.x * scale, entity->rect.y * scale, entity->rect.w * scale, entity->rect.h * scale };
+
+				bool is_hover = v2_is_inside_rect((v2) { g_game.mouse_pos.x, g_game.mouse_pos.y }, scaled_rect);
 				if (is_hover) {
 					hovered_entity = entity_handle;
 				}
@@ -737,11 +742,50 @@ void game_run(v2 window_size, bool enable) {
 	}
 }
 
-void game_draw() {
+void game_draw(v2 game_screen_size) {
 
 	// Draw
 	PlatformTextureBeginTarget(g_game.target_texture);
 	{
+		// Draw black bars
+
+#if 1
+		/*int ratio_a = game_screen_size.x / game_screen_size.y;
+		int ratio_b = g_game.target_texture.w / g_game.target_texture.h;
+		int ratio = 0;
+
+		if (ratio_a >= ratio_b)
+		{
+			ratio = game_screen_size.x / g_game.target_texture.w;
+		}
+		else
+		{
+			ratio = game_screen_size.y / g_game.target_texture.h;
+		}
+
+		int w = g_game.target_texture.w * ratio;
+		int h = g_game.target_texture.h * ratio;
+		int x = game_screen_size.x / 2 - w / 2;
+		int y = game_screen_size.y / 2 - h / 2;
+
+		PlatformRectDraw((PlatformRect) { 0, 0, x, game_screen_size.y }, PLATFORM_BLACK);
+		PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, y }, PLATFORM_BLACK);*/
+
+		//PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+		//PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+		//PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+
+
+#else
+		int p = game_screen_size.x / 16;
+		int h = p * 9;
+		int w = p * 16;
+		int bar_h = (game_screen_size.y - h) / 2;
+
+		PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+		PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+#endif
+
 		// Draw selected entity border
 		Entity* selected_entity = game_entity_get(g_game.selected_entity);
 		if (selected_entity) {
