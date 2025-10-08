@@ -315,7 +315,6 @@ int GetSign(int n) {
 	return 0;
 }
 
-
 #define MAX_NUM_VERTICES_IN_POLYGON 32
 
 typedef struct Polygon {
@@ -648,17 +647,23 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 	return result;*/
 }
 
-void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale) {
+typedef struct array_list_node
+{
+	int index;
+	int next_node;
+} array_list_node;
+
+void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_screen_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale, v2 mouse_pos) {
 	// game screen gui
 	bool blue_button = false;
 	wzrd_begin(gui, 0,
 		(wzrd_v2) {
 		g_game.mouse_pos.x, g_game.mouse_pos.y,
-				
+
 	},
 		g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
-		window_size
+		game_screen_size
 		, g_game.icons,
 		(wzrd_color) {
 		0, 0, 0, 0
@@ -667,19 +672,137 @@ void game_gui_do(wzrd_draw_commands_buffer *buffer, Egui *gui, wzrd_v2 window_si
 		scale);
 	{
 
+		// NEW
+		PlatformTextureBeginTarget(g_game.target_texture);
+		{
+
+			SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
+			SDL_RenderClear(g_sdl.renderer);
+
+			int size = 16;
+			int rects_in_row_count = g_game.target_texture.data->w / size;
+			int rects_in_column_count = g_game.target_texture.data->h / size;
+			int x = 0, y = 0;
+			bool flip = false;
+			for (int i = 1; i < rects_in_column_count; ++i) {
+				for (int j = 1; j < rects_in_row_count; ++j) {
+
+					PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
+
+					x += size;
+				}
+
+				x = 0;
+				y += size;
+				flip = !flip;
+			}
+
+			// POLYGON
+			{
+				static v2 nodes[32];
+				static ArrayList32 list;
+
+				if (g_game.polygon_adding_active)
+				{
+					if (g_platform.mouse_left == Activating)
+					{
+						if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < game_screen_size.x && mouse_pos.y < game_screen_size.y)
+						{
+							int index = array_list_32_add(&list);
+							nodes[index] = (v2){ mouse_pos.x, mouse_pos.y };
+						}
+					}
+				}
+
+				//for (int i = 0; i < list.count; ++i)
+				int it = 1;
+				int index = 0;
+				while (index = array_list_32_get_next(&list, &it))
+				{
+					if (index > 1)
+					{
+						float x0 = nodes[index].x;
+						float y0 = nodes[index].y;
+						float x1 = nodes[(index + 1) ].x;
+						float y1 = nodes[(index + 1) ].y;
+
+						PlatformLineDraw(x0, y0, x1, y1, 255, 0, 0);
+					}
+
+					str128 name = { 0 };
+					sprintf(name.val, "wow %d", index);
+					name.len = strlen(name.val);
+					wzrd_color color = { 255, 0, 0, 255 };
+					if (wzrd_game_buttonesque(*(wzrd_v2*)&nodes[index], (wzrd_v2) { 2, 2 }, color, name))
+					{
+						nodes[index].x += g_platform.mouse_delta_x / scale;
+						nodes[index].y += g_platform.mouse_delta_y / scale;
+					}
+
+					if (wzrd_box_is_selected(wzrd_box_get_last()))
+					{
+						wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
+
+						if (g_game.delete)
+						{
+
+						}
+					}
+					else
+					{
+						wzrd_box_get_last()->color = (wzrd_color){ 255, 0, 0, 255 };
+					}
+
+				}
+			}
+
+			int p = game_screen_size.x / 16;
+			int h = p * 9;
+			int w = p * 16;
+			int bar_h = (game_screen_size.y - h) / 2;
+
+			PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+			PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+
+			// Draw selected entity border
+			Entity* selected_entity = game_entity_get(g_game.selected_entity);
+			if (selected_entity) {
+				//PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
+				//PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
+			}
+
+			// Draw entities
+			int iterator_index = 0;
+			Entity* entity = 0;
+			while (entity = entity_get_next(&iterator_index)) {
+				Texture* texture = game_texture_get(entity->texture);
+				if (texture)
+				{
+					PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
+						(PlatformRect) {
+						0, 0, texture->val.w, texture->val.h
+					}, wzrd_color_to_platform_color(entity->color));
+				}
+				else {
+					PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
+				}
+
+			}
+		}
+		PlatformTextureEndTarget();
+
 		if (g_game.selected_entity.val.index) {
 			Entity* selected_entity = game_entity_get(g_game.selected_entity);
-			blue_button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 });
+			blue_button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 }, str128_create("blue"));
 			// Late logic
 			if (blue_button)
 			{
 				Entity* selected_entity = game_entity_get(g_game.selected_entity);
 
 				if (selected_entity) {
-					printf("%f %f\n", g_game.mouse_delta.x, g_game.mouse_delta.y);
 
-					selected_entity->rect.x += g_game.mouse_delta.x / scale;
-					selected_entity->rect.y += g_game.mouse_delta.y / scale;
+					selected_entity->rect.x += (float)(g_game.mouse_delta.x / scale);
+					selected_entity->rect.y += (float)(g_game.mouse_delta.y / scale);
 
 					wzrd_box* button = wzrd_box_get_previous();
 					button->x += g_game.mouse_delta.x / scale;
@@ -742,76 +865,10 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 	}
 }
 
-void game_draw(v2 game_screen_size) {
+void game_draw(v2 game_screen_size, v2 mouse_pos) {
 
 	// Draw
-	PlatformTextureBeginTarget(g_game.target_texture);
-	{
-		// Draw black bars
 
-#if 1
-		/*int ratio_a = game_screen_size.x / game_screen_size.y;
-		int ratio_b = g_game.target_texture.w / g_game.target_texture.h;
-		int ratio = 0;
-
-		if (ratio_a >= ratio_b)
-		{
-			ratio = game_screen_size.x / g_game.target_texture.w;
-		}
-		else
-		{
-			ratio = game_screen_size.y / g_game.target_texture.h;
-		}
-
-		int w = g_game.target_texture.w * ratio;
-		int h = g_game.target_texture.h * ratio;
-		int x = game_screen_size.x / 2 - w / 2;
-		int y = game_screen_size.y / 2 - h / 2;
-
-		PlatformRectDraw((PlatformRect) { 0, 0, x, game_screen_size.y }, PLATFORM_BLACK);
-		PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, y }, PLATFORM_BLACK);*/
-
-		//PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-		//PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-		//PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-
-
-#else
-		int p = game_screen_size.x / 16;
-		int h = p * 9;
-		int w = p * 16;
-		int bar_h = (game_screen_size.y - h) / 2;
-
-		PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-		PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-#endif
-
-		// Draw selected entity border
-		Entity* selected_entity = game_entity_get(g_game.selected_entity);
-		if (selected_entity) {
-			PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
-			PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
-		}
-
-		// Draw entities
-		int iterator_index = 0;
-		Entity* entity = 0;
-		while (entity = entity_get_next(&iterator_index)) {
-			Texture* texture = game_texture_get(entity->texture);
-			if (texture)
-			{
-				PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
-					(PlatformRect) {
-					0, 0, texture->val.w, texture->val.h
-				}, wzrd_color_to_platform_color(entity->color));
-			}
-			else {
-				PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
-			}
-			
-		}
-	}
-	PlatformTextureEndTarget();
 }
 
 PlatformTargetTexture game_target_texture_get() {
@@ -865,7 +922,7 @@ void game_init() {
 	game_entity_add((Entity) { 0 });
 
 	Entity_handle e = game_entity_add((Entity) {
-		.rect = { .x = 50, .y = 50, .w = 500, .h = 500 }, .name = str128_create("e1"),
+		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e1"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
 			.color = (wzrd_color){ 255, 255, 255, 255 }
 	});

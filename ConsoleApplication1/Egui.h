@@ -144,6 +144,9 @@ typedef struct Item {
 
 typedef enum ButtonType {ButtonType_None, ButtonType_Flat, ButtonType_ThreeDimensional} ButtonType;
 
+typedef struct wzrd_widget_id {
+	str128 val;
+} wzrd_widget_id;
 
 typedef struct Box {
 	str128 name;
@@ -243,8 +246,10 @@ typedef struct Egui {
 #define MAX_NUM_BOXES 128
 	wzrd_box boxes[MAX_NUM_BOXES];
 
-	str128 hot_item, active_item, clicked_item, right_resized_item, released_item,
-		left_resized_item, bottom_resized_item, top_resized_item, half_clicked_item, dragged_item;
+	str128 hot_item, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
+
+	str128 right_resized_item,
+		left_resized_item, bottom_resized_item, top_resized_item;
 
 	double time;
 
@@ -278,7 +283,7 @@ typedef struct Egui {
 	int input_box_strings_count;
 
 	int line_size;
-
+	
 	str128 active_input_box;
 
 	wzrd_keyboard_keys keyboard_keys;
@@ -336,6 +341,13 @@ typedef struct Label_list {
 } Label_list;
 
 
+#define MAX_NUM_VERTICES_IN_POLYGON 32
+
+typedef struct wzrd_polygon {
+	wzrd_v2 vertices[MAX_NUM_VERTICES_IN_POLYGON];
+	int count;
+} wzrd_polygon;
+
 // API
 void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color, bool enable_input, unsigned int scale);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
@@ -378,15 +390,17 @@ wzrd_rect wzrd_box_get_rect(wzrd_box * box);
 void wzrd_input_box(str128* str, int max_num_keys);
 void wzrd_crate_end();
 wzrd_box* wzrd_box_get_by_name(str128 str);
-bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color);
+bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color, str128 name);
 void wzrd_drag(wzrd_box box, wzrd_v2* pos, bool *drag);
 wzrd_box* wzrd_box_get_last();
 bool wzrd_box_is_active(wzrd_box *box);
 bool wzrd_box_is_dragged(wzrd_box* box);
 bool wzrd_box_is_hot(wzrd_box* box);
+bool wzrd_box_is_selected(wzrd_box* box);
 wzrd_box *wzrd_box_get_released();
 wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name);
 bool wzrd_is_releasing();
-bool wzrd_is_releasing();
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
+bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active);
+void EguiToggle3(wzrd_box box, str128 str, bool *active);
 #endif

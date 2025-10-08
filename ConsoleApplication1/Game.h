@@ -3,6 +3,7 @@
 #include "Egui.h"
 #include "Textures.h"
 #include "Handle.h"
+#include "ArrayList.h"
 
 #define GAME_TEXTURES_COUNT 256
 
@@ -126,6 +127,10 @@ typedef struct Game {
 
 	wzrd_icons icons;
 
+	bool polygon_adding_active;
+
+	bool delete;
+
 } Game;
 
 extern Game g_game;
@@ -137,10 +142,10 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale);
+void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale, v2 mouse_pos);
 void game_run(v2 window_size, bool enable, unsigned int scale);
 void game_draw_gui_commands(wzrd_draw_commands_buffer *buffer);
-void game_draw(v2 game_screen_size);
+void game_draw(v2 game_screen_size, v2 mouse_pos);
 void game_draw_gui(wzrd_draw_commands_buffer* buffer);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);

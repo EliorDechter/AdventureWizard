@@ -101,6 +101,9 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				create_object_active = true;
 			}
 
+			EguiToggle3((wzrd_box) { .center = true, .w = 200, .h = 32 },
+				str128_create("Add Polygon"), & g_game.polygon_adding_active);
+
 			// Seperator
 			EguiBox((wzrd_box) {
 				.border_type = BorderType_LeftLine,
@@ -113,6 +116,12 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 						game_texture_remove_by_index(selected_item);
 					}
 				}
+
+				g_game.delete = true;
+			}
+			else
+			{
+				g_game.delete = false;
 			}
 
 			// Seperator
@@ -251,18 +260,41 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 #endif
 
 					}
+					SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
+					SDL_RenderClear(g_sdl.renderer);
+
+					int size = 16;
+					int rects_in_row_count = target_texture.data->w / size;
+					int rects_in_column_count = target_texture.data->h / size;
+					int x = 0, y = 0;
+					bool flip = false;
+					for (int i = 1; i < rects_in_column_count; ++i) {
+						for (int j = 1; j < rects_in_row_count; ++j) {
+
+							PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
+
+							x += size;
+						}
+
+						x = 0;
+						y += size;
+						flip = !flip;
+					}
+
+
+					if (g_game.polygon_adding_active)
+					{
+						//float mouse_x = g_platform.mouse_x / scale;
+					}
 				}
 				wzrd_box_end();
 			}
 			wzrd_box_end();
 
 			//Right Panel
-			//wzrd_box_begin(((Box) { .border_type = BorderType_None, }));
 			{
 				// Target
 				wzrd_box_begin(((wzrd_box) {
-					//.h = 500,
-					//0,
 					.center = true,
 						.color = EGUI_PINK,
 						.disable_input = true,
@@ -281,31 +313,6 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				}
 				wzrd_box_end();
 
-				PlatformTextureBeginTarget(target_texture);
-				{
-					SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
-					SDL_RenderClear(g_sdl.renderer);
-
-					int size = 16;
-					int rects_in_row_count = target_texture.data->w / size;
-					int rects_in_column_count = target_texture.data->h / size;
-					int x = 0, y = 0;
-					bool flip = false;
-					for (int i = 1; i < rects_in_column_count; ++i) {
-						for (int j = 1; j < rects_in_row_count; ++j) {
-							
-							PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
-
-							x += size;
-						}
-
-						x = 0;
-						y += size;
-						flip = !flip;
-					}
-
-				}
-				PlatformTextureEndTarget();
 			}
 			//wzrd_box_end();
 		}

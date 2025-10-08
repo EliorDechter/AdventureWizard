@@ -106,6 +106,7 @@ typedef struct KeysPressed {
 typedef struct PlatformSystem {
 	State keyboard[128];
 	State mouse_left, mouse_right;
+	float mouse_delta_x, mouse_delta_y;
 	float mouse_x, mouse_y;
 	float previous_mouse_x, previous_mouse_y;
 	int window_width, window_height;

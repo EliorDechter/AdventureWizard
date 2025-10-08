@@ -52,6 +52,24 @@ wzrd_box* wzrd_box_get_last() {
 	return result;
 }
 
+int CompareBoxes2(const void* element1, const void* element2) {
+	wzrd_box* c1 = g_gui->boxes + *(int*)element1;
+	wzrd_box* c2 = g_gui->boxes + *(int*)element2;
+
+	if (c1->z > c2->z) {
+		return 1;
+	}
+	if (c1->z < c2->z) {
+		return -1;
+	}
+	if (c1->z == c2->z) {
+		if (c1->index > c2->index) return 1;
+		if (c1->index < c2->index) return -1;
+		return 0;
+	}
+}
+
+
 int CompareBoxes(const void* element1, const void* element2) {
 	wzrd_box* c1 = (wzrd_box*)element1;
 	wzrd_box* c2 = (wzrd_box*)element2;
@@ -461,8 +479,219 @@ wzrd_box* wzrd_box_get_previous() {
 	return result;
 }
 
-void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
+void wzrd_handle_cursor(wzrd_cursor *cursor)
+{
+	*cursor = wzrd_cursor_default;
 
+	if (g_gui->is_hovering) {
+		*cursor = DrawCommandType_Default;
+
+		wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
+		wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
+
+		if (hot_box) {
+			if (hot_box->is_button) {
+				*cursor = wzrd_cursor_hand;
+			}
+		}
+		if (active_box) {
+			if (active_box->is_button) {
+				*cursor = wzrd_cursor_hand;
+			}
+		}
+	}
+}
+
+void wzrd_handle_border_resize(wzrd_cursor* cursor)
+{
+	g_gui->left_resized_item = (str128){ 0 };
+	g_gui->right_resized_item = (str128){ 0 };
+	g_gui->top_resized_item = (str128){ 0 };
+	g_gui->bottom_resized_item = (str128){ 0 };
+
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		wzrd_box* owner = g_gui->boxes + i;
+		for (int j = 0; j < owner->children_count; ++j) {
+			wzrd_box* child = &g_gui->boxes[owner->children[j]];
+
+			float border_size = 2;
+
+			if (!child->resizable) continue;
+
+			bool is_inside_left_border =
+				g_gui->mouse_pos.x >= child->absolute_rect.x &&
+				g_gui->mouse_pos.y >= child->absolute_rect.y &&
+				g_gui->mouse_pos.x < child->absolute_rect.x + border_size &&
+				g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+			bool is_inside_right_border =
+				g_gui->mouse_pos.x >= child->absolute_rect.x + child->absolute_rect.w - border_size &&
+				g_gui->mouse_pos.y >= child->absolute_rect.y &&
+				g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+				g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+			bool is_inside_top_border =
+				g_gui->mouse_pos.x >= child->absolute_rect.x &&
+				g_gui->mouse_pos.y >= child->absolute_rect.y &&
+				g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+				g_gui->mouse_pos.y < child->absolute_rect.y + border_size;
+			bool is_inside_bottom_border =
+				g_gui->mouse_pos.x >= child->absolute_rect.x &&
+				g_gui->mouse_pos.y >= child->absolute_rect.y + child->absolute_rect.h - border_size &&
+				g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
+				g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
+
+			if (str128_equal(g_gui->hot_item, child->name) || str128_equal(g_gui->active_item, child->name)) {
+
+				if (is_inside_top_border || is_inside_bottom_border) {
+					*cursor = wzrd_cursor_vertical_arrow;
+				}
+				else if (is_inside_left_border || is_inside_right_border) {
+					*cursor = wzrd_cursor_horizontal_arrow;
+				}
+			}
+
+			if (str128_equal(g_gui->active_item, child->name)) {
+				if (is_inside_bottom_border) {
+					child->color = EGUI_PURPLE;
+					g_gui->bottom_resized_item = child->name;
+				}
+				else if (is_inside_top_border) {
+					child->color = EGUI_PURPLE;
+					g_gui->top_resized_item = child->name;
+				}
+				else if (is_inside_left_border) {
+					child->color = EGUI_PURPLE;
+					g_gui->left_resized_item = child->name;
+				}
+				else if (is_inside_right_border) {
+					child->color = EGUI_PURPLE;
+					g_gui->right_resized_item = child->name;
+				}
+			}
+		}
+	}
+}
+
+void wzrd_handle_input()
+{
+
+	wzrd_box* hovered_box = 0;
+	int max_z = 0;
+	for (int i = 0; i < g_gui->boxes_count; ++i) {
+		wzrd_box* box = g_gui->boxes + i;
+
+		wzrd_rect scaled_rect = { box->absolute_rect.x * g_gui->scale, box->absolute_rect.y * g_gui->scale, box->absolute_rect.w * g_gui->scale, box->absolute_rect.h * g_gui->scale };
+
+		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
+			scaled_rect);
+
+		if (is_hover && !box->disable_hover)
+		{
+			if (box->z >= max_z)
+			{
+				hovered_box = box;
+				max_z = box->z;
+			}
+		}
+	}
+
+	// ...
+	wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
+	if (half_clicked_box && g_gui->mouse_left == EguiActive)
+	{
+		g_gui->half_clicked_item = (str128){ 0 };
+	}
+
+	wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
+	wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
+
+	if (g_gui->mouse_left == EguiDeactivating)
+	{
+		g_gui->released_item = g_gui->dragged_item;
+		g_gui->dragged_box = (wzrd_box){ 0 };
+		g_gui->dragged_item = (str128){ 0 };
+	}
+
+	if (g_gui->mouse_left == EguiInactive)
+	{
+		g_gui->released_item = (str128){ 0 };
+	}
+
+	if (active_box) {
+		if (g_gui->mouse_left == EguiDeactivating) {
+			if (hot_box == active_box) {
+				g_gui->clicked_item = active_box->name;
+			}
+			g_gui->active_item = (str128){ 0 };
+		}
+
+	}
+
+	g_gui->is_interacting = false;
+	g_gui->is_hovering = false;
+	if (hot_box) {
+		if (!hot_box->disable_input) {
+			g_gui->is_hovering = true;
+		}
+
+	}
+	if (active_box) {
+		if (!active_box->disable_input) {
+			g_gui->is_interacting = true;
+		}
+	}
+
+	if (hot_box) {
+		if (hot_box->flat_button)
+			hot_box->color = (wzrd_color){ 0, 255, 255, 255 };
+		if (g_gui->mouse_left == EguiActivating) {
+			g_gui->active_item = hot_box->name;
+
+			g_gui->half_clicked_item = hot_box->name;
+			g_gui->selected_item = g_gui->hot_item;
+
+			// Dragging
+			wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
+			if (half_clicked_box->is_draggable) {
+				g_gui->dragged_item = half_clicked_box->name;
+
+				g_gui->dragged_box = *half_clicked_box;
+				g_gui->dragged_box.x = g_gui->dragged_box.absolute_rect.x;
+				g_gui->dragged_box.y = g_gui->dragged_box.absolute_rect.y;
+				g_gui->dragged_box.w = g_gui->dragged_box.absolute_rect.w;
+				g_gui->dragged_box.h = g_gui->dragged_box.absolute_rect.h;
+				g_gui->dragged_box.name = str128_create("drag");
+				g_gui->dragged_box.absolute_rect = (wzrd_rect){ 0 };
+				g_gui->dragged_box.disable_hover = true;
+			}
+		}
+	}
+
+	if (hovered_box) {
+		g_gui->hot_item = hovered_box->name;
+	}
+	else {
+		g_gui->hot_item = (str128){ 0 };
+	}
+
+	// stuff
+	if (g_gui->clicked_item.len) {
+		wzrd_box* clicked_box = wzrd_box_get_by_name(g_gui->clicked_item);
+		assert(clicked_box);
+		if (clicked_box->is_input_box) {
+			g_gui->active_input_box = clicked_box->name;
+		}
+		else {
+			g_gui->active_input_box = (str128){ 0 };
+		}
+	}
+
+	if (g_gui->mouse_left == EguiInactive) {
+		g_gui->clicked_item = (str128){ 0 };
+	}
+
+}
+
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 
 	// Dragging
 	if (g_gui->dragged_box.name.len)
@@ -547,7 +776,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 				int ratio_b = child->w / child->h;
 				int ratio = 0;
 
-				if (ratio_a >= ratio_b)
+				if (ratio_b >= ratio_a)
 				{
 					ratio = parent->w / child->w;
 				}
@@ -558,6 +787,10 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 
 				child->w = child->w * ratio;
 				child->h = child->h * ratio;
+
+				assert(child->w <= parent->w);
+				assert(child->h <= parent->h);
+
 			}
 
 			child->absolute_rect.w = child->w;
@@ -624,13 +857,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 				h += child->h;
 		}
 
-		/*
-				if (owner->row_mode)
-					h = max_h;
-				else
-					w = max_w;
-					*/
-
 		if (owner->row_mode)
 			w += owner->child_gap * (owner->children_count - 1);
 		else
@@ -691,245 +917,36 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 	// Mouse interaction
 	if (g_gui->enable_input)
 	{
-		*cursor = wzrd_cursor_default;
-		wzrd_box* hovered_box = 0;
-		int max_z = 0;
-		for (int i = 0; i < g_gui->boxes_count; ++i) {
-			wzrd_box* box = g_gui->boxes + i;
-
-			wzrd_rect scaled_rect = { box->absolute_rect.x * g_gui->scale, box->absolute_rect.y * g_gui->scale, box->absolute_rect.w * g_gui->scale, box->absolute_rect.h * g_gui->scale };
-
-			/*if (g_gui->scale > 1)
-				printf("%f %f | %f %f %f %f\n", g_gui->mouse_pos.x , g_gui->mouse_pos.y , scaled_rect.x, scaled_rect.y, scaled_rect.w, scaled_rect.h);*/
-
-			bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x , g_gui->mouse_pos.y },
-				scaled_rect);
-
-			if (is_hover && !box->disable_hover)
-			{
-				if (box->z >= max_z)
-				{
-					hovered_box = box;
-					max_z = box->z;
-				}
-			}
-		}
-
-		// ...
-		wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
-		if (half_clicked_box && g_gui->mouse_left == EguiActive)
-		{
-			g_gui->half_clicked_item = (str128){ 0 };
-		}
-
-		wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
-		wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
-
-		if (g_gui->mouse_left == EguiDeactivating)
-		{
-			g_gui->released_item = g_gui->dragged_item;
-			g_gui->dragged_box = (wzrd_box){ 0 };
-			g_gui->dragged_item = (str128){ 0 };
-		}
-
-		if (g_gui->mouse_left == EguiInactive)
-		{
-			g_gui->released_item = (str128){ 0 };
-		}
-
-		if (active_box) {
-			if (g_gui->mouse_left == EguiDeactivating) {
-				if (hot_box == active_box) {
-					g_gui->clicked_item = active_box->name;
-				}
-				g_gui->active_item = (str128){ 0 };
-			}
-
-			//if (active_box->is_button || active_box->flat_button) {
-				//*is_interacting = true;
-			//}
-		}
-		else {
-			//*is_interacting = false;
-		}
-
-		g_gui->is_interacting = false;
-		g_gui->is_hovering = false;
-		if (hot_box) {
-			if (!hot_box->disable_input) {
-				g_gui->is_hovering = true;
-			}
-
-		}
-		if (active_box) {
-			if (!active_box->disable_input) {
-				g_gui->is_interacting = true;
-			}
-		}
-
-		if (hot_box) {
-			if (hot_box->flat_button)
-				hot_box->color = (wzrd_color){ 0, 255, 255, 255 };
-			if (g_gui->mouse_left == EguiActivating) {
-				g_gui->active_item = hot_box->name;
-				
-				g_gui->half_clicked_item = hot_box->name;
-
-
-				// Dragging
-				wzrd_box *half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
-				if (half_clicked_box->is_draggable) {
-					g_gui->dragged_item = half_clicked_box->name;
-
-					g_gui->dragged_box = *half_clicked_box;
-					g_gui->dragged_box.x = g_gui->dragged_box.absolute_rect.x;
-					g_gui->dragged_box.y = g_gui->dragged_box.absolute_rect.y;
-					g_gui->dragged_box.w = g_gui->dragged_box.absolute_rect.w;
-					g_gui->dragged_box.h = g_gui->dragged_box.absolute_rect.h;
-					g_gui->dragged_box.name = str128_create("drag");
-					g_gui->dragged_box.absolute_rect = (wzrd_rect){ 0 };
-					g_gui->dragged_box.disable_hover = true;
-				}
-			}
-		}
-
-		if (hovered_box) {
-			g_gui->hot_item = hovered_box->name;
-		}
-		else {
-			g_gui->hot_item = (str128){ 0 };
-		}
-
-		// Cursor 
-		if (g_gui->is_hovering) {
-			*cursor = DrawCommandType_Default;
-
-			wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
-			wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
-
-			if (hot_box) {
-				if (hot_box->is_button) {
-					*cursor = wzrd_cursor_hand;
-				}
-			}
-			if (active_box) {
-				if (active_box->is_button) {
-					*cursor = wzrd_cursor_hand;
-				}
-			}
-		}
-
-		// stuff
-		if (g_gui->clicked_item.len) {
-			wzrd_box* clicked_box = wzrd_box_get_by_name(g_gui->clicked_item);
-			assert(clicked_box);
-			if (clicked_box->is_input_box) {
-				g_gui->active_input_box = clicked_box->name;
-			}
-			else {
-				g_gui->active_input_box = (str128){ 0 };
-			}
-		}
-
-		if (g_gui->mouse_left == EguiInactive) {
-			g_gui->clicked_item = (str128){ 0 };
-		}
-
-		// Border resize
-		{
-			g_gui->left_resized_item = (str128){ 0 };
-			g_gui->right_resized_item = (str128){ 0 };
-			g_gui->top_resized_item = (str128){ 0 };
-			g_gui->bottom_resized_item = (str128){ 0 };
-
-			for (int i = 0; i < g_gui->boxes_count; ++i) {
-				wzrd_box* owner = g_gui->boxes + i;
-				for (int j = 0; j < owner->children_count; ++j) {
-					wzrd_box* child = &g_gui->boxes[owner->children[j]];
-
-					float border_size = 2;
-
-					if (!child->resizable) continue;
-
-					bool is_inside_left_border =
-						g_gui->mouse_pos.x >= child->absolute_rect.x &&
-						g_gui->mouse_pos.y >= child->absolute_rect.y &&
-						g_gui->mouse_pos.x < child->absolute_rect.x + border_size &&
-						g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
-					bool is_inside_right_border =
-						g_gui->mouse_pos.x >= child->absolute_rect.x + child->absolute_rect.w - border_size &&
-						g_gui->mouse_pos.y >= child->absolute_rect.y &&
-						g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-						g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
-					bool is_inside_top_border =
-						g_gui->mouse_pos.x >= child->absolute_rect.x &&
-						g_gui->mouse_pos.y >= child->absolute_rect.y &&
-						g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-						g_gui->mouse_pos.y < child->absolute_rect.y + border_size;
-					bool is_inside_bottom_border =
-						g_gui->mouse_pos.x >= child->absolute_rect.x &&
-						g_gui->mouse_pos.y >= child->absolute_rect.y + child->absolute_rect.h - border_size &&
-						g_gui->mouse_pos.x < child->absolute_rect.x + child->absolute_rect.w &&
-						g_gui->mouse_pos.y < child->absolute_rect.y + child->absolute_rect.h;
-
-					if (str128_equal(g_gui->hot_item, child->name) || str128_equal(g_gui->active_item, child->name)) {
-
-						if (is_inside_top_border || is_inside_bottom_border) {
-							*cursor = wzrd_cursor_vertical_arrow;
-						}
-						else if (is_inside_left_border || is_inside_right_border) {
-							*cursor = wzrd_cursor_horizontal_arrow;
-						}
-					}
-
-					if (str128_equal(g_gui->active_item, child->name)) {
-						if (is_inside_bottom_border) {
-							child->color = EGUI_PURPLE;
-							g_gui->bottom_resized_item = child->name;
-						}
-						else if (is_inside_top_border) {
-							child->color = EGUI_PURPLE;
-							g_gui->top_resized_item = child->name;
-						}
-						else if (is_inside_left_border) {
-							child->color = EGUI_PURPLE;
-							g_gui->left_resized_item = child->name;
-						}
-						else if (is_inside_right_border) {
-							child->color = EGUI_PURPLE;
-							g_gui->right_resized_item = child->name;
-						}
-					}
-				}
-			}
-		}
+		wzrd_handle_input();
+		wzrd_handle_cursor(cursor);
+		wzrd_handle_border_resize(cursor);
 	}
 
 	// Mouse position
 	g_gui->previous_mouse_pos = g_gui->mouse_pos;
 
-	// Exit early if window is unfocused
-	/*if (!wzrd_v2_is_inside_rect((wzrd_v2) { g_gui->mouse_pos.x, g_gui->mouse_pos.y },
-		(wzrd_rect) {
-		0, 0, g_gui->window_width, g_gui->window_height
-	})) {
-		*is_hovered = false;
-		g_gui = 0;
-		return;
-	}
-	else {
-		*is_hovered = true;
-	}*/
-
 	// Drawing
+#if 0
 	wzrd_box boxes[MAX_NUM_BOXES] = { 0 };
 	memcpy(boxes, g_gui->boxes, sizeof(wzrd_box) * g_gui->boxes_count);
 	qsort(boxes, g_gui->boxes_count, sizeof(wzrd_box), CompareBoxes);
+#else
+	int boxes_indices[MAX_NUM_BOXES] = { 0 };
+
+	for (int i = 0; i < g_gui->boxes_count; ++i)
+	{
+		boxes_indices[i] = i;
+	}
+
+	qsort(boxes_indices, g_gui->boxes_count, sizeof(int), CompareBoxes2);
+
+#endif
 
 	buffer->count = 0;
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
 
-		wzrd_box box = boxes[i];
+		//wzrd_box box = boxes[i];
+		wzrd_box box = g_gui->boxes[boxes_indices[i]];
 
 		EguiRectDraw(buffer, (wzrd_rect) {
 			.x = box.absolute_rect.x,
@@ -1250,6 +1267,26 @@ bool wzrd_button_icon(wzrd_texture texture) {
 	EguiButtonRawEnd();
 
 	return result;
+}
+
+void EguiToggle3(wzrd_box box, str128 str, bool *active) {
+	bool b1 = false, b2 = false;
+	b1 = EguiButtonRawBegin(box);
+	{
+		b2 = EguiButtonRawBegin((wzrd_box) {
+			.border_type = BorderType_None,
+				.color = wzrd_box_get_current()->color,
+				.w = str.len * FONT_WIDTH, .h = WZRD_FONT_HEIGHT
+		});
+		{
+			wzrd_item_add((Item) { .type = wzrd_item_type_str, .str = str128_create(str.val) });
+		}
+		EguiButtonRawEnd();
+	}
+	EguiButtonRawEnd();
+
+	if (b1 || b2)
+		*active = !*active;
 }
 
 bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active) {
@@ -1660,11 +1697,12 @@ void wzrd_label_list(Label_list label_list, int* selected) {
 	wzrd_box_end();
 }
 
-bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color) {
+bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color, str128 name) {
 	bool result = false;
 	bool active = false;
 
-	wzrd_crate_begin(1, (wzrd_box) { .is_button = true, .color = color, .border_type = BorderType_None, .x = pos.x, .y = pos.y, .w = size.x, .h = size.y, .name = str128_create("wowy") });
+	wzrd_crate_begin(1, (wzrd_box) { .is_button = true, .color = color, .border_type = BorderType_None, .x = pos.x, .y = pos.y, .w = size.x, .h = size.y
+		, .name = name });
 	{
 		result = IsActive();
 	}
@@ -1693,7 +1731,7 @@ void wzrd_drag(wzrd_box box2, wzrd_v2* pos, bool* drag) {
 	wzrd_crate(1, g_gui->dragged_box);
 }
 
-bool wzrd_box_is_active(wzrd_box *box) {
+bool wzrd_box_is_active(wzrd_box* box) {
 	if (str128_equal(box->name, g_gui->active_item)) {
 		return true;
 	}
@@ -1719,6 +1757,14 @@ bool wzrd_box_is_dragged(wzrd_box* box) {
 
 bool wzrd_box_is_hot(wzrd_box* box) {
 	if (str128_equal(box->name, g_gui->hot_item)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool wzrd_box_is_selected(wzrd_box* box) {
+	if (str128_equal(box->name, g_gui->selected_item)) {
 		return true;
 	}
 
@@ -1761,3 +1807,16 @@ wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos) {
 	return pos;
 }
 
+bool wzrd_v2_is_inside_polygon(wzrd_v2 point, wzrd_polygon polygon) {
+
+	bool inside = false;
+	int i, j;
+
+	for (i = 0, j = polygon.count - 1; i < polygon.count; j = i++) {
+		if (((polygon.vertices[i].y > point.y) != (polygon.vertices[j].y > point.y)) &&
+			(point.x < (polygon.vertices[j].x - polygon.vertices[i].x) * (point.y - polygon.vertices[i].y) / (polygon.vertices[j].y - polygon.vertices[i].y) + polygon.vertices[i].x))
+			inside = !inside;
+	}
+
+	return inside;
+}
