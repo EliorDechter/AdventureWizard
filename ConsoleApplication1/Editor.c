@@ -10,7 +10,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 
 	// Drawing data
 	wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
-	gui->default_color = EGUI_LIGHTGRAY;
+	//gui->default_color = EGUI_LIGHTGRAY;
 	wzrd_v2 mouse_pos = (wzrd_v2){
 		g_platform.mouse_x, g_platform.mouse_y
 	};
@@ -51,7 +51,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			if (EguiLabelButtonBegin(str128_create("File"))) f = !f;
 			{
 				if (f) {
-					wzrd_v2 origin = (wzrd_v2){ 40, wzrd_box_get_current()->h };
+					wzrd_v2 origin = (wzrd_v2){ 40, wzrd_box_get_from_top_of_stack()->h };
 					static wzrd_v2 offset;
 					wzrd_crate(
 						6,
@@ -302,7 +302,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				// Target
 				wzrd_box_begin(((wzrd_box) {
 					.center = true,
-						.color = EGUI_PINK,
+						.color = (wzrd_color){50, 50, 50, 255},
 						.disable_input = true,
 						.border_type = BorderType_Clicked
 				}));

@@ -11,6 +11,9 @@
 
 #include "Strings.h"
 
+#define BORDER_SIZE 1
+
+
 // BUG: FONT SIZE CLASHES WITH THAT DEFINED IN PLATFORM.C
 #define WZRD_FONT_HEIGHT 22
 #define FONT_WIDTH WZRD_FONT_HEIGHT / 2
@@ -28,6 +31,9 @@
 #define GAP_HEIGHT 24
 
 #define MAX_NUM_WIDGETS 128
+
+#define MAX_NUM_ITEMS 8
+#define MAX_NUM_CHILDREN 32
 
 #define Stringify1(x) #x
 #define Stringify(x) Stringify1(x)
@@ -153,14 +159,11 @@ typedef struct wzrd_widget_id {
 typedef struct Box {
 	str128 name;
 	float x, y, w, h;
-	wzrd_rect absolute_rect;
 	bool row_mode;
 	float pad_right, pad_bottom, pad_left, pad_top;
 	wzrd_color color;
 	int window_index;
 	BorderType border_type;
-	//int depth;
-#define MAX_NUM_CHILDREN 32
 	int children[MAX_NUM_CHILDREN];
 	int children_count;
 	SizeType size_type;
@@ -168,7 +171,6 @@ typedef struct Box {
 	bool grow_vertical;
 	float child_gap;
 	bool center;
-#define MAX_NUM_ITEMS 8
 	Item items[MAX_NUM_ITEMS];
 	int items_count;
 	bool three_dimensional_button;
@@ -178,7 +180,6 @@ typedef struct Box {
 	bool resizable;
 	bool fit_h, fit_w;
 	bool center_x, center_y;
-	bool is_crate;
 	int parent;
 	bool is_input_box;
 	bool is_button;
@@ -256,56 +257,27 @@ typedef struct wzrd_style
 	wzrd_color font_color;
 	wzrd_color background_color;
 } wzrd_style;
+#define MAX_NUM_BOXES 128
 
 typedef struct Egui {
 
-	int boxes_count;
-#define MAX_NUM_BOXES 128
-	wzrd_box boxes[MAX_NUM_BOXES];
-
+	// Persistent
 	str128 hot_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
-
-	str128 right_resized_item,
-		left_resized_item, bottom_resized_item, top_resized_item;
-
+	str128 right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
+	str128 active_input_box;
+	float input_box_timer;
 	double tooltip_time;
-	bool tooltip_count_time;
-
-	// For debugging close end panels
+	bool is_interacting, is_hovering;
+	wzrd_style style;
+	wzrd_box dragged_box;
+	bool clean;
+	
+	// Frame ?
+	int boxes_count;
+	wzrd_box boxes[MAX_NUM_BOXES];
 	int total_num_panels, total_num_windows;
-	int panel_line_stack[32];
-	int num_line_stack;
-
 	Crate crates_stack[32];
 	int current_crate_index;
-
-#define MAX_NUM_TOGGLES 256
-	struct { str128 name; bool val; } toggles[MAX_NUM_TOGGLES];
-	int toggles_count;
-
-	struct { str128 name; str128 val; } input_box_strings[MAX_NUM_TOGGLES];
-	int input_box_strings_count;
-
-	int line_size;
-	
-	str128 active_input_box;
-
-
-	wzrd_texture checkmark;
-
-	bool double_click;
-
-	float input_box_timer;
-
-	wzrd_color default_color;
-
-	bool is_interacting, is_hovering;
-
-	wzrd_box hovered_cached_box, dragged_box;
-
-	wzrd_style style;
-
-	bool clean;
 
 } Egui;
 
@@ -358,7 +330,7 @@ bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
 void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color color);
-wzrd_box* wzrd_box_get_current();
+wzrd_box* wzrd_box_get_from_top_of_stack();
 wzrd_box* wzrd_box_get_parent();
 wzrd_box* wzrd_box_get_previous();
 void wzrd_label(str128 str);
