@@ -6,6 +6,8 @@
 
 PlatformSystem g_platform;
 
+
+
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
 	int w = 11, h = 22;
@@ -14,9 +16,9 @@ void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, ch
 	TTF_DestroyText(text);
 }
 
-void PlatformTextDraw(const char* str, float x, float y) {
+void PlatformTextDraw(const char* str, float x, float y, float r, float g, float b, float a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
-	TTF_SetTextColor(text, 0, 0, 0, 255);
+	TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
 	TTF_DestroyText(text);
 }
@@ -100,6 +102,35 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
+void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
+	for (int i = 0; i < buffer->count; ++i) {
+		EguiDrawCommand command = buffer->commands[i];
+		if (command.type == DrawCommandType_Texture) {
+			PlatformTextureDrawFromSource(*(PlatformTexture*)&command.texture,
+				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
+		}
+		else if (command.type == DrawCommandType_String) {
+			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y, command.color.r, command.color.g, command.color.b, command.color.a );
+		}
+		else if (command.type == DrawCommandType_Rect) {
+			PlatformRectDraw(*((PlatformRect*)&command.dest_rect), *((platform_color*)&command.color));
+		}
+		else if (command.type == DrawCommandType_Line) {
+			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
+				command.color.r, command.color.g, command.color.b);
+		}
+		else if (command.type == DrawCommandType_VerticalLine) {
+			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+		}
+		else if (command.type == DrawCommandType_HorizontalLine) {
+			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+		}
+		else {
+			//assert(0);
+		}
+	}
+}
+
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
@@ -114,7 +145,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 #if DELETE_ME
 	SDL_SetRenderDrawColor(g_sdl.renderer, 0xc3, 0xc3, 0xc3, 255);
 	SDL_RenderClear(g_sdl.renderer);
-	
+
 	g_target = SDL_CreateTexture(g_sdl.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, GAME_WIDTH, GAME_HEIGHT);
 	SDL_SetTextureScaleMode(g_target, SDL_SCALEMODE_NEAREST);
 
@@ -141,18 +172,18 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
 	game_init();
 
-	g_sdl.mutex =  SDL_CreateMutex();
+	g_sdl.mutex = SDL_CreateMutex();
 
 	g_sdl.cursor_hand = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
 	g_sdl.cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
 	g_sdl.cursor_horizontal_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
 	g_sdl.cursor_vertical_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
-	
+
 #endif
 	return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult handle_events(SDL_Event *event) {
+SDL_AppResult handle_events(SDL_Event* event) {
 	//if (!sdl.events_count) return;
 
 	//SDL_Event *event = &sdl.events[sdl.events_count];	
@@ -228,19 +259,19 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 }
 
 void platform_cursor_set(PlatformCursor cursor) {
-	switch(cursor) {
-		case PlatformCursorDefault:
-			SDL_SetCursor(g_sdl.cursor_default);
-			break;
-		case PlatformCursorHand:
-			SDL_SetCursor(g_sdl.cursor_hand);
-			break;
-		case PlatformCursorHorizontalArrow:
-			SDL_SetCursor(g_sdl.cursor_horizontal_arrow);
-			break;
-		case PlatformCursorVerticalArrow:
-			SDL_SetCursor(g_sdl.cursor_vertical_arrow);
-			break;
+	switch (cursor) {
+	case PlatformCursorDefault:
+		SDL_SetCursor(g_sdl.cursor_default);
+		break;
+	case PlatformCursorHand:
+		SDL_SetCursor(g_sdl.cursor_hand);
+		break;
+	case PlatformCursorHorizontalArrow:
+		SDL_SetCursor(g_sdl.cursor_horizontal_arrow);
+		break;
+	case PlatformCursorVerticalArrow:
+		SDL_SetCursor(g_sdl.cursor_vertical_arrow);
+		break;
 	}
 }
 
@@ -249,22 +280,36 @@ void platform_debug_view_add(str128 str)
 	//platform
 }
 
+char g_debug_text[128];
+
 void platform_debug_view_draw() {
-	PlatformRectDraw((PlatformRect) { g_platform.window_width - 300, 10, 295, 500 }, (platform_color){50, 50, 50, 200});
+	static Egui gui;
+	static wzrd_cursor cursor;
+	static wzrd_draw_commands_buffer buffer;
+	wzrd_begin(&gui,
+		(wzrd_rect) {g_platform.window_width - 300, 10, 295, 500},
+		(wzrd_style) { .background_color = (wzrd_color){ 100, 100, 100, 150 }, .font_color = EGUI_YELLOW }
+	);
+	wzrd_label(str128_create(g_debug_text));
+	wzrd_end(&cursor, &buffer);
+	platform_draw_wzrd(&buffer);
+}
+
+typedef struct Second
+{
+	unsigned int val;
+} Second;
+
+Second platform_get_time()
+{
+	Second result = { SDL_GetTicks() };
+
+	return result;
 }
 
 void platform_end()
 {
 	SDL_RenderPresent(g_sdl.renderer);
-
-	unsigned int time1 = SDL_GetTicks();
-
-	//unsigned int elapsed_time = time1 - time0;
-
-	//if (elapsed_time < 16.3) {
-		//SDL_Delay(16.3 - (double)elapsed_time);
-	//}
-
 
 	// Input
 	g_platform.keys_pressed.count = 0;
@@ -275,12 +320,21 @@ void platform_end()
 	else if (g_platform.mouse_left == Deactivating) {
 		g_platform.mouse_left = Inactive;
 	}
+
+	float time = SDL_GetTicks() / 1000.0f;
+	g_platform.last_frame_time_in_seconds = time - g_platform.time;
+	const float spf = 1.0f / 60.0f;
+	if (g_platform.last_frame_time_in_seconds < spf)
+	{
+		SDL_Delay(spf * 1000.0f - g_platform.last_frame_time_in_seconds * 1000.0f);
+	}
+
 }
 
-void platform_begin() 
+void platform_begin()
 {
 
-	unsigned int time0 = SDL_GetTicks();
+	g_platform.time = SDL_GetTicks() / 1000.0f;
 
 	SDL_GetMouseState(&g_platform.mouse_x, &g_platform.mouse_y);
 
@@ -305,42 +359,6 @@ void platform_begin()
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-
-#if DELETE_ME
-	platform_begin();
-	{
-		static SDL_FRect rect = { 0, 0, 1000, 1000 };
-
-		if (g_platform.mouse_x >= rect.x &&
-			g_platform.mouse_y >= rect.y &&
-			g_platform.mouse_x < rect.x + rect.w &&
-			g_platform.mouse_y < rect.x + rect.w)
-		{
-			if (g_platform.mouse_left == Active)
-			{
-				rect.x += g_platform.mouse_delta_x;
-				rect.y += g_platform.mouse_delta_y;
-			}
-		}
-
-		SDL_SetRenderDrawColor(g_sdl.renderer, 0XFF / 2, 0XFF / 2, 0XFF / 2, 0xFF);
-		SDL_RenderClear(g_sdl.renderer);
-
-		SDL_SetRenderTarget(g_sdl.renderer, g_target);
-		{
-			SDL_SetRenderDrawColor(g_sdl.renderer, 0xFF, 0xFF, 0xFF, 255);
-			SDL_RenderClear(g_sdl.renderer);
-
-			SDL_RenderTexture(g_sdl.renderer, g_texture, 0, 0);
-		}
-		SDL_SetRenderTarget(g_sdl.renderer, 0);
-
-		SDL_RenderTexture(g_sdl.renderer, g_target, 0, &rect);
-	}
-	platform_end();
-
-#else
-	
 	platform_begin();
 	{
 		// Editor
@@ -363,7 +381,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		}
 		PlatformTextureEndTarget();
 
+		uint64_t time_a = SDL_GetTicks();
 		editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
+		uint64_t editor_time = SDL_GetTicks() - time_a;
+		//if (editor_time > 0)
+			sprintf(g_debug_text, "%u", editor_time);
 
 		wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
 		wzrd_rect rect = wzrd_box_get_rect(box);
@@ -392,12 +414,40 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		v2 mouse_pos = { mouse_x / scale, mouse_y / scale };
 
-		game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&game_screen_size, &game_cursor, enable_game_input, scale, mouse_pos);
+		// Draw entities
+		PlatformTextureBeginTarget(g_game.target_texture);
+		{
+			int iterator_index = 0;
+			Entity* entity = 0;
+			while (entity = entity_get_next(&iterator_index)) {
+				Texture* texture = game_texture_get(entity->texture);
+				if (texture)
+				{
+					PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
+						(PlatformRect) {
+						0, 0, texture->val.w, texture->val.h
+					}, * (platform_color*)&entity->color);
+				}
+				else {
+					PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
+				}
 
-		game_draw(game_screen_size, mouse_pos);
-		game_draw_gui(&game_gui_buffer);
-		game_draw_gui_commands(&editor_buffer);
+			}
+		}
+		PlatformTextureEndTarget();
 
+		// Inside game editing gui
+		if (!g_game.run)
+		{
+
+			game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&game_screen_size, &game_cursor, enable_game_input, scale);
+			game_draw_gui(&game_gui_buffer);
+		}
+
+		//
+		platform_draw_wzrd(&editor_buffer);
+
+		//sprintf(g_debug_text, "%f ms", g_platform.last_frame_time_in_seconds * 1000.0f);
 		platform_debug_view_draw();
 
 		// Cursor
@@ -413,8 +463,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	}
 	platform_end();
 
-#endif
-
 	return SDL_APP_CONTINUE;
 }
 
@@ -422,3 +470,4 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
 }
+

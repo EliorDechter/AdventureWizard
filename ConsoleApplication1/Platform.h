@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <SDL3_image/SDL_image.h>
 #include <stdio.h>
+#include "Egui.h"
+#include <stdint.h>
 
 #if 1
 #define GAME_WIDTH 1920 / 6
@@ -113,6 +115,7 @@ typedef struct PlatformSystem {
 	State keyboard_states[128];
 	KeysPressed keys_pressed;
 	bool focus;
+	float last_frame_time_in_seconds, time;
 } PlatformSystem;
 
 extern PlatformSystem g_platform;
@@ -168,5 +171,6 @@ PlatformTargetTexture PlatformTargetTextureCreate();
 void platform_cursor_set(PlatformCursor cursor);
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a);
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color);
+void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer);
 
 #endif

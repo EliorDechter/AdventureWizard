@@ -3,34 +3,7 @@
 
 Game g_game;
 
-void game_draw_gui_commands(wzrd_draw_commands_buffer* buffer) {
-	for (int i = 0; i < buffer->count; ++i) {
-		EguiDrawCommand command = buffer->commands[i];
-		if (command.type == DrawCommandType_Texture) {
-			PlatformTextureDrawFromSource(*(PlatformTexture*)&command.texture,
-				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
-		}
-		else if (command.type == DrawCommandType_String) {
-			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y);
-		}
-		else if (command.type == DrawCommandType_Rect) {
-			PlatformRectDraw(*((PlatformRect*)&command.dest_rect), *((platform_color*)&command.color));
-		}
-		else if (command.type == DrawCommandType_Line) {
-			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
-				command.color.r, command.color.g, command.color.b);
-		}
-		else if (command.type == DrawCommandType_VerticalLine) {
-			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
-		}
-		else if (command.type == DrawCommandType_HorizontalLine) {
-			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
-		}
-		else {
-			//assert(0);
-		}
-	}
-}
+
 
 wzrd_v2i TextGetSize(const char* str) {
 	PlatformV2i result = PlatformTextGetSize(str);
@@ -653,23 +626,19 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_screen_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale, v2 mouse_pos) {
+
+void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_screen_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale) {
 	// game screen gui
 	bool blue_button = false;
-	wzrd_begin(gui, 0,
-		(wzrd_v2) {
-		g_game.mouse_pos.x, g_game.mouse_pos.y,
+	wzrd_v2 mouse_pos = (wzrd_v2){g_game.mouse_pos.x / scale, g_game.mouse_pos.y / scale};
+	if (!enable_input)
+	{
+		mouse_pos = (wzrd_v2){-1, -1};
+	}
 
-	},
-		g_platform.mouse_left,
-		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
-		game_screen_size
-		, g_game.icons,
-		(wzrd_color) {
-		0, 0, 0, 0
-	},
-		enable_input,
-		scale);
+	wzrd_update_input(mouse_pos, g_platform.mouse_left, *(wzrd_keyboard_keys*)&g_platform.keys_pressed);
+
+	wzrd_begin(gui, (wzrd_rect) { 0, 0, game_screen_size.x, game_screen_size.y }, (wzrd_style){0});
 	{
 
 		// NEW
@@ -714,17 +683,17 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 					}
 				}
 
-				//for (int i = 0; i < list.count; ++i)
 				int it = 1;
 				int index = 0;
 				while (index = array_list_32_get_next(&list, &it))
 				{
-					if (index > 1)
+					if (list.count > 1)
 					{
+						int next_index = list.nodes[index].next_node;
 						float x0 = nodes[index].x;
 						float y0 = nodes[index].y;
-						float x1 = nodes[(index + 1) ].x;
-						float y1 = nodes[(index + 1) ].y;
+						float x1 = nodes[next_index].x;
+						float y1 = nodes[next_index].y;
 
 						PlatformLineDraw(x0, y0, x1, y1, 255, 0, 0);
 					}
@@ -745,7 +714,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 
 						if (g_game.delete)
 						{
-
+							array_list_32_delete(&list, index);
 						}
 					}
 					else
@@ -771,46 +740,66 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 				//PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
 			}
 
-			// Draw entities
-			int iterator_index = 0;
-			Entity* entity = 0;
-			while (entity = entity_get_next(&iterator_index)) {
-				Texture* texture = game_texture_get(entity->texture);
-				if (texture)
-				{
-					PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
-						(PlatformRect) {
-						0, 0, texture->val.w, texture->val.h
-					}, wzrd_color_to_platform_color(entity->color));
-				}
-				else {
-					PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
-				}
-
-			}
+		
 		}
 		PlatformTextureEndTarget();
 
-		if (g_game.selected_entity.val.index) {
-			Entity* selected_entity = game_entity_get(g_game.selected_entity);
-			blue_button = wzrd_game_buttonesque((wzrd_v2) { selected_entity->rect.x - 5, selected_entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 }, str128_create("blue"));
-			// Late logic
-			if (blue_button)
+		// Move Entity
+		{
+			static str128 selected_entity_id;
+			int it = 1;
+			Entity* entity = 0;
+			while (entity = entity_get_next(&it))
 			{
-				Entity* selected_entity = game_entity_get(g_game.selected_entity);
+				char name[128];
+				sprintf(name, "entity %d", it);
+				wzrd_crate(1, (wzrd_box) {
+					.x = entity->rect.x,
+						.y = entity->rect.y,
+						.w = entity->rect.w,
+						.h = entity->rect.h,
+						.name = str128_create(name),
+						.border_type = BorderType_None
+				});
 
-				if (selected_entity) {
+				if (wzrd_box_is_selected(wzrd_box_get_last()))
+				{
+					selected_entity_id = wzrd_box_get_last()->name;
+				}
+				else if (wzrd_box_is_selected(&(wzrd_box) { .name = str128_create("blue") }))
+				{
+					// ...
+				}
+				else
+				{
+					selected_entity_id = (str128){ 0 };
+				}
 
-					selected_entity->rect.x += (float)(g_game.mouse_delta.x / scale);
-					selected_entity->rect.y += (float)(g_game.mouse_delta.y / scale);
+				if (selected_entity_id.len)
+				{
+					//wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
+					wzrd_box_get_last()->border_type = BorderType_Black;
 
-					wzrd_box* button = wzrd_box_get_previous();
-					button->x += g_game.mouse_delta.x / scale;
-					button->y += g_game.mouse_delta.y / scale;
+					blue_button = wzrd_game_buttonesque((wzrd_v2) { entity->rect.x - 5, entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 }, str128_create("blue"));
+					// Late logic
+					if (blue_button)
+					{
 
+						if (entity) {
+
+							entity->rect.x += (float)(g_game.mouse_delta.x / scale);
+							entity->rect.y += (float)(g_game.mouse_delta.y / scale);
+
+							wzrd_box* button = wzrd_box_get_previous();
+							button->x += g_game.mouse_delta.x / scale;
+							button->y += g_game.mouse_delta.y / scale;
+
+						}
+					}
 				}
 			}
 		}
+
 	}
 	wzrd_end(cursor, buffer);
 }
@@ -865,19 +854,13 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 	}
 }
 
-void game_draw(v2 game_screen_size, v2 mouse_pos) {
-
-	// Draw
-
-}
-
 PlatformTargetTexture game_target_texture_get() {
 	return g_game.target_texture;
 }
 
 void game_draw_gui(wzrd_draw_commands_buffer* buffer) {
 	PlatformTextureBeginTarget(g_game.target_texture);
-	game_draw_gui_commands(buffer);
+	platform_draw_wzrd(buffer);
 	PlatformTextureEndTarget();
 }
 

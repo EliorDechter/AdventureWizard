@@ -10,18 +10,23 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 
 	// Drawing data
 	wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
-
-	wzrd_begin(gui, 0,
-		(wzrd_v2) {
+	gui->default_color = EGUI_LIGHTGRAY;
+	wzrd_v2 mouse_pos = (wzrd_v2){
 		g_platform.mouse_x, g_platform.mouse_y
-	},
+	};
+	if (!enable_input)
+	{
+		mouse_pos = (wzrd_v2){ -1, -1 };
+	}
+
+	wzrd_update_input(mouse_pos,
 		g_platform.mouse_left,
-		* (wzrd_keyboard_keys*)&g_platform.keys_pressed,
-		(wzrd_v2) {
-		g_platform.window_width, g_platform.window_height
-	},
-		icons, EGUI_LIGHTGRAY, enable_input,
-		1);
+		*(wzrd_keyboard_keys*)&g_platform.keys_pressed);
+
+	wzrd_begin(gui, 
+	(wzrd_rect) {
+		0, 0, g_platform.window_width, g_platform.window_height
+	}, wzrd_style_get_default());
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -110,7 +115,10 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					.w = 2
 			});
 
-			if (wzrd_button_icon(icons.delete)) {
+			static bool delete_toggle;
+			wzrd_toggle_icon(icons.delete, &delete_toggle);
+
+			if (delete_toggle) {
 				if (selected_category == 0) {
 					if (selected_item >= 0) {
 						game_texture_remove_by_index(selected_item);
@@ -157,9 +165,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					.w = 2
 			});
 
-			if (wzrd_button_icon(icons.play)) {
-
-			}
+			wzrd_toggle_icon(icons.play, &g_game.run);
 
 			if (wzrd_button_icon(icons.stop)) {
 
@@ -360,7 +366,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 						if (selected_text == 0) {
 							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h = 50, });
 							{
-								EguiLabel(str128_create("Name:"));
+								wzrd_label(str128_create("Name:"));
 								wzrd_input_box(&name, 10);
 							}
 							wzrd_box_end();

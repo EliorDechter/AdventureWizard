@@ -113,6 +113,8 @@ typedef enum ItemType {
 	wzrd_item_type_str,
 	ItemType_Rect,
 	ItemType_Texture,
+	ItemType_DropdownIcon,
+	ItemType_CloseIcon,
 	ItemType_VerticalDottedLine,
 	ItemType_BottomVerticalDottedLine,
 	ItemType_TopVerticalDottedLine,
@@ -240,18 +242,31 @@ typedef struct wzrd_icons {
 
 typedef enum wzrd_cursor { wzrd_cursor_default, wzrd_cursor_hand, wzrd_cursor_vertical_arrow, wzrd_cursor_horizontal_arrow } wzrd_cursor;
 
+typedef struct wzrd_input
+{
+	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta;
+	wzrd_keyboard_keys keyboard_keys;
+	wzrd_state mouse_left, mouse_right;
+	bool disable_input;
+} wzrd_input;
+
+wzrd_input g_wzrd_input;
+typedef struct wzrd_style
+{
+	wzrd_color font_color;
+	wzrd_color background_color;
+} wzrd_style;
+
 typedef struct Egui {
 
 	int boxes_count;
 #define MAX_NUM_BOXES 128
 	wzrd_box boxes[MAX_NUM_BOXES];
 
-	str128 hot_item, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
+	str128 hot_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
 
 	str128 right_resized_item,
 		left_resized_item, bottom_resized_item, top_resized_item;
-
-	double time;
 
 	double tooltip_time;
 	bool tooltip_count_time;
@@ -261,19 +276,8 @@ typedef struct Egui {
 	int panel_line_stack[32];
 	int num_line_stack;
 
-	int window_width, window_height;
-
-	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta;
-
-	//EguiV2 current_pos;
-	/*bool current_row_mode;
-	int current_child_gap;*/
-
 	Crate crates_stack[32];
 	int current_crate_index;
-
-	//PlatformFont font;
-	wzrd_state mouse_left, mouse_right;
 
 #define MAX_NUM_TOGGLES 256
 	struct { str128 name; bool val; } toggles[MAX_NUM_TOGGLES];
@@ -286,25 +290,22 @@ typedef struct Egui {
 	
 	str128 active_input_box;
 
-	wzrd_keyboard_keys keyboard_keys;
 
 	wzrd_texture checkmark;
 
 	bool double_click;
 
-	wzrd_icons icons;
-
 	float input_box_timer;
 
 	wzrd_color default_color;
-
-	bool enable_input;
 
 	bool is_interacting, is_hovering;
 
 	wzrd_box hovered_cached_box, dragged_box;
 
-	int scale;
+	wzrd_style style;
+
+	bool clean;
 
 } Egui;
 
@@ -340,7 +341,6 @@ typedef struct Label_list {
 	int count;
 } Label_list;
 
-
 #define MAX_NUM_VERTICES_IN_POLYGON 32
 
 typedef struct wzrd_polygon {
@@ -348,8 +348,11 @@ typedef struct wzrd_polygon {
 	int count;
 } wzrd_polygon;
 
+
 // API
-void wzrd_begin(Egui* gui, double time, wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys, wzrd_v2 size, wzrd_icons icons, wzrd_color default_color, bool enable_input, unsigned int scale);
+void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
+wzrd_style wzrd_style_get_default();
+void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
@@ -358,7 +361,7 @@ void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color 
 wzrd_box* wzrd_box_get_current();
 wzrd_box* wzrd_box_get_parent();
 wzrd_box* wzrd_box_get_previous();
-void EguiLabel(str128 str);
+void wzrd_label(str128 str);
 void wzrd_item_add(Item item);
 bool EguiButtonRaw(wzrd_box box);
 bool EguiButton(str128 str);
@@ -385,6 +388,7 @@ void EguiBoxResize(wzrd_v2* size);
 wzrd_box* EguiHotItemGet();
 void wzrd_label_list(Label_list label_list, int *selected);
 bool wzrd_button_icon(wzrd_texture texture);
+void wzrd_toggle_icon(wzrd_texture texture, bool* active);
 void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
 wzrd_rect wzrd_box_get_rect(wzrd_box * box);
 void wzrd_input_box(str128* str, int max_num_keys);
@@ -403,4 +407,5 @@ bool wzrd_is_releasing();
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
 bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active);
 void EguiToggle3(wzrd_box box, str128 str, bool *active);
+bool wzrd_button_icon3(wzrd_box box, Item item);
 #endif
