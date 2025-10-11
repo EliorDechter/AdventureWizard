@@ -120,6 +120,22 @@ typedef struct PlatformSystem {
 
 extern PlatformSystem g_platform;
 
+#define MAX_NUM_VERTICES 1024 * 4
+
+typedef struct PlatformVertexBuffer {
+	SDL_Vertex vertices[MAX_NUM_VERTICES];
+	int vertices_count;
+
+	str128 strings[64];
+	wzrd_rect strings_dest_rects[64];
+	wzrd_color strings_colors[64];
+	int strings_count;
+
+	wzrd_rect clip;
+
+} PlatformVertexBuffer;
+
+
 typedef struct PlatformTargetTexture {
 	SDL_Texture* data;
 	float w;
@@ -157,6 +173,7 @@ PlatformTexture g_close_texture;
 typedef enum PlatformCursor { PlatformCursorDefault, PlatformCursorHand, PlatformCursorVerticalArrow, PlatformCursorHorizontalArrow } PlatformCursor;
 
 // API
+void platform_string_get_size(char* str, float* w, float* h);
 void PlatformRectDraw(PlatformRect rect, platform_color color);
 void PlatformTextDraw(const char* txt, float x, float y);
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect);

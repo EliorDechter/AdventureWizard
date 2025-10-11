@@ -32,6 +32,37 @@ PlatformV2i PlatformTextGetSize(const char* str) {
 	return result;
 }
 
+void platform_string_get_size(char* str, float* w, float* h)
+{
+	int w_int = 0, h_int = 0;
+	str128 line = { 0 };
+	int index = 0;
+	int str_len = strlen(str);
+	while (str[index])
+	{
+		line = (str128){ 0 };
+		for (;index < str_len; ++index)
+		{
+			if (str[index] == '\n')
+			{
+				++index;
+				line.val[line.len] = 0;
+				break;
+			}
+
+			line.val[line.len++] = str[index];
+		}
+
+		bool result = TTF_GetStringSize(g_sdl.font, line.val, 0, &w_int, &h_int);
+		assert(result);
+
+		*w += (float)w_int;
+		*h += (float)h_int;
+	}
+
+}
+
+
 void PlatformRectDraw(PlatformRect rect, platform_color color) {
 	SDL_SetRenderDrawBlendMode(g_sdl.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderDrawColor(g_sdl.renderer, color.r, color.g, color.b, color.a);
@@ -102,18 +133,57 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
+void platform_vertex_buffer_draw(PlatformVertexBuffer buffer, PlatformTexture texture)
+{
+	SDL_RenderGeometry(g_sdl.renderer, texture.data, buffer.vertices, buffer.vertices_count, 0, 0);
+}
+
 void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
+
+	PlatformVertexBuffer vertex_buffer[3] = { 0 };
+
 	for (int i = 0; i < buffer->count; ++i) {
-		EguiDrawCommand command = buffer->commands[i];
+		wzrd_draw_command command = buffer->commands[i];
+
+		assert(command.z < 3);
+
 		if (command.type == DrawCommandType_Texture) {
 			PlatformTextureDrawFromSource(*(PlatformTexture*)&command.texture,
 				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
 		}
 		else if (command.type == DrawCommandType_String) {
-			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y, command.color.r, command.color.g, command.color.b, command.color.a );
+			vertex_buffer[command.z].strings[vertex_buffer[command.z].strings_count] = command.str;
+			vertex_buffer[command.z].strings_dest_rects[vertex_buffer[command.z].strings_count] = command.dest_rect;
+			vertex_buffer[command.z].strings_colors[vertex_buffer[command.z].strings_count] = command.color;
+			vertex_buffer[command.z].strings_count++;
 		}
 		else if (command.type == DrawCommandType_Rect) {
-			PlatformRectDraw(*((PlatformRect*)&command.dest_rect), *((platform_color*)&command.color));
+			SDL_Vertex v0 = (SDL_Vertex){
+				.position = (SDL_FPoint){command.dest_rect.x, command.dest_rect.y},
+				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
+			};
+
+			SDL_Vertex v1 = (SDL_Vertex){
+				.position = (SDL_FPoint){command.dest_rect.x + command.dest_rect.w, command.dest_rect.y},
+				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
+			};
+
+			SDL_Vertex v2 = (SDL_Vertex){
+				.position = (SDL_FPoint){command.dest_rect.x + command.dest_rect.w, command.dest_rect.y + command.dest_rect.h},
+				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
+			};
+
+			SDL_Vertex v3 = (SDL_Vertex){
+					.position = (SDL_FPoint){command.dest_rect.x, command.dest_rect.y + command.dest_rect.h},
+					.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
+			};
+
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v0;
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v1;
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v2;
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v0;
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v2;
+			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v3;
 		}
 		else if (command.type == DrawCommandType_Line) {
 			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
@@ -125,10 +195,38 @@ void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
 		else if (command.type == DrawCommandType_HorizontalLine) {
 			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
 		}
-		else {
-			//assert(0);
+		else if (command.type == DrawCommandType_Clip)
+		{
+			vertex_buffer[command.z].clip = command.dest_rect;
+			//SDL_SetRenderClipRect(g_sdl.renderer, &command.dest_rect);
 		}
 	}
+
+	PlatformTexture texture = { 0 };
+	for (int i = 0; i < 3; ++i)
+	{
+		if (!vertex_buffer[i].clip.w)
+		{
+			SDL_SetRenderClipRect(g_sdl.renderer, 0);
+		}
+		else
+		{
+			SDL_Rect rect = { vertex_buffer[i].clip.x, vertex_buffer[i].clip.y, vertex_buffer[i].clip.w, vertex_buffer[i].clip.h };
+			SDL_SetRenderClipRect(g_sdl.renderer, &rect);
+		}
+
+		platform_vertex_buffer_draw(vertex_buffer[i], texture);
+		for (int j = 0; j < vertex_buffer[i].strings_count; j++)
+		{
+			PlatformTextDraw(vertex_buffer[i].strings[j].val,
+				vertex_buffer[i].strings_dest_rects[j].x,
+				vertex_buffer[i].strings_dest_rects[j].y,
+				0, 0, 0, 255);
+		}
+
+	}
+
+	SDL_SetRenderClipRect(g_sdl.renderer, 0);
 }
 
 /* This function runs once at startup. */
@@ -282,14 +380,25 @@ void platform_debug_view_add(str128 str)
 
 char g_debug_text[128];
 
+
 void platform_debug_view_draw() {
 	static Egui gui;
 	static wzrd_cursor cursor;
 	static wzrd_draw_commands_buffer buffer;
+	wzrd_update_input((wzrd_v2) { g_platform.mouse_x, g_platform.mouse_y },
+		g_platform.mouse_left,
+		*(wzrd_keyboard_keys*)&g_platform.keys_pressed);
+
 	wzrd_begin(&gui,
-		(wzrd_rect) {g_platform.window_width - 300, 10, 295, 500},
-		(wzrd_style) { .background_color = (wzrd_color){ 100, 100, 100, 150 }, .font_color = EGUI_YELLOW }
+		(wzrd_rect) {
+		g_platform.window_width - 300, 10, 295, 20
+	},
+		(wzrd_style) {
+		.background_color = (wzrd_color){ 100, 100, 100, 150 }, .font_color = EGUI_YELLOW
+	},
+		platform_string_get_size
 	);
+	wzrd_box_get_last()->clip = true;
 	wzrd_label(str128_create(g_debug_text));
 	wzrd_end(&cursor, &buffer);
 	platform_draw_wzrd(&buffer);
@@ -330,6 +439,9 @@ void platform_end()
 	}
 
 }
+
+
+
 
 void platform_begin()
 {
@@ -382,10 +494,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		PlatformTextureEndTarget();
 
 		uint64_t time_a = SDL_GetTicks();
-		editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
+		//editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
 		uint64_t editor_time = SDL_GetTicks() - time_a;
-		//if (editor_time > 0)
-			sprintf(g_debug_text, "%u", editor_time);
+		sprintf(g_debug_text, "%u\nhello!", editor_time);
 
 		wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
 		wzrd_rect rect = wzrd_box_get_rect(box);
@@ -410,7 +521,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		unsigned int scale = game_screen_size.x / game_target_texture_get().w;
 
-		game_run(game_screen_size, enable_game_input && !game_gui.is_interacting, scale);
+		//game_run(game_screen_size, enable_game_input && !game_gui.is_interacting, scale);
 
 		v2 mouse_pos = { mouse_x / scale, mouse_y / scale };
 
@@ -440,8 +551,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		if (!g_game.run)
 		{
 
-			game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&game_screen_size, &game_cursor, enable_game_input, scale);
-			game_draw_gui(&game_gui_buffer);
+			//game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_v2*)&game_screen_size, &game_cursor, enable_game_input, scale);
+			//game_draw_gui(&game_gui_buffer);
 		}
 
 		//

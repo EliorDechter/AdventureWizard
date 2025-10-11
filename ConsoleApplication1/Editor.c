@@ -26,7 +26,8 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 	wzrd_begin(gui, 
 	(wzrd_rect) {
 		0, 0, g_platform.window_width, g_platform.window_height
-	}, wzrd_style_get_default());
+	}, wzrd_style_get_default(),
+			platform_string_get_size);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -138,10 +139,10 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					.w = 2
 			});
 
-			static bool b = false;
+			/*static bool b = false;
 			if (wzrd_button_icon(icons.entity))
 			{
-			}
+			}*/
 
 			static bool finish;
 			bool is_dragged = wzrd_box_is_dragged(&(wzrd_box){.name = "hi" });

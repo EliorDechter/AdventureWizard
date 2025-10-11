@@ -638,7 +638,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 
 	wzrd_update_input(mouse_pos, g_platform.mouse_left, *(wzrd_keyboard_keys*)&g_platform.keys_pressed);
 
-	wzrd_begin(gui, (wzrd_rect) { 0, 0, game_screen_size.x, game_screen_size.y }, (wzrd_style){0});
+	wzrd_begin(gui, (wzrd_rect) { 0, 0, game_screen_size.x, game_screen_size.y }, (wzrd_style){0}, platform_string_get_size);
 	{
 
 		// NEW

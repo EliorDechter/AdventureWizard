@@ -188,6 +188,8 @@ typedef struct Box {
 	bool is_draggable, is_slot;
 	bool disable_hover;
 	bool best_fit;
+	bool clip;
+	wzrd_v2 content_size;
 } wzrd_box;
 
 typedef struct Crate {
@@ -211,6 +213,7 @@ typedef enum EguiDrawCommandType {
 	DrawCommandType_HorizontalLine,
 	DrawCommandType_String,
 	DrawCommandType_Texture,
+	DrawCommandType_Clip
 } EguiDrawCommandType;
 
 typedef struct EguiDrawCommand {
@@ -219,11 +222,12 @@ typedef struct EguiDrawCommand {
 	str128 str;
 	wzrd_color color;
 	wzrd_texture texture;
-} EguiDrawCommand;
+	int z;
+} wzrd_draw_command;
 
 
 typedef struct wzrd_draw_commands_buffer {
-	EguiDrawCommand commands[MAX_NUM_DRAW_COMMANDS];
+	wzrd_draw_command commands[MAX_NUM_DRAW_COMMANDS];
 	int count;
 } wzrd_draw_commands_buffer;
 
@@ -271,6 +275,7 @@ typedef struct Egui {
 	wzrd_style style;
 	wzrd_box dragged_box;
 	bool clean;
+	void (*get_string_size)(char*, float *, float *);
 	
 	// Frame ?
 	int boxes_count;
@@ -320,11 +325,10 @@ typedef struct wzrd_polygon {
 	int count;
 } wzrd_polygon;
 
-
 // API
 void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
 wzrd_style wzrd_style_get_default();
-void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style);
+void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*));
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
@@ -353,7 +357,7 @@ void EguiToggleEnd();
 bool *EguiToggleBegin(wzrd_box box);
 bool *EguiToggle(wzrd_box box);
 void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
-void EguiStringAdd(str128 str);
+void wzrd_text_add(str128 str);
 void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, str128 name, int parent);
 void EguiDialogEnd(bool active);
 void EguiBoxResize(wzrd_v2* size);
