@@ -1,5 +1,8 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include <stdbool.h>
-#include "platform.h"
+#include "Platform.h"
 
 #if 0
 int main(void)

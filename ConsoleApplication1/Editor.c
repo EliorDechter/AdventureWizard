@@ -6,10 +6,10 @@
 void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, bool enable_input, PlatformTargetTexture target_texture, wzrd_icons icons) {
 	static int selected_item = -1;
 	static int selected_category;
-	Texture_handle handle = { 0 };
+	//Texture_handle handle = { 0 };
 
 	// Drawing data
-	wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
+	//wzrd_v2 drop_down_panel_size = { BUTTON_WIDTH, BUTTON_HEIGHT * 2 };
 	//gui->default_color = EGUI_LIGHTGRAY;
 	wzrd_v2 mouse_pos = (wzrd_v2){
 		g_platform.mouse_x, g_platform.mouse_y
@@ -20,12 +20,12 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 	}
 
 	wzrd_update_input(mouse_pos,
-		g_platform.mouse_left,
+		(wzrd_state)g_platform.mouse_left,
 		*(wzrd_keyboard_keys*)&g_platform.keys_pressed);
 
 	wzrd_begin(gui, 
 	(wzrd_rect) {
-		0, 0, g_platform.window_width, g_platform.window_height
+		0, 0, (float)g_platform.window_width, (float)g_platform.window_height
 	}, wzrd_style_get_default(),
 			platform_string_get_size);
 	{
@@ -82,7 +82,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 		wzrd_box_end();
 
 		// Seperator
-		EguiBox((wzrd_box) {
+		wzrd_box_do((wzrd_box) {
 			.border_type = BorderType_BottomLine,
 				.h = 2
 		});
@@ -111,7 +111,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				str128_create("Add Polygon"), & g_game.polygon_adding_active);
 
 			// Seperator
-			EguiBox((wzrd_box) {
+			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
 					.w = 2
 			});
@@ -134,7 +134,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			}
 
 			// Seperator
-			EguiBox((wzrd_box) {
+			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
 					.w = 2
 			});
@@ -145,14 +145,14 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			}*/
 
 			static bool finish;
-			bool is_dragged = wzrd_box_is_dragged(&(wzrd_box){.name = "hi" });
+			bool is_dragged = wzrd_box_is_dragged(&(wzrd_box){.name = str128_create("hi") });
 			if (!is_dragged && !finish)
 			{
-				EguiBox((wzrd_box) { .w = 25, .h = 25, .is_draggable = true, .name = str128_create("hi") });
+				wzrd_box_do((wzrd_box) { .w = 25, .h = 25, .is_draggable = true, .name = str128_create("hi") });
 			}
 
 			static wzrd_color color = { 100, 100, 100, 255 };
-			EguiBox((wzrd_box) { .w = 25, .h = 25, .is_slot = true, .color = color, .name = str128_create("bye") });
+			wzrd_box_do((wzrd_box) { .w = 25, .h = 25, .is_slot = true, .color = color, .name = str128_create("bye") });
 
 			if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_is_releasing())
 			{
@@ -161,7 +161,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			}
 
 			// Seperator
-			EguiBox((wzrd_box) {
+			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
 					.w = 2
 			});
@@ -177,13 +177,13 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			}
 
 			// Seperator
-			EguiBox((wzrd_box) {
+			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
 					.w = 2
 			});
 
 			static wzrd_v2 p;
-			EguiBox((wzrd_box) { .w = 25, .h = 25, .x = p.x, .y = p.y, .name = str128_create("die") });
+			wzrd_box_do((wzrd_box) { .w = 25, .h = 25, .x = p.x, .y = p.y, .name = str128_create("die") });
 
 			if (wzrd_box_is_hot(wzrd_box_get_last()))
 			{
@@ -232,7 +232,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 						int it = 1;
 						int i = 0;
 						Entity* entity = 0;
-						while (entity = entity_get_next(&it)) {
+						while ((entity = entity_get_next(&it))) {
 							label_list.val[i++] = entity->name;
 						}
 
@@ -278,7 +278,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					for (int i = 1; i < rects_in_column_count; ++i) {
 						for (int j = 1; j < rects_in_row_count; ++j) {
 
-							PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
+							PlatformRectDraw((PlatformRect) { (float)x, (float)y, 2, 2 }, PLATFORM_GRAY);
 
 							x += size;
 						}
@@ -312,7 +312,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 					{
 						wzrd_item_add((Item) {
 							.type = ItemType_Texture,
-								.texture = *(wzrd_texture*)&target_texture,
+								.val = { .texture = *(wzrd_texture*)&target_texture },
 								.scissor = true
 						});
 					}
@@ -333,8 +333,8 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 				.border_type = BorderType_None
 		}));
 		{
-			EguiBox((wzrd_box) { .w = 90 });
-			EguiBox((wzrd_box) { 0 });
+			wzrd_box_do((wzrd_box) { .w = 90 });
+			wzrd_box_do((wzrd_box) { 0 });
 		}
 		wzrd_box_end();
 
@@ -382,7 +382,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 
 				wzrd_box_begin((wzrd_box) { .row_mode = true, .h = 50, .border_type = BorderType_None });
 				{
-					EguiBox((wzrd_box) { .border_type = BorderType_None });
+					wzrd_box_do((wzrd_box) { .border_type = BorderType_None });
 					wzrd_box_begin((wzrd_box) {
 						.center = true,
 							.child_gap = 10,
@@ -390,7 +390,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 							.pad_top = 5,
 							.pad_right = 5,
 							.pad_bottom = 5,
-							.row_mode = true, .w = 140, .child_gap = 10,
+							.row_mode = true, .w = 140, 
 							.border_type = BorderType_None
 					});
 					{
@@ -581,7 +581,7 @@ char multi_line_text[1024 * 10];
 bool IsNumber(const char* str) {
 	if (!str || str[0] == '\0')
 		return false;
-	int i = 0;
+	size_t i = 0;
 	if (str[0] == '-') i = 1;
 	for (; i < strlen(str); ++i) {
 		if (str[i] > '9' || str[i] < '0') return false;

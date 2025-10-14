@@ -1,6 +1,10 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
+
 #ifndef WZRD_GUI_H
 #define WZRD_GUI_H
-
+#include <float.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
@@ -8,10 +12,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-
+#include <math.h>
 #include "Strings.h"
 
-#define BORDER_SIZE 1
+#define WZRD_BORDER_SIZE 1
 
 
 // BUG: FONT SIZE CLASHES WITH THAT DEFINED IN PLATFORM.C
@@ -91,10 +95,7 @@ typedef struct wzrd_rect {
 } wzrd_rect;
 
 typedef struct wzrd_v2 {
-	union {
-		struct { float x, y; };
-		//struct { float w, h; };
-	};
+	float x, y;
 } wzrd_v2;
 
 typedef struct wzrd_v2i {
@@ -105,7 +106,7 @@ typedef struct wzrd_v2i {
 
 typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_Tooltip, CrateId_DropDown, CrateId_Total } CrateId;
 
-typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_None } BorderType;
+typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_None } wzrd_border_type;
 typedef enum Alignment { Alignment_Left, Alignment_Center, Alignment_Right } Alignment;
 typedef enum SizeType { SizeType_Fixed, SizeType_Empty } SizeType;
 
@@ -145,10 +146,9 @@ typedef struct Item {
 		wzrd_texture texture;
 		wzrd_rect rect;
 		Line line;
-	};
+	} val;
 	bool scissor;
 } Item;
-
 
 typedef enum ButtonType {ButtonType_None, ButtonType_Flat, ButtonType_ThreeDimensional} ButtonType;
 
@@ -163,7 +163,7 @@ typedef struct Box {
 	float pad_right, pad_bottom, pad_left, pad_top;
 	wzrd_color color;
 	int window_index;
-	BorderType border_type;
+	wzrd_border_type border_type;
 	int children[MAX_NUM_CHILDREN];
 	int children_count;
 	SizeType size_type;
@@ -189,6 +189,7 @@ typedef struct Box {
 	bool disable_hover;
 	bool best_fit;
 	bool clip;
+	float* scrollbar_x, * scrollbar_y;
 	wzrd_v2 content_size;
 } wzrd_box;
 
@@ -255,11 +256,11 @@ typedef struct wzrd_input
 	bool disable_input;
 } wzrd_input;
 
-wzrd_input g_wzrd_input;
 typedef struct wzrd_style
 {
 	wzrd_color font_color;
 	wzrd_color background_color;
+	wzrd_border_type window_border_type;
 } wzrd_style;
 #define MAX_NUM_BOXES 128
 
@@ -286,7 +287,6 @@ typedef struct Egui {
 
 } Egui;
 
-static Egui *g_gui;
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
 
@@ -306,8 +306,6 @@ typedef struct WidgetData {
 	char text[32];
 } Widget;
 #define EDITOR_LINE_GAP 10
-#define EDITOR_POS_X EDITOR_RIGHT_PANEL_X + 5 
-#define EDITOR_POS_Y EDITOR_RIGHT_PANEL_Y + 5
 #define EDITOR_ICON_SIZE 24
 #define EDITOR_BUTTON_SIZE_X 72
 #define EDITOR_BUTTON_SIZE_Y 24
@@ -344,15 +342,16 @@ bool EguiButton(str128 str);
 bool EguiButtonRawBegin(wzrd_box button);
 void EguiButtonRawEnd();
 bool IsStr32Equal(Str32 a, Str32 b);
-bool EguiBox(wzrd_box box);
+bool wzrd_box_do(wzrd_box box);
 bool EguiLabelButton(str128 str);
 bool EguiLabelButtonBegin(str128 str);
-bool EguiLabelButtonEnd();
+void EguiLabelButtonEnd();
 str128 EguiInputBox(int max_num_keys);
 void wzrd_crate_begin(int window_id, wzrd_box box);
 int wzrd_box_get_current_index();
 void wzrd_crate(int window_id, wzrd_box box);
-int wzrd_dropdown(int* selected_text, const str128* str, int str_count, int w, bool* active);
+void wzrd_crate_clipped(int window_id, wzrd_box box, float *x, float *y);
+void wzrd_dropdown(int* selected_text, const str128* str, int str_count, float w, bool* active);
 void EguiToggleEnd();
 bool *EguiToggleBegin(wzrd_box box);
 bool *EguiToggle(wzrd_box box);
@@ -371,7 +370,7 @@ void wzrd_input_box(str128* str, int max_num_keys);
 void wzrd_crate_end();
 wzrd_box* wzrd_box_get_by_name(str128 str);
 bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color, str128 name);
-void wzrd_drag(wzrd_box box, wzrd_v2* pos, bool *drag);
+void wzrd_drag(bool *drag);
 wzrd_box* wzrd_box_get_last();
 bool wzrd_box_is_active(wzrd_box *box);
 bool wzrd_box_is_dragged(wzrd_box* box);

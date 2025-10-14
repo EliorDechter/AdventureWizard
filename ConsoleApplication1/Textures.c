@@ -7,6 +7,7 @@ Texture texture_get_by_name(str128 s) {
 	return result;
 }
 
+#if 0
 SDL_EnumerationResult enumerate_directory(void* userdata, const char* dirname, const char* fname) {
 	if (dirname) printf("%s\n", dirname);
 	if (fname) printf("%s\n", fname);
@@ -29,8 +30,9 @@ SDL_EnumerationResult enumerate_directory(void* userdata, const char* dirname, c
 
 	return SDL_ENUM_CONTINUE;
 }
+#endif
 
 void textures_load() {
-	const char* path = "C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\";
-	SDL_EnumerateDirectory(path, enumerate_directory, 0);
+	//const char* path = "C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\";
+	//SDL_EnumerateDirectory(path, enumerate_directory, 0);
 }

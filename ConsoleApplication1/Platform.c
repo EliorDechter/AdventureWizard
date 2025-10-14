@@ -4,19 +4,22 @@
 #include "Game.h"
 #include "Editor.h"
 
+#define UNUSED(x) (void)x;
+
+
 PlatformSystem g_platform;
 
 
 
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
-	int w = 11, h = 22;
+	//int w = 11, h = 22;
 	TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
 	TTF_DestroyText(text);
 }
 
-void PlatformTextDraw(const char* str, float x, float y, float r, float g, float b, float a) {
+void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
 	TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
@@ -36,8 +39,8 @@ void platform_string_get_size(char* str, float* w, float* h)
 {
 	int w_int = 0, h_int = 0;
 	str128 line = { 0 };
-	int index = 0;
-	int str_len = strlen(str);
+	size_t index = 0;
+	size_t str_len = strlen(str);
 	while (str[index])
 	{
 		line = (str128){ 0 };
@@ -66,17 +69,17 @@ void platform_string_get_size(char* str, float* w, float* h)
 void PlatformRectDraw(PlatformRect rect, platform_color color) {
 	SDL_SetRenderDrawBlendMode(g_sdl.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderDrawColor(g_sdl.renderer, color.r, color.g, color.b, color.a);
-	SDL_RenderFillRect(g_sdl.renderer, &rect);
+	SDL_RenderFillRect(g_sdl.renderer, (SDL_FRect*)&rect);
 }
 
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect) {
-	SDL_RenderTexture(g_sdl.renderer, texture.data, 0, &rect);
+	SDL_RenderTexture(g_sdl.renderer, texture.data, 0, (SDL_FRect *) & rect);
 }
 
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color) {
 	if (!(color.r == 0 && color.g == 0 && color.b == 0))
 		SDL_SetTextureColorMod(texture.data, color.r, color.g, color.b);
-	SDL_RenderTexture(g_sdl.renderer, texture.data, &src, &dest);
+	SDL_RenderTexture(g_sdl.renderer, texture.data, (SDL_FRect*)& src, (SDL_FRect*)&dest);
 }
 
 PlatformTargetTexture PlatformTargetTextureCreate() {
@@ -95,26 +98,26 @@ void PlatformTextureEndTarget() {
 	SDL_SetRenderTarget(g_sdl.renderer, 0);
 }
 
-void PlatformLineDraw(float x0, float y0, float x1, float y1, float r, float g, float b) {
+void PlatformLineDraw(float x0, float y0, float x1, float y1, unsigned char r, unsigned char g, unsigned char b) {
 	SDL_SetRenderDrawColor(g_sdl.renderer, r, g, b, 255);
 	SDL_RenderLine(g_sdl.renderer, x0, y0, x1, y1);
 }
 
-void PlatformLineDrawHorizontal(float x0, float y0, float x1, float y1) {
+void PlatformLineDrawHorizontal(float x0, float y0, float x1) {
 	SDL_SetRenderDrawColor(g_sdl.renderer, 125, 125, 125, 255);
 
-	for (int i = x0; i < x1; ++i) {
+	for (int i = (int)x0; i < x1; ++i) {
 		if (i % 2 == 1) continue;
-		SDL_RenderPoint(g_sdl.renderer, (int)i, (int)y0);
+		SDL_RenderPoint(g_sdl.renderer, (float)i, y0);
 	}
 }
 
-void PlatformLineDrawVertical(float x0, float y0, float x1, float y1) {
+void PlatformLineDrawVertical(float x0, float y0, float y1) {
 	SDL_SetRenderDrawColor(g_sdl.renderer, 125, 125, 125, 255);
 
-	for (int i = y0; i < y1; ++i) {
+	for (int i = (int)y0; i < y1; ++i) {
 		if (i % 2 == 1) continue;
-		SDL_RenderPoint(g_sdl.renderer, (int)x0, (int)i);
+		SDL_RenderPoint(g_sdl.renderer, x0, (float)i);
 	}
 }
 
@@ -133,14 +136,7 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
-void platform_vertex_buffer_draw(PlatformVertexBuffer buffer, PlatformTexture texture)
-{
-	SDL_RenderGeometry(g_sdl.renderer, texture.data, buffer.vertices, buffer.vertices_count, 0, 0);
-}
-
 void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
-
-	PlatformVertexBuffer vertex_buffer[3] = { 0 };
 
 	for (int i = 0; i < buffer->count; ++i) {
 		wzrd_draw_command command = buffer->commands[i];
@@ -152,86 +148,41 @@ void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
 				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
 		}
 		else if (command.type == DrawCommandType_String) {
-			vertex_buffer[command.z].strings[vertex_buffer[command.z].strings_count] = command.str;
-			vertex_buffer[command.z].strings_dest_rects[vertex_buffer[command.z].strings_count] = command.dest_rect;
-			vertex_buffer[command.z].strings_colors[vertex_buffer[command.z].strings_count] = command.color;
-			vertex_buffer[command.z].strings_count++;
+			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y,
+				command.color.r, command.color.g, command.color.b, command.color.a);
 		}
 		else if (command.type == DrawCommandType_Rect) {
-			SDL_Vertex v0 = (SDL_Vertex){
-				.position = (SDL_FPoint){command.dest_rect.x, command.dest_rect.y},
-				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
-			};
-
-			SDL_Vertex v1 = (SDL_Vertex){
-				.position = (SDL_FPoint){command.dest_rect.x + command.dest_rect.w, command.dest_rect.y},
-				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
-			};
-
-			SDL_Vertex v2 = (SDL_Vertex){
-				.position = (SDL_FPoint){command.dest_rect.x + command.dest_rect.w, command.dest_rect.y + command.dest_rect.h},
-				.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
-			};
-
-			SDL_Vertex v3 = (SDL_Vertex){
-					.position = (SDL_FPoint){command.dest_rect.x, command.dest_rect.y + command.dest_rect.h},
-					.color = (SDL_FColor) { command.color.r / 255.0f, command.color.g / 255.0f, command.color.b / 255.0f, command.color.a / 255.0f}
-			};
-
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v0;
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v1;
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v2;
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v0;
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v2;
-			vertex_buffer[command.z].vertices[vertex_buffer[command.z].vertices_count++] = v3;
+			SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
+			SDL_RenderFillRect(g_sdl.renderer, (SDL_FRect* )&command.dest_rect);
 		}
 		else if (command.type == DrawCommandType_Line) {
 			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
 				command.color.r, command.color.g, command.color.b);
 		}
 		else if (command.type == DrawCommandType_VerticalLine) {
-			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.h);
 		}
 		else if (command.type == DrawCommandType_HorizontalLine) {
-			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h);
+			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w);
 		}
 		else if (command.type == DrawCommandType_Clip)
 		{
-			vertex_buffer[command.z].clip = command.dest_rect;
-			//SDL_SetRenderClipRect(g_sdl.renderer, &command.dest_rect);
-		}
-	}
-
-	PlatformTexture texture = { 0 };
-	for (int i = 0; i < 3; ++i)
-	{
-		if (!vertex_buffer[i].clip.w)
-		{
-			SDL_SetRenderClipRect(g_sdl.renderer, 0);
-		}
-		else
-		{
-			SDL_Rect rect = { vertex_buffer[i].clip.x, vertex_buffer[i].clip.y, vertex_buffer[i].clip.w, vertex_buffer[i].clip.h };
+			SDL_Rect rect = { (int)command.dest_rect.x, (int)command.dest_rect.y, (int)command.dest_rect.w, (int)command.dest_rect.h };
 			SDL_SetRenderClipRect(g_sdl.renderer, &rect);
 		}
-
-		platform_vertex_buffer_draw(vertex_buffer[i], texture);
-		for (int j = 0; j < vertex_buffer[i].strings_count; j++)
-		{
-			PlatformTextDraw(vertex_buffer[i].strings[j].val,
-				vertex_buffer[i].strings_dest_rects[j].x,
-				vertex_buffer[i].strings_dest_rects[j].y,
-				0, 0, 0, 255);
-		}
-
 	}
-
+	
 	SDL_SetRenderClipRect(g_sdl.renderer, 0);
 }
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
+	(void)appstate;
+	(void)argc;
+	(void)argv;
+
+
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
 	/* Create the window */
@@ -343,7 +294,7 @@ SDL_AppResult handle_events(SDL_Event* event) {
 	}
 
 	if (keycode < 128 && keycode > 0) {
-		g_platform.keys_pressed.keys[g_platform.keys_pressed.count++] = (PlatformKey){ .val = keycode, .state = g_platform.keyboard_states[keycode] };
+		g_platform.keys_pressed.keys[g_platform.keys_pressed.count++] = (PlatformKey){ .val = (unsigned int)keycode, .state = g_platform.keyboard_states[keycode] };
 	}
 
 	return SDL_APP_CONTINUE;
@@ -351,6 +302,8 @@ SDL_AppResult handle_events(SDL_Event* event) {
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
+	(void)appstate;
+
 	SDL_AppResult result = handle_events(event);
 
 	return result;
@@ -373,40 +326,40 @@ void platform_cursor_set(PlatformCursor cursor) {
 	}
 }
 
-void platform_debug_view_add(str128 str)
-{
-	//platform
-}
 
-char g_debug_text[128];
-
+str1024 g_debug_text;
 
 void platform_debug_view_draw() {
 	static Egui gui;
 	static wzrd_cursor cursor;
 	static wzrd_draw_commands_buffer buffer;
 	wzrd_update_input((wzrd_v2) { g_platform.mouse_x, g_platform.mouse_y },
-		g_platform.mouse_left,
+		(wzrd_state)g_platform.mouse_left,
 		*(wzrd_keyboard_keys*)&g_platform.keys_pressed);
+
+	wzrd_style style = wzrd_style_get_default();
+	style.window_border_type = BorderType_Default;
 
 	wzrd_begin(&gui,
 		(wzrd_rect) {
-		g_platform.window_width - 300, 10, 295, 20
+		(float)g_platform.window_width - 300.0f, 10.0f, 295.0f, 500.0f
 	},
-		(wzrd_style) {
-		.background_color = (wzrd_color){ 100, 100, 100, 150 }, .font_color = EGUI_YELLOW
-	},
+		style,
 		platform_string_get_size
 	);
+	static float scrollbar_x, scrollbar_y;
 	wzrd_box_get_last()->clip = true;
-	wzrd_label(str128_create(g_debug_text));
+	wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
+	wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
+	wzrd_label(str128_create(g_debug_text.val));
+	wzrd_box_do((wzrd_box) { .h = 1000, .w = 50, .color = EGUI_BLUE });
 	wzrd_end(&cursor, &buffer);
 	platform_draw_wzrd(&buffer);
 }
 
 typedef struct Second
 {
-	unsigned int val;
+	uint64_t val;
 } Second;
 
 Second platform_get_time()
@@ -435,13 +388,10 @@ void platform_end()
 	const float spf = 1.0f / 60.0f;
 	if (g_platform.last_frame_time_in_seconds < spf)
 	{
-		SDL_Delay(spf * 1000.0f - g_platform.last_frame_time_in_seconds * 1000.0f);
+		SDL_Delay((int)(spf * 1000.0f - g_platform.last_frame_time_in_seconds * 1000.0f));
 	}
 
 }
-
-
-
 
 void platform_begin()
 {
@@ -468,15 +418,20 @@ void platform_begin()
 
 }
 
+
+
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
+	(void)appstate;
+
 	platform_begin();
 	{
 		// Editor
+#if 0
 		static Egui editor_gui, game_gui;
 		static wzrd_draw_commands_buffer editor_buffer;
-		wzrd_cursor editor_cursor = wzrd_cursor_default;
+		//wzrd_cursor editor_cursor = wzrd_cursor_default;
 		bool enable_editor_input = true;
 		if (game_gui.is_interacting)
 		{
@@ -484,6 +439,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		}
 
 		wzrd_icons icons = game_icons_get();
+#endif
 
 		// Clear target
 		PlatformTextureBeginTarget(game_target_texture_get());
@@ -496,8 +452,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		uint64_t time_a = SDL_GetTicks();
 		//editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons);
 		uint64_t editor_time = SDL_GetTicks() - time_a;
-		sprintf(g_debug_text, "%u\nhello!", editor_time);
+		g_debug_text = str1024_create("%u\nhello!", (unsigned int)editor_time);
 
+#if 0
 		wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
 		wzrd_rect rect = wzrd_box_get_rect(box);
 		PlatformRect game_screen_rect = *(PlatformRect*)&rect;
@@ -508,7 +465,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		g_game.mouse_pos.x = mouse_x;
 		g_game.mouse_pos.y = mouse_y;
 		//printf("%f %f\n", game.mouse_pos.x, game.mouse_pos.y);
-
 		// Game
 		wzrd_cursor game_cursor = wzrd_cursor_default;
 		v2 game_screen_size = (v2){ game_screen_rect.w, game_screen_rect.h };
@@ -518,7 +474,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		{
 			enable_game_input = false;
 		}
-
 		unsigned int scale = game_screen_size.x / game_target_texture_get().w;
 
 		//game_run(game_screen_size, enable_game_input && !game_gui.is_interacting, scale);
@@ -557,10 +512,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		//
 		platform_draw_wzrd(&editor_buffer);
+#endif
 
 		//sprintf(g_debug_text, "%f ms", g_platform.last_frame_time_in_seconds * 1000.0f);
 		platform_debug_view_draw();
 
+#if 0
 		// Cursor
 		if (enable_game_input) {
 			platform_cursor_set(*(PlatformCursor*)&game_cursor);
@@ -571,6 +528,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		else {
 			platform_cursor_set(wzrd_cursor_default);
 		}
+#endif
 	}
 	platform_end();
 
@@ -580,5 +538,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 /* This function runs once at shutdown. */
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
+	UNUSED(appstate);
+	UNUSED(result);
+
 }
 

@@ -1,21 +1,66 @@
 #include "Strings.h"
 
-str128 str128_create(const char* str) {
+str1024 str1024_create(const char* format, ...) {
+	va_list arg;
+	str1024 result = { 0 };
+
+	va_start(arg, format);
+	vsnprintf_s(result.val, 1024, 1024, format, arg);
+	va_end(arg);
+
+	result.len = strnlen_s(result.val, 128);
+
+	return result;
+}
+
+void str1024_concat(str1024* dest, const str1024* src)
+{
+	int i = (int)dest->len;
+	for (; i < 1024; ++i)
+	{
+		if (src->val[i] == '0')
+			break;
+		dest->val[i] = src->val[i];
+	}
+
+	dest->len = i;
+}
+
+str128 str128_create(const char* format, ...) {
+	va_list arg;
 	str128 result = { 0 };
-	strcpy(result.val, str);
-	result.len = strlen(str);
+
+	va_start(arg, format);
+	vsnprintf_s(result.val, 128, 128, format, arg);
+	va_end(arg);
+
+	result.len = strnlen_s(result.val, 128);
 
 	return result;
 }
 
 bool str128_equal(str128 a, str128 b) {
 	bool result = false;
-	if (strcmp(a.val, b.val) == 0) result = true;
+	if (a.len == b.len)
+	{
+		if (strcmp(a.val, b.val) == 0)
+		{
+			result = true;
+		}
+	}
 
 	return result;
 }
 
-void str128_concat(str128* dest, const str128* src) {
-	strcat(dest->val, src->val);
-	dest->len = strlen(dest->val);
+void str128_concat(str128* dest, str128 src) 
+{
+	int i = (int)dest->len;
+	for (; i < 128; ++i)
+	{
+		if (src.val[i] == '0')
+			break;
+		dest->val[i] = src.val[i];
+	}
+
+	dest->len = i;
 }

@@ -262,20 +262,20 @@ v2 v2_add(v2 v0, v2 v1) {
 }
 
 v2 v2_normalize(v2 v) {
-	float size = sqrt(pow((v.x), 2) + pow((v.y), 2));
+	float size = (float)sqrt(pow((v.x), 2) + pow((v.y), 2));
 	v2 result = { v.x / size, v.y / size };
 
 	return result;
 }
 
 v2 v2_lerp(v2 pos, v2 end_pos) {
-	float lerp_amount = 0.05;
+	float lerp_amount = 0.05f;
 	float delta = 5;
-	if (abs(end_pos.x - pos.x) > delta) {
+	if (fabs(end_pos.x - pos.x) > delta) {
 		pos.x = pos.x + lerp_amount * (end_pos.x - pos.x);
 	}
 
-	if (abs(end_pos.y - pos.y) > delta) {
+	if (fabs(end_pos.y - pos.y) > delta) {
 		pos.y = pos.y + lerp_amount * (end_pos.y - pos.y);
 	}
 
@@ -355,20 +355,20 @@ void DestroyId(EntityId id) {
 
 typedef struct UndoSystem {
 	EntitySystem entity_system_stack[MAX_NUM_STACK];
-	int num_stack;
+	size_t count;
 	size_t index;
 } UndoSystem;
 
 UndoSystem undo_system;
 
 void UndoSystemDo() {
-	undo_system.entity_system_stack[undo_system.num_stack] = g_entity_system;
-	undo_system.index = undo_system.num_stack;
-	undo_system.num_stack = (undo_system.num_stack + 1) % MAX_NUM_STACK;
+	undo_system.entity_system_stack[undo_system.count] = g_entity_system;
+	undo_system.index = undo_system.count;
+	undo_system.count = (undo_system.count + 1) % MAX_NUM_STACK;
 }
 
 EntitySystem UndoSystemRedo() {
-	if (undo_system.index == undo_system.num_stack) return undo_system.entity_system_stack[undo_system.num_stack];
+	if (undo_system.index == undo_system.count) return undo_system.entity_system_stack[undo_system.count];
 	undo_system.index = (undo_system.index) % MAX_NUM_STACK;
 	return undo_system.entity_system_stack[undo_system.index];
 }
@@ -382,10 +382,6 @@ EntitySystem UndoSystemUndo() {
 	return result;
 }
 
-void AddHoveredEntity(EntityId entity) {
-
-}
-
 Entity* GetEntity(EntityId id) {
 
 	Entity* entity = &g_entity_system.entities[id.index];
@@ -393,20 +389,6 @@ Entity* GetEntity(EntityId id) {
 	return entity;
 }
 
-void DestroyEntity(EntityId id) {
-#if 0
-	if (GetEntity(id)->type == EntityType_None) {
-		Log(__LINE__, "Failed to destroy entity with id %d,%d\n", id.index, id.generation);
-		return;
-	}
-	Log(__LINE__, "Entity \"%s\" destroyed\n", GetEntity(id)->name);
-
-	UndoSystemDo();
-
-	//RemoveFromHashTable(&entity_system.entities_map, GetEntity(id)->name);
-	entity_system.entities[id.index] = (Entity){ 0 };
-#endif
-}
 
 int CompareEntities(const void* element1, const void* element2) {
 	EntityId* id1 = (EntityId*)element1;
@@ -437,12 +419,13 @@ void DestroyEntityByName(const char* str) {
 	//TODO: delete from entity map too!
 	for (int i = 0; i < MAX_NUM_ENTITIES; ++i) {
 		if (strcmp(str, g_entity_system.entities[i].name.val) == 0) {
-			DestroyEntity(g_entity_system.entities[i].id);
+			//DestroyEntity(g_entity_system.entities[i].id);
 		}
 	}
 }
 
 Entity* GetEntityByName(char* name) {
+	(void)name;
 	//int index = GetHashTableElement(entity_system.entities_map, name);
 
 	//if (!index) {
@@ -459,7 +442,7 @@ Entity* GetEntityByName(char* name) {
 void ResetEntitySystem() {
 	//entity_system.num_entities = 0;
 	g_entity_system.entities_map.num = 0;
-	Entity nop = { 0 };
+	//Entity nop = { 0 };
 	g_grab_system.num_hovered_entities = 0;
 }
 
@@ -485,22 +468,17 @@ PixelPos GetEntityPixelPos(EntityId id) {
 	return  GetEntity(id)->pixel_pos;
 }
 
-v2 v2Tov2i(v2i v) {
-	v2 result = { v.x, v.y };
-
-	return result;
-}
-
 PixelPos MovePos(PixelPos current_pos, PixelPos dest) {
 	//TODO: warning! broken code!
+	// Multiply by delta_time
 	float speed = 1;
 
 
-	v2 distance = v2_sub((v2) { dest.pos.x, dest.pos.y }, (v2) { current_pos.pos.x, current_pos.pos.y });
+	v2 distance = v2_sub((v2) { (float)dest.pos.x, (float)dest.pos.y }, (v2) { (float)current_pos.pos.x, (float)current_pos.pos.y });
 	v2 direction = v2_normalize(distance);
 
-	current_pos.pos.x += direction.x * speed;
-	current_pos.pos.y += direction.y * speed;
+	current_pos.pos.x += (int)(direction.x * speed);
+	current_pos.pos.y += (int)(direction.y * speed);
 
 	//assert(current_pos.pos.x < GAME_SCREEN_WIDTH);
 	//assert(current_pos.pos.y < GAME_SCREEN_HEIGHT);
@@ -533,7 +511,7 @@ EntityId CreateEntityOriginal(Entity entity) {
 	return entity.id;
 }
 
-Entity CreateEntityRaw(char* name, EntityType type, v2i pixel_pos, v2 size, Texture sprite) {
+Entity CreateEntityRaw(char* name, EntityType type, PixelPos pixel_pos, v2 size, Texture sprite) {
 	//TODO: input santiizing
 	Entity entity = {
 		.type = type,
@@ -546,7 +524,15 @@ Entity CreateEntityRaw(char* name, EntityType type, v2i pixel_pos, v2 size, Text
 	return entity;
 }
 
-EntityId CreateEntity(char* name, EntityType type, v2i pixel_pos, v2 size, Texture sprite) {
+#define UNUSED(x) (void)(x)
+
+EntityId CreateEntity(const char* name, EntityType type, v2i pixel_pos, v2 size, Texture sprite) {
+	UNUSED(name);
+	UNUSED(type);
+	UNUSED(pixel_pos);
+	UNUSED(size);
+	UNUSED(sprite);
+
 #if 0
 	Entity entity = CreateEntityRaw(name, type, pixel_pos, size, sprite);
 
@@ -583,7 +569,7 @@ bool IsIdEqual(EntityId id0, EntityId id1) {
 
 EntityId CreateCharacter(const char* name, v2 pos, v2 size) {
 
-	EntityId id = CreateEntity(name, EntityType_Character, (v2i) { pos.x, pos.y }, (v2) { size.x, size.y }, texture_get_by_name(str128_create(name)));
+	EntityId id = CreateEntity(name, EntityType_Character, (v2i) { (int)pos.x, (int)pos.y }, (v2) { size.x, size.y }, texture_get_by_name(str128_create(name)));
 
 	return id;
 }
@@ -599,7 +585,7 @@ Entity* entity_get_next(int* iterator_index) {
 }
 
 bool entity_get_next_handle(int* iterator_index, Entity_handle* handle) {
-	bool result = handle_get_next(&g_game.entities_handle_map, iterator_index, handle);
+	bool result = handle_get_next(&g_game.entities_handle_map, iterator_index, (Handle *)handle);
 
 	return result;
 }
@@ -636,7 +622,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 		mouse_pos = (wzrd_v2){-1, -1};
 	}
 
-	wzrd_update_input(mouse_pos, g_platform.mouse_left, *(wzrd_keyboard_keys*)&g_platform.keys_pressed);
+	wzrd_update_input(mouse_pos, (wzrd_state)g_platform.mouse_left, *(wzrd_keyboard_keys*)&g_platform.keys_pressed);
 
 	wzrd_begin(gui, (wzrd_rect) { 0, 0, game_screen_size.x, game_screen_size.y }, (wzrd_style){0}, platform_string_get_size);
 	{
@@ -651,7 +637,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 			int size = 16;
 			int rects_in_row_count = g_game.target_texture.data->w / size;
 			int rects_in_column_count = g_game.target_texture.data->h / size;
-			int x = 0, y = 0;
+			float x = 0, y = 0;
 			bool flip = false;
 			for (int i = 1; i < rects_in_column_count; ++i) {
 				for (int j = 1; j < rects_in_row_count; ++j) {
@@ -685,7 +671,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 
 				int it = 1;
 				int index = 0;
-				while (index = array_list_32_get_next(&list, &it))
+				while ((index = array_list_32_get_next(&list, &it)))
 				{
 					if (list.count > 1)
 					{
@@ -698,8 +684,8 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 						PlatformLineDraw(x0, y0, x1, y1, 255, 0, 0);
 					}
 
-					str128 name = { 0 };
-					sprintf(name.val, "wow %d", index);
+					str128 name = str128_create("wow %d", index);
+					//sprintf(name.val, "wow %d", index);
 					name.len = strlen(name.val);
 					wzrd_color color = { 255, 0, 0, 255 };
 					if (wzrd_game_buttonesque(*(wzrd_v2*)&nodes[index], (wzrd_v2) { 2, 2 }, color, name))
@@ -725,10 +711,10 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 				}
 			}
 
-			int p = game_screen_size.x / 16;
-			int h = p * 9;
-			int w = p * 16;
-			int bar_h = (game_screen_size.y - h) / 2;
+			float p = game_screen_size.x / 16;
+			float h = p * 9;
+			//int w = p * 16;
+			float bar_h = (game_screen_size.y - h) / 2;
 
 			PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
 			PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
@@ -749,16 +735,14 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 			static str128 selected_entity_id;
 			int it = 1;
 			Entity* entity = 0;
-			while (entity = entity_get_next(&it))
+			while ((entity = entity_get_next(&it)))
 			{
-				char name[128];
-				sprintf(name, "entity %d", it);
 				wzrd_crate(1, (wzrd_box) {
 					.x = entity->rect.x,
 						.y = entity->rect.y,
 						.w = entity->rect.w,
 						.h = entity->rect.h,
-						.name = str128_create(name),
+						.name = str128_create("entity %d", it),
 						.border_type = BorderType_None
 				});
 
@@ -826,14 +810,14 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 
 			if (hovered_entity.val.index) {
 				if (g_game.active_entity.val.index) {
-					if (g_platform.mouse_left == EguiDeactivating) {
+					if (g_platform.mouse_left == Deactivating) {
 						g_game.selected_entity = g_game.active_entity;
 						g_game.active_entity = (Entity_handle){ 0 };
 					}
 				}
 
 				if (g_game.hot_entity.val.index) {
-					if (g_platform.mouse_left == EguiActivating) {
+					if (g_platform.mouse_left == Activating) {
 						g_game.active_entity = g_game.hot_entity;
 					}
 				}
@@ -846,7 +830,7 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 				}
 			}
 			else {
-				if (g_platform.mouse_left == EguiDeactivating) {
+				if (g_platform.mouse_left == Deactivating) {
 					g_game.selected_entity = (Entity_handle){ 0 };
 				}
 			}
@@ -904,7 +888,7 @@ void game_init() {
 	// Empty entity
 	game_entity_add((Entity) { 0 });
 
-	Entity_handle e = game_entity_add((Entity) {
+	game_entity_add((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e1"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
 			.color = (wzrd_color){ 255, 255, 255, 255 }

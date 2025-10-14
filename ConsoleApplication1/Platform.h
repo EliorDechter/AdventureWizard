@@ -18,8 +18,8 @@
 #define GAME_HEIGHT 1080 / 1
 #endif
 
-#define EDITOR_WIDTH 1920 / 1.1
-#define EDITOR_HEIGHT 1080 / 1.1
+#define EDITOR_WIDTH 1920 
+#define EDITOR_HEIGHT 1080 
 
 typedef struct platform_color {
 	unsigned char r, g, b, a;
@@ -96,7 +96,7 @@ typedef struct PlatformRect {
 
 
 typedef struct PlatformKey {
-	char val;
+	unsigned int val;
 	State state;
 } PlatformKey;
 
@@ -119,22 +119,6 @@ typedef struct PlatformSystem {
 } PlatformSystem;
 
 extern PlatformSystem g_platform;
-
-#define MAX_NUM_VERTICES 1024 * 4
-
-typedef struct PlatformVertexBuffer {
-	SDL_Vertex vertices[MAX_NUM_VERTICES];
-	int vertices_count;
-
-	str128 strings[64];
-	wzrd_rect strings_dest_rects[64];
-	wzrd_color strings_colors[64];
-	int strings_count;
-
-	wzrd_rect clip;
-
-} PlatformVertexBuffer;
-
 
 typedef struct PlatformTargetTexture {
 	SDL_Texture* data;
@@ -175,13 +159,13 @@ typedef enum PlatformCursor { PlatformCursorDefault, PlatformCursorHand, Platfor
 // API
 void platform_string_get_size(char* str, float* w, float* h);
 void PlatformRectDraw(PlatformRect rect, platform_color color);
-void PlatformTextDraw(const char* txt, float x, float y);
+void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect);
 PlatformTexture PlatformTextureLoad(const char* path);
 PlatformV2i PlatformTextGetSize(const char* str);
-void PlatformLineDrawVertical(float x0, float y0, float x1, float y1);
-void PlatformLineDrawHorizontal(float x0, float y0, float x1, float y1);
-void PlatformLineDraw(float x0, float y0, float x1, float y1, float r, float g, float b);
+void PlatformLineDrawVertical(float x0, float y0, float y1);
+void PlatformLineDrawHorizontal(float x0, float y0, float x1);
+void PlatformLineDraw(float x0, float y0, float x1, float y1, unsigned char r, unsigned char g, unsigned char b);
 void PlatformTextureBeginTarget(PlatformTargetTexture texture);
 void PlatformTextureEndTarget();
 PlatformTargetTexture PlatformTargetTextureCreate();
