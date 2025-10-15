@@ -22,6 +22,7 @@ typedef struct Str32 {
 } Str32;
 
 str1024 str1024_create(const char* format, ...);
+void str1024_concat(str1024* dest, str1024 src);
 str128 str128_create(const char* format, ...);
 bool str128_equal(str128 a, str128 b);
 void str128_concat(str128* dest, str128 src);

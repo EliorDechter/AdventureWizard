@@ -87,7 +87,7 @@ typedef struct wzrd_color {
 #define EGUI_RAYWHITE  (wzrd_color){ 245, 245, 245, 255 }   // My own White (raylib logo)
 
 typedef enum EguiState {
-	EguiInactive, EguiActivating, EguiActive, EguiDeactivating
+	WZRD_INACTIVE, EguiActivating, WZRD_ACTIVE, EguiDeactivating
 } wzrd_state;
 
 typedef struct wzrd_rect {
@@ -104,7 +104,7 @@ typedef struct wzrd_v2i {
 
 #define DEBUG_PANELS 0
 
-typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_Tooltip, CrateId_DropDown, CrateId_Total } CrateId;
+//typedef enum CrateId { CrateId_None, CrateId_Screen, CrateId_ } CrateId;
 
 typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_None } wzrd_border_type;
 typedef enum Alignment { Alignment_Left, Alignment_Center, Alignment_Right } Alignment;
@@ -191,10 +191,13 @@ typedef struct Box {
 	bool clip;
 	float* scrollbar_x, * scrollbar_y;
 	wzrd_v2 content_size;
+	bool is_crate;
+	str128 crate_name;
+	int layer;
 } wzrd_box;
 
 typedef struct Crate {
-	int z;
+	int layer;
 	int index;
 
 	int box_stack[32];
@@ -226,7 +229,6 @@ typedef struct EguiDrawCommand {
 	int z;
 } wzrd_draw_command;
 
-
 typedef struct wzrd_draw_commands_buffer {
 	wzrd_draw_command commands[MAX_NUM_DRAW_COMMANDS];
 	int count;
@@ -250,10 +252,13 @@ typedef enum wzrd_cursor { wzrd_cursor_default, wzrd_cursor_hand, wzrd_cursor_ve
 
 typedef struct wzrd_input
 {
-	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta;
+	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta, screen_mouse_pos;
 	wzrd_keyboard_keys keyboard_keys;
 	wzrd_state mouse_left, mouse_right;
 	bool disable_input;
+	int hovered_layer, active_layer;
+	wzrd_rect layers[32];
+	str128 hot_crate, active_crate;
 } wzrd_input;
 
 typedef struct wzrd_style
@@ -272,20 +277,21 @@ typedef struct Egui {
 	str128 active_input_box;
 	float input_box_timer;
 	double tooltip_time;
-	bool is_interacting, is_hovering;
+	//bool is_interacting, is_hovering;
 	wzrd_style style;
 	wzrd_box dragged_box;
 	bool clean;
 	void (*get_string_size)(char*, float *, float *);
-	
+	int layer;
+
 	// Frame ?
 	int boxes_count;
 	wzrd_box boxes[MAX_NUM_BOXES];
 	int total_num_panels, total_num_windows;
 	Crate crates_stack[32];
 	int current_crate_index;
-
-} Egui;
+	str128 current_crate_name;
+} wzrd_gui;
 
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
@@ -326,7 +332,8 @@ typedef struct wzrd_polygon {
 // API
 void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
 wzrd_style wzrd_style_get_default();
-void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*));
+void wzrd_begin(wzrd_gui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*), int layer);
+void wzrd_layer_add(unsigned int layer, wzrd_rect size);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
 bool wzrd_box_begin(wzrd_box box);
 void wzrd_box_end();
@@ -357,7 +364,7 @@ bool *EguiToggleBegin(wzrd_box box);
 bool *EguiToggle(wzrd_box box);
 void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
 void wzrd_text_add(str128 str);
-void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, str128 name, int parent);
+void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, str128 name, int parent, int layer);
 void EguiDialogEnd(bool active);
 void EguiBoxResize(wzrd_v2* size);
 wzrd_box* EguiHotItemGet();
@@ -377,10 +384,11 @@ bool wzrd_box_is_dragged(wzrd_box* box);
 bool wzrd_box_is_hot(wzrd_box* box);
 bool wzrd_box_is_selected(wzrd_box* box);
 wzrd_box *wzrd_box_get_released();
-wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name);
+wzrd_box* wzrd_box_get_by_name_from_gui(wzrd_gui* gui, str128 name);
 bool wzrd_is_releasing();
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
 bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active);
 void EguiToggle3(wzrd_box box, str128 str, bool *active);
 bool wzrd_button_icon3(wzrd_box box, Item item);
+void wzrd_update_layers(wzrd_v2 screen_mouse_pos, wzrd_state mouse_state);
 #endif

@@ -3,7 +3,7 @@
 #include "Textures.h"
 #include "Game.h"
 
-void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, bool enable_input, PlatformTargetTexture target_texture, wzrd_icons icons) {
+void editor_do(wzrd_gui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, bool enable_input, PlatformTargetTexture target_texture, wzrd_icons icons, unsigned int layer) {
 	static int selected_item = -1;
 	static int selected_category;
 	//Texture_handle handle = { 0 };
@@ -27,7 +27,8 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 	(wzrd_rect) {
 		0, 0, (float)g_platform.window_width, (float)g_platform.window_height
 	}, wzrd_style_get_default(),
-			platform_string_get_size);
+			platform_string_get_size,
+			layer);
 	{
 		static bool create_object_active;
 		static int dialog_parent;
@@ -345,7 +346,7 @@ void editor_do(Egui* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor
 			static int selected_text;
 			static str128 name;
 
-			wzrd_dialog_begin(&create_object_pos, size, &create_object_active, str128_create("add object"), dialog_parent);
+			wzrd_dialog_begin(&create_object_pos, size, &create_object_active, str128_create("add object"), dialog_parent, 4);
 			if (create_object_active) {
 				wzrd_box_begin((wzrd_box) {
 					.row_mode = true, .border_type = BorderType_None, .child_gap = 5,

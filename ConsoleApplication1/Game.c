@@ -524,14 +524,14 @@ Entity CreateEntityRaw(char* name, EntityType type, PixelPos pixel_pos, v2 size,
 	return entity;
 }
 
-#define UNUSED(x) (void)(x)
+#define WZRD_UNUSED(x) (void)(x)
 
 EntityId CreateEntity(const char* name, EntityType type, v2i pixel_pos, v2 size, Texture sprite) {
-	UNUSED(name);
-	UNUSED(type);
-	UNUSED(pixel_pos);
-	UNUSED(size);
-	UNUSED(sprite);
+	WZRD_UNUSED(name);
+	WZRD_UNUSED(type);
+	WZRD_UNUSED(pixel_pos);
+	WZRD_UNUSED(size);
+	WZRD_UNUSED(sprite);
 
 #if 0
 	Entity entity = CreateEntityRaw(name, type, pixel_pos, size, sprite);
@@ -595,15 +595,6 @@ platform_color wzrd_color_to_platform_color(wzrd_color color) {
 	platform_color result = *(platform_color*)&color;
 
 	return result;
-
-	/*platform_color result = {
-		.r = 255 * (1 - color.c) * (1 - color.k),
-		.b = 255 * (1 - color.m) * (1 - color.k),
-		.g = 255 * (1 - color.y) * (1 - color.k),
-		.a = 255
-	};
-
-	return result;*/
 }
 
 typedef struct array_list_node
@@ -612,8 +603,7 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-
-void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_screen_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale) {
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_gui* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer) {
 	// game screen gui
 	bool blue_button = false;
 	wzrd_v2 mouse_pos = (wzrd_v2){g_game.mouse_pos.x / scale, g_game.mouse_pos.y / scale};
@@ -624,7 +614,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 
 	wzrd_update_input(mouse_pos, (wzrd_state)g_platform.mouse_left, *(wzrd_keyboard_keys*)&g_platform.keys_pressed);
 
-	wzrd_begin(gui, (wzrd_rect) { 0, 0, game_screen_size.x, game_screen_size.y }, (wzrd_style){0}, platform_string_get_size);
+	wzrd_begin(gui, window, (wzrd_style){0}, platform_string_get_size, layer);
 	{
 
 		// NEW
@@ -661,7 +651,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 				{
 					if (g_platform.mouse_left == Activating)
 					{
-						if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < game_screen_size.x && mouse_pos.y < game_screen_size.y)
+						if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < window.w && mouse_pos.y < window.y)
 						{
 							int index = array_list_32_add(&list);
 							nodes[index] = (v2){ mouse_pos.x, mouse_pos.y };
@@ -711,13 +701,13 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 game_scre
 				}
 			}
 
-			float p = game_screen_size.x / 16;
+			float p = window.w / 16;
 			float h = p * 9;
 			//int w = p * 16;
-			float bar_h = (game_screen_size.y - h) / 2;
+			float bar_h = (window.h - h) / 2;
 
-			PlatformRectDraw((PlatformRect) { 0, 0, game_screen_size.x, bar_h }, PLATFORM_BLACK);
-			PlatformRectDraw((PlatformRect) { 0, bar_h + h, game_screen_size.x, bar_h }, PLATFORM_BLACK);
+			PlatformRectDraw((PlatformRect) { 0, 0, window.w, bar_h }, PLATFORM_BLACK);
+			PlatformRectDraw((PlatformRect) { 0, bar_h + h, window.w, bar_h }, PLATFORM_BLACK);
 
 			// Draw selected entity border
 			Entity* selected_entity = game_entity_get(g_game.selected_entity);
@@ -914,8 +904,6 @@ void DoAnimations() {
 		}
 	}
 }
-
-
 
 void DrawCurrentPath() {
 

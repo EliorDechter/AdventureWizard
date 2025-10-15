@@ -143,7 +143,7 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_draw_commands_buffer* buffer, Egui* gui, wzrd_v2 window_size, wzrd_cursor* cursor, bool enable_input, unsigned int scale);
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_gui* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer);
 void game_run(v2 window_size, bool enable, unsigned int scale);
 void game_draw(v2 game_screen_size, v2 mouse_pos);
 void game_draw_gui(wzrd_draw_commands_buffer* buffer);

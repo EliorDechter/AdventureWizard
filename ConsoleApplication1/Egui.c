@@ -1,15 +1,54 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
 
-
-#define UNUSED(x) (void)x
+#define WZRD_ASSERT(x) assert(x)
+//#define WZRD_ASSERT(x) (void)(x)
+#define WZRD_UNUSED(x) (void)x
 
 #include "Egui.h"
 #include "Strings.h"
 
-
-static Egui* g_gui;
+static wzrd_gui* g_gui;
 static wzrd_input g_wzrd_input;
+
+int wzrd_v2_is_inside_rect(wzrd_v2 v, wzrd_rect rect) {
+	bool result = false;
+	if (v.x >= rect.x &&
+		v.y >= rect.y &&
+		v.x <= rect.x + rect.w &&
+		v.y <= rect.y + rect.h) {
+
+		result = true;
+	}
+
+	return result;
+}
+
+void wzrd_update_layers(wzrd_v2 screen_mouse_pos, wzrd_state mouse_state)
+{
+
+	g_wzrd_input.hovered_layer = -1;
+	for (int layer = 0; layer < 32; ++layer)
+	{
+		if (wzrd_v2_is_inside_rect(screen_mouse_pos, g_wzrd_input.layers[layer]) && layer > g_wzrd_input.hovered_layer)
+		{
+			g_wzrd_input.hovered_layer = layer;
+		}
+	}
+
+	if (mouse_state == WZRD_ACTIVE && g_wzrd_input.active_layer == -1)
+	{
+		g_wzrd_input.active_layer = g_wzrd_input.hovered_layer;
+	}
+
+	if (mouse_state == WZRD_INACTIVE)
+	{
+		g_wzrd_input.active_layer = -1;
+	}
+
+	printf("%d %d\n", g_wzrd_input.hovered_layer, g_wzrd_input.active_layer);
+
+}
 
 Crate* EguiGetCurrentWindow() {
 	Crate* result = &g_gui->crates_stack[g_gui->current_crate_index];
@@ -18,7 +57,7 @@ Crate* EguiGetCurrentWindow() {
 }
 
 Crate* EguiGetPreviousWindow() {
-	assert(g_gui->current_crate_index > 0);
+	WZRD_ASSERT(g_gui->current_crate_index > 0);
 	Crate* result = &g_gui->crates_stack[g_gui->current_crate_index - 1];
 
 	return result;
@@ -37,7 +76,7 @@ wzrd_box* wzrd_box_get_parent() {
 }
 
 wzrd_box* wzrd_box_get_from_top_of_stack() {
-	assert(g_gui->current_crate_index >= 0);
+	WZRD_ASSERT(g_gui->current_crate_index >= 0);
 	int crate_index = g_gui->current_crate_index;
 
 	int current_box_index = g_gui->crates_stack[crate_index].box_stack_count - 1;
@@ -48,13 +87,13 @@ wzrd_box* wzrd_box_get_from_top_of_stack() {
 	int final_index = g_gui->crates_stack[crate_index].box_stack[current_box_index];
 	wzrd_box* result = &g_gui->boxes[final_index];
 
-	assert(result);
+	WZRD_ASSERT(result);
 
 	return result;
 }
 
 int wzrd_box_get_current_index() {
-	assert(g_gui->current_crate_index >= 0);
+	WZRD_ASSERT(g_gui->current_crate_index >= 0);
 	int current_box_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack_count - 1;
 	if (current_box_index < 0) return 0;
 	int final_index = g_gui->crates_stack[g_gui->current_crate_index].box_stack[current_box_index];
@@ -167,9 +206,10 @@ int wzrd_float_compare(float a, float b)
 
 bool wzrd_box_begin(wzrd_box box) {
 
-	assert(g_gui->boxes_count < MAX_NUM_BOXES - 1);
 
-	box.z = EguiGetCurrentWindow()->z;
+	WZRD_ASSERT(g_gui->boxes_count < MAX_NUM_BOXES - 1);
+
+	box.z = EguiGetCurrentWindow()->layer;
 
 	if (wzrd_float_compare(box.w, 0) == 0 && !box.fit_w)
 		box.grow_horizontal = true;
@@ -188,7 +228,7 @@ bool wzrd_box_begin(wzrd_box box) {
 	// Test for repeating id's
 	if (box.name.len) {
 		for (int i = 0; i < g_gui->boxes_count; ++i) {
-			assert(!str128_equal(box.name, g_gui->boxes[i].name));
+			WZRD_ASSERT(!str128_equal(box.name, g_gui->boxes[i].name));
 		}
 	}
 
@@ -201,15 +241,15 @@ bool wzrd_box_begin(wzrd_box box) {
 
 		//Name
 		if (!box.name.len) {
-			assert(*current_box->name.val);
+			WZRD_ASSERT(*current_box->name.val);
 			/*int n = snprintf(box.name.val, 128, "%s-%d", current_box->name.val, current_box->children_count);
 			box.name.len = strlen(box.name.val);*/
 			box.name = str128_create("%s-%d", current_box->name.val, current_box->children_count);
-			//assert(n <= 128);
+			//WZRD_ASSERT(n <= 128);
 		}
 
 		// Children
-		assert(current_box->children_count < MAX_NUM_CHILDREN);
+		WZRD_ASSERT(current_box->children_count < MAX_NUM_CHILDREN);
 		current_box->children[current_box->children_count++] = g_gui->boxes_count;
 	}
 
@@ -219,7 +259,12 @@ bool wzrd_box_begin(wzrd_box box) {
 	}
 
 	// Add box
-	assert(g_gui->boxes_count < 256);
+	if (!memcmp(&g_gui->boxes[g_gui->boxes_count], &box, sizeof(wzrd_box)))
+	{
+		g_gui->clean = false;
+	}
+
+	WZRD_ASSERT(g_gui->boxes_count < 256);
 	box.index = g_gui->boxes_count;
 	assert(g_gui->current_crate_index >= 0);
 	g_gui->crates_stack[g_gui->current_crate_index].box_stack_count++;
@@ -237,7 +282,7 @@ bool wzrd_box_begin(wzrd_box box) {
 
 void wzrd_box_end() {
 	g_gui->total_num_panels--;
-	assert(g_gui->total_num_panels >= 0);
+	WZRD_ASSERT(g_gui->total_num_panels >= 0);
 
 	wzrd_box* current_box = wzrd_box_get_from_top_of_stack();
 	Crate* current_crate = EguiGetCurrentWindow();
@@ -248,8 +293,8 @@ void wzrd_box_end() {
 
 		// Handle fitting
 		if (previous_box->fit_h) {
-			assert(current_box->h);
-			assert(current_box->w);
+			WZRD_ASSERT(current_box->h);
+			WZRD_ASSERT(current_box->w);
 
 			if (!previous_box->row_mode) {
 				previous_box->h += current_box->h;
@@ -262,8 +307,8 @@ void wzrd_box_end() {
 			}
 		}
 		if (previous_box->fit_w) {
-			assert(current_box->h);
-			assert(current_box->w);
+			WZRD_ASSERT(current_box->h);
+			WZRD_ASSERT(current_box->w);
 
 			if (previous_box->row_mode) {
 				previous_box->w += current_box->w;
@@ -277,26 +322,13 @@ void wzrd_box_end() {
 	}
 
 	current_crate->box_stack_count--;
-	assert(current_crate->box_stack_count >= 0);
+	WZRD_ASSERT(current_crate->box_stack_count >= 0);
 
 }
 
 bool wzrd_box_do(wzrd_box box) {
 	bool result = wzrd_box_begin(box);
 	wzrd_box_end();
-
-	return result;
-}
-
-int wzrd_v2_is_inside_rect(wzrd_v2 v, wzrd_rect rect) {
-	bool result = false;
-	if (v.x >= rect.x &&
-		v.y >= rect.y &&
-		v.x <= rect.x + rect.w &&
-		v.y <= rect.y + rect.h) {
-
-		result = true;
-	}
 
 	return result;
 }
@@ -335,17 +367,21 @@ wzrd_box* EguiHotItemGet() {
 	return 0;
 }
 
-void wzrd_crate_begin(int window_id, wzrd_box box) {
+void wzrd_crate_begin(int layer, wzrd_box box) {
 
+	box.is_crate = true;
+	g_gui->current_crate_name = box.name;
 	g_gui->total_num_windows++;
 	g_gui->current_crate_index++;
 
 	Crate* current_window = EguiGetCurrentWindow();
 
 	// Set new window
-	*current_window = (Crate){ .z = window_id, .index = g_gui->current_crate_index, };
+	*current_window = (Crate){ .layer = layer, .index = g_gui->current_crate_index, };
 
 	// Begin drawing panel
+	box.layer = layer;
+	wzrd_layer_add(layer, (wzrd_rect) { box.x, box.y, box.w, box.h });
 	wzrd_box_begin(box);
 }
 
@@ -357,13 +393,13 @@ void wzrd_crate_end() {
 	wzrd_box_end();
 
 	if (g_gui->current_crate_index > 0) {
-		Crate* previous_window = EguiGetPreviousWindow();
+		//Crate* previous_window = EguiGetPreviousWindow();
 
-		assert(previous_window->z != 0);
+		//WZRD_ASSERT(previous_window->layer != 0);
 	}
 
 	g_gui->current_crate_index--;
-	assert(g_gui->current_crate_index >= -1);
+	WZRD_ASSERT(g_gui->current_crate_index >= -1);
 }
 
 void wzrd_crate(int window_id, wzrd_box box) {
@@ -371,17 +407,21 @@ void wzrd_crate(int window_id, wzrd_box box) {
 	wzrd_crate_end();
 }
 
-void wzrd_begin_ex(Egui* gui, wzrd_box box, wzrd_style style)
+void wzrd_begin_ex(wzrd_gui* gui, wzrd_box box, wzrd_style style, int layer)
 {
-	//if (g_wzrd_input.disable_input)
-		//return;
+	if (layer < g_wzrd_input.hovered_layer && layer < g_wzrd_input.active_layer)
+	{
+		g_wzrd_input.mouse_pos = (wzrd_v2){ -1, -1 };
+	}
+
+	WZRD_UNUSED(layer);
 
 	g_gui = gui;
 
 	g_gui->current_crate_index = -1;
 	g_gui->boxes_count = 0;
 	g_gui->style = style;
-
+	g_gui->layer = layer;
 	g_gui->input_box_timer += 16.7f;
 
 	g_gui->boxes[g_gui->boxes_count++] = (wzrd_box){ 0 };
@@ -389,9 +429,8 @@ void wzrd_begin_ex(Egui* gui, wzrd_box box, wzrd_style style)
 	// Begin drawing first window
 	//static wzrd_v2i pos;
 	wzrd_crate_begin(
-		CrateId_Screen,
+		layer,
 		box);
-
 }
 
 void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys)
@@ -403,7 +442,7 @@ void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_k
 	g_wzrd_input.mouse_delta.x = g_wzrd_input.mouse_pos.x - g_wzrd_input.previous_mouse_pos.x;
 	g_wzrd_input.mouse_delta.y = g_wzrd_input.mouse_pos.y - g_wzrd_input.previous_mouse_pos.y;
 
-	if (mouse_left == EguiInactive)
+	if (mouse_left == WZRD_INACTIVE)
 	{
 		//g_wzrd_input.disable_input = true;
 	}
@@ -411,6 +450,7 @@ void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_k
 	{
 		//g_wzrd_input.disable_input = false;
 	}
+
 }
 
 wzrd_style wzrd_style_get_default()
@@ -425,9 +465,16 @@ wzrd_style wzrd_style_get_default()
 	return result;
 }
 
-
-void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*))
+void wzrd_layer_add(unsigned int layer, wzrd_rect size)
 {
+	g_wzrd_input.layers[layer] = size;
+}
+
+void wzrd_begin(wzrd_gui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*), int layer)
+{
+
+	//wzrd_layer_add(layer, window);
+
 
 	gui->get_string_size = get_string_size;
 
@@ -447,7 +494,7 @@ void wzrd_begin(Egui* gui, wzrd_rect window, wzrd_style style, void (*get_string
 		.color = style.background_color
 	};
 
-	wzrd_begin_ex(gui, box, style);
+	wzrd_begin_ex(gui, box, style, layer);
 }
 
 void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color color, int z) {
@@ -459,7 +506,7 @@ void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color 
 		.z = z
 	};
 
-	assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+	WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 	buffer->commands[buffer->count++] = command;
 
 
@@ -482,7 +529,7 @@ wzrd_box* wzrd_box_get_by_name(str128 name) {
 
 }
 
-wzrd_box* wzrd_box_get_by_name_from_gui(Egui* gui, str128 name) {
+wzrd_box* wzrd_box_get_by_name_from_gui(wzrd_gui* gui, str128 name) {
 	g_gui = gui;
 	wzrd_box* result = wzrd_box_get_by_name(name);
 	g_gui = 0;
@@ -509,7 +556,8 @@ void wzrd_handle_cursor(wzrd_cursor* cursor)
 {
 	*cursor = wzrd_cursor_default;
 
-	if (g_gui->is_hovering) {
+	//if (g_gui->is_hovering)
+	{
 
 		wzrd_box* hot_box = wzrd_box_get_by_name(g_gui->hot_item);
 		wzrd_box* active_box = wzrd_box_get_by_name(g_gui->active_item);
@@ -623,7 +671,7 @@ void wzrd_handle_input()
 
 	// ...
 	wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
-	if (half_clicked_box && g_wzrd_input.mouse_left == EguiActive)
+	if (half_clicked_box && g_wzrd_input.mouse_left == WZRD_ACTIVE)
 	{
 		g_gui->half_clicked_item = (str128){ 0 };
 	}
@@ -640,12 +688,18 @@ void wzrd_handle_input()
 		g_gui->clean = false;
 	}
 
-	if (g_wzrd_input.mouse_left == EguiInactive)
+	if (g_wzrd_input.mouse_left == WZRD_INACTIVE)
 	{
 		g_gui->released_item = (str128){ 0 };
 	}
 
-	if (active_box) {
+	if (active_box->name.len) {
+
+		if (active_box->is_crate)
+		{
+			g_wzrd_input.active_crate = active_box->name;
+		}
+
 		if (g_wzrd_input.mouse_left == EguiDeactivating) {
 			if (hot_box == active_box) {
 				g_gui->clicked_item = active_box->name;
@@ -656,21 +710,24 @@ void wzrd_handle_input()
 		g_gui->clean = false;
 	}
 
-	g_gui->is_interacting = false;
-	g_gui->is_hovering = false;
-	if (hot_box) {
+	//g_gui->is_hovering = false;
+	if (hot_box->name.len) {
 		if (!hot_box->disable_input) {
-			g_gui->is_hovering = true;
+			//g_gui->is_hovering = true;
 		}
 
 	}
-	if (active_box) {
+	if (active_box->name.len) {
 		if (!active_box->disable_input) {
-			g_gui->is_interacting = true;
+			//g_wzrd_input.active_layer = g_gui->layer;
 		}
 	}
 
-	if (hot_box) {
+	if (hot_box->name.len) {
+		if (active_box->is_crate)
+		{
+			g_wzrd_input.active_crate = active_box->name;
+		}
 		if (hot_box->flat_button)
 			hot_box->color = (wzrd_color){ 0, 255, 255, 255 };
 		if (g_wzrd_input.mouse_left == EguiActivating) {
@@ -681,7 +738,7 @@ void wzrd_handle_input()
 
 			// Dragging
 			//wzrd_box* half_clicked_box = wzrd_box_get_by_name(g_gui->half_clicked_item);
-			assert(half_clicked_box);
+			WZRD_ASSERT(half_clicked_box);
 			if (half_clicked_box->is_draggable) {
 				g_gui->dragged_item = half_clicked_box->name;
 
@@ -697,7 +754,7 @@ void wzrd_handle_input()
 		}
 	}
 
-	if (hovered_box) {
+	if (hovered_box->name.val) {
 		if (!str128_equal(hovered_box->name, g_gui->hot_item))
 		{
 			g_gui->clean = false;
@@ -712,7 +769,7 @@ void wzrd_handle_input()
 	// stuff
 	if (g_gui->clicked_item.len) {
 		wzrd_box* clicked_box = wzrd_box_get_by_name(g_gui->clicked_item);
-		assert(clicked_box);
+		WZRD_ASSERT(clicked_box);
 		if (clicked_box->is_input_box) {
 			g_gui->active_input_box = clicked_box->name;
 		}
@@ -721,7 +778,7 @@ void wzrd_handle_input()
 		}
 	}
 
-	if (g_gui->clicked_item.len && g_wzrd_input.mouse_left == EguiInactive) {
+	if (g_gui->clicked_item.len && g_wzrd_input.mouse_left == WZRD_INACTIVE) {
 		g_gui->clicked_item = (str128){ 0 };
 
 		g_gui->clean = false;
@@ -744,10 +801,10 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 
 	// Test each opened panel has been closed
 	if (g_gui->total_num_panels != 0) {
-		assert(0);
+		WZRD_ASSERT(0);
 	}
-
-	assert(g_gui->total_num_windows == 0);
+	
+	WZRD_ASSERT(g_gui->total_num_windows == 0);
 
 	// Calculate size
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
@@ -785,7 +842,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 					child->w = available_w;
 				}
 
-				assert(child->w > 0);
+				WZRD_ASSERT(child->w > 0);
 			}
 
 			if (child->grow_vertical) {
@@ -801,28 +858,29 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			{
 				float ratio_a = parent->w / parent->h;
 				float ratio_b = child->w / child->h;
-				float ratio = 0;
+				int ratio = 0;
 
 				//if (ratio_b >= ratio_a)
 				if (wzrd_float_compare(ratio_b, ratio_a) >= 0)
 				{
-					ratio = parent->w / child->w;
+					ratio = (int)(parent->w / child->w);
 				}
 				else
 				{
-					ratio = parent->h / child->h;
+					ratio = (int)(parent->h / child->h);
 				}
 
 				child->w = child->w * ratio;
 				child->h = child->h * ratio;
 
-				assert(child->w <= parent->w);
-				assert(child->h <= parent->h);
+
+				WZRD_ASSERT(child->w <= parent->w);
+				WZRD_ASSERT(child->h <= parent->h);
 
 			}
 
-			assert(child->w > 0);
-			assert(child->h > 0);
+			WZRD_ASSERT(child->w > 0);
+			WZRD_ASSERT(child->h > 0);
 		}
 	}
 
@@ -948,12 +1006,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 				});
 			}
 		}
-		// assert sizes
-		//for (int i = 1; i < g_gui->boxes_count; ++i)
-		{
-			assert(g_gui->boxes[i].w > 0);
-			assert(g_gui->boxes[i].h > 0);
-		}
+
 
 	}
 
@@ -1028,7 +1081,6 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 		}
 	}
 
-
 	// Test child doesn't exceed parent's size
 	for (int i = 0; i < g_gui->boxes_count; ++i) {
 		for (int j = 0; j < g_gui->boxes[i].children_count; ++j) {
@@ -1040,6 +1092,8 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 			}
 		}
 	}
+
+
 
 	// Mouse interaction
 	//if (g_wzrd_input.mouse_pos.x > 0 && g_wzrd_input.mouse_pos.y > 0)
@@ -1322,17 +1376,17 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer) {
 				command.dest_rect.x += item.pad_left;
 				command.dest_rect.y += item.pad_top;
 
-				assert(command.dest_rect.w >= 0);
-				assert(command.dest_rect.h >= 0);
+				WZRD_ASSERT(command.dest_rect.w >= 0);
+				WZRD_ASSERT(command.dest_rect.h >= 0);
 
-				assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 				buffer->commands[buffer->count++] = command;
 			}
 
 			// Draw clip area
 			if (box.clip)
 			{
-				assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 				buffer->commands[buffer->count++] = (wzrd_draw_command){
 					.type = DrawCommandType_Clip,
 					.dest_rect = (wzrd_rect) {box.x + 2 * WZRD_BORDER_SIZE, box.y + 2 * WZRD_BORDER_SIZE, box.w - 4 * WZRD_BORDER_SIZE, box.h - 4 * WZRD_BORDER_SIZE},
@@ -1436,7 +1490,11 @@ void wzrd_toggle_icon(wzrd_texture texture, bool* active) {
 			*active = !*active;
 		}
 
-		if (*active) {
+		bool a1 = wzrd_box_is_active(&g_gui->boxes[g_gui->boxes_count - 1]);
+		bool a2 = wzrd_box_is_active(&g_gui->boxes[g_gui->boxes_count - 2]);
+
+
+		if (*active || a1 || a2) {
 			wzrd_box_get_from_top_of_stack()->border_type = BorderType_Clicked;
 		}
 	}
@@ -1473,7 +1531,7 @@ bool wzrd_button_icon(wzrd_texture texture) {
 }
 
 void EguiToggle3(wzrd_box box, str128 str, bool* active) {
-	bool b1 = false, b2 = false;
+	bool b1 = false, b2 = false, a1 = false, a2 = false;
 	b1 = EguiButtonRawBegin(box);
 	{
 		b2 = EguiButtonRawBegin((wzrd_box) {
@@ -1483,7 +1541,6 @@ void EguiToggle3(wzrd_box box, str128 str, bool* active) {
 		});
 		{
 			wzrd_text_add(str);
-			//wzrd_item_add((Item) { .type = wzrd_item_type_str, .str = str128_create(str.val) });
 		}
 		EguiButtonRawEnd();
 	}
@@ -1494,7 +1551,10 @@ void EguiToggle3(wzrd_box box, str128 str, bool* active) {
 		*active = !*active;
 	}
 
-	if (*active)
+	a1 = wzrd_box_is_active(&g_gui->boxes[g_gui->boxes_count - 1]);
+	a2 = wzrd_box_is_active(&g_gui->boxes[g_gui->boxes_count - 2]);
+
+	if (*active || a1 || a2)
 	{
 		g_gui->boxes[g_gui->boxes_count - 2].border_type = BorderType_Clicked;
 	}
@@ -1587,7 +1647,7 @@ bool EguiButtonRaw(wzrd_box box)
 
 void wzrd_item_add(Item item) {
 	wzrd_box* box = wzrd_box_get_from_top_of_stack();
-	assert(box->items_count < MAX_NUM_ITEMS - 1);
+	WZRD_ASSERT(box->items_count < MAX_NUM_ITEMS - 1);
 	box->items[box->items_count++] = item;
 }
 
@@ -1642,12 +1702,12 @@ void wzrd_input_box(str128* str, int max_num_keys) {
 
 					if (key.val == '\b' &&
 						str->len > 0 &&
-						(key.state == EguiActive || key.state == EguiActivating)) {
+						(key.state == WZRD_ACTIVE || key.state == EguiActivating)) {
 						str->val[str->len - 1] = 0;
 						str->len--;
 					}
 
-					if ((key.state == EguiActivating || key.state == EguiActive) &&
+					if ((key.state == EguiActivating || key.state == WZRD_ACTIVE) &&
 						//((key.val <= 'z' && key.val >= 'a') || (key.val <= '9' && key.val >= '0')) &&
 						(isgraph(key.val) || key.val == ' ') &&
 						str->len < (size_t)max_num_keys - 1 &&
@@ -1714,11 +1774,11 @@ bool EguiLabelButton(str128 str) {
 }
 
 
-void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, str128 name, int parent) {
+void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, str128 name, int parent, int layer) {
 
 	if (!*active) return;
 
-	wzrd_crate_begin(1, (wzrd_box) { .parent = parent, .x = pos->x, .y = pos->y, .w = size.x, .h = size.y, .name = name });
+	wzrd_crate_begin(layer , (wzrd_box) { .parent = parent, .x = pos->x, .y = pos->y, .w = size.x, .h = size.y, .name = name });
 
 	bool close = false;
 	wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .h = 28, .row_mode = true });
@@ -1772,10 +1832,10 @@ void EguiDialogEnd(bool active) {
 }
 
 void wzrd_dropdown(int* selected_text, const str128* texts, int texts_count, float w, bool* active) {
-	assert(texts);
-	assert(texts_count);
-	assert(selected_text);
-	assert(*selected_text >= 0);
+	WZRD_ASSERT(texts);
+	WZRD_ASSERT(texts_count);
+	WZRD_ASSERT(selected_text);
+	WZRD_ASSERT(*selected_text >= 0);
 
 	w = 150.0f;
 
@@ -1930,7 +1990,7 @@ void wzrd_slot() {
 
 void wzrd_drag(bool* drag) {
 
-	if (g_wzrd_input.mouse_left == EguiInactive)
+	if (g_wzrd_input.mouse_left == WZRD_INACTIVE)
 	{
 		*drag = false;
 	}

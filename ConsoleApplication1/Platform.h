@@ -116,6 +116,9 @@ typedef struct PlatformSystem {
 	KeysPressed keys_pressed;
 	bool focus;
 	float last_frame_time_in_seconds, time;
+	float time_samples[32];
+	size_t time_samples_count;
+	float average_spf;
 } PlatformSystem;
 
 extern PlatformSystem g_platform;

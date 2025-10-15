@@ -13,17 +13,10 @@ str1024 str1024_create(const char* format, ...) {
 	return result;
 }
 
-void str1024_concat(str1024* dest, const str1024* src)
+void str1024_concat(str1024* dest, str1024 src)
 {
-	int i = (int)dest->len;
-	for (; i < 1024; ++i)
-	{
-		if (src->val[i] == '0')
-			break;
-		dest->val[i] = src->val[i];
-	}
-
-	dest->len = i;
+	strcat(dest->val, src.val);
+	dest->len = strlen(dest->val);
 }
 
 str128 str128_create(const char* format, ...) {
