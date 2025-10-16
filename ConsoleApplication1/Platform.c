@@ -6,7 +6,6 @@
 
 #define WZRD_UNUSED(x) (void)x;
 
-
 PlatformSystem g_platform;
 
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
@@ -64,6 +63,7 @@ void platform_string_get_size(char* str, float* w, float* h)
 }
 
 void PlatformRectDraw(PlatformRect rect, platform_color color) {
+	// WARNING: 0.01 ms to run this function
 	SDL_SetRenderDrawBlendMode(g_sdl.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderDrawColor(g_sdl.renderer, color.r, color.g, color.b, color.a);
 	SDL_RenderFillRect(g_sdl.renderer, (SDL_FRect*)&rect);
@@ -394,6 +394,7 @@ void platform_end()
 	if (g_platform.last_frame_time_in_seconds < spf)
 	{
 		SDL_Delay((int)(spf * 1000.0f - g_platform.last_frame_time_in_seconds * 1000.0f));
+		//SDL_Delay(2000);
 	}
 
 }
@@ -423,6 +424,21 @@ void platform_begin()
 
 }
 
+uint64_t g_time;
+uint64_t g_time_a;
+uint64_t g_time_b;
+
+void platform_time_begin()
+{
+	g_time_a = SDL_GetTicksNS();
+}
+
+void platform_time_end()
+{
+	g_time_b = SDL_GetTicksNS();
+	g_time = g_time_b - g_time_a;
+}
+
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
@@ -433,12 +449,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		static wzrd_gui editor_gui, game_gui;
 		static wzrd_rect game_screen_rect;
 
-		//wzrd_layer_add(0, (wzrd_rect) { 0, 0, (float)g_platform.window_width, (float)g_platform.window_height });
-		//wzrd_layer_add(1, game_screen_rect);
-		//wzrd_layer_add(2, (wzrd_rect) {
-		//	(float)g_platform.window_width - 300.0f, 10.0f, 295.0f, 500.0f
-		//});
-
 		wzrd_update_layers((wzrd_v2) {
 			g_platform.mouse_x, g_platform.mouse_y
 		},
@@ -447,27 +457,18 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		// Editor
 		const bool enable_editor = true;
-		bool enable_editor_input = true;
 		wzrd_cursor editor_cursor = wzrd_cursor_default;
 
 		if (enable_editor) {
 			static wzrd_draw_commands_buffer editor_buffer;
-	/*		if (game_gui.is_interacting)
-			{
-				enable_editor_input = false;
-			}*/
-
 			wzrd_icons icons = game_icons_get();
-
-			uint64_t time_a = SDL_GetTicksNS();
-
-			editor_do(&editor_gui, &editor_buffer, &editor_cursor, enable_editor_input, game_target_texture_get(), icons, 0);
+			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0);
 			platform_draw_wzrd(&editor_buffer);
 
 			static uint64_t samples[32];
 			static size_t samples_count;
-			uint64_t editor_time = SDL_GetTicksNS() - time_a;
-			samples[samples_count] = editor_time;
+			
+			samples[samples_count] = g_time;
 			samples_count = (samples_count + 1) % 32;
 			float average_time = 0;
 			for (int i = 0; i < 32; ++i)
@@ -479,8 +480,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		}
 
-
-#if 1
+#if 0
 		{
 			// Clear target
 			PlatformTextureBeginTarget(game_target_texture_get());
@@ -490,9 +490,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			}
 			PlatformTextureEndTarget();
 
-			wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, str128_create("Target"));
+			wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, wzrd_handle_create(str128_create("Target")));
 			game_screen_rect = wzrd_box_get_rect(box);
-			//PlatformRect rect = *(PlatformRect*)&game_screen_rect;
 
 			float mouse_x = g_platform.mouse_x - game_screen_rect.x;
 			float mouse_y = g_platform.mouse_y - game_screen_rect.y;
@@ -547,6 +546,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 #endif
 
 		// Debug view
+		str1024_concat(&g_debug_text, str1024_create(editor_gui.debug_info.val));
+
 		str1024_concat(&g_debug_text, str1024_create("frame time: %f ms", g_platform.average_spf * 1000.0f));
 		platform_debug_gui_do(2);
 

@@ -3,8 +3,6 @@
 
 Game g_game;
 
-
-
 wzrd_v2i TextGetSize(const char* str) {
 	PlatformV2i result = PlatformTextGetSize(str);
 	return *(wzrd_v2i*)&result;
@@ -17,7 +15,6 @@ wzrd_v2i TextGetSizeFromLength(int len) {
 		str.val[i] = 'a';
 	PlatformV2i result = PlatformTextGetSize(str.val);
 	return *(wzrd_v2i*)&result;
-
 }
 
 void EguiBoxDo(wzrd_box box) {
@@ -722,7 +719,7 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_gui* gui, wzrd_rect win
 
 		// Move Entity
 		{
-			static str128 selected_entity_id;
+			static wzrd_handle selected_entity_id;
 			int it = 1;
 			Entity* entity = 0;
 			while ((entity = entity_get_next(&it)))
@@ -732,24 +729,27 @@ void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_gui* gui, wzrd_rect win
 						.y = entity->rect.y,
 						.w = entity->rect.w,
 						.h = entity->rect.h,
-						.name = str128_create("entity %d", it),
+						//.name = str128_create("entity %d", it),
 						.border_type = BorderType_None
 				});
 
 				if (wzrd_box_is_selected(wzrd_box_get_last()))
 				{
-					selected_entity_id = wzrd_box_get_last()->name;
+					selected_entity_id = wzrd_box_get_last()->handle;
 				}
-				else if (wzrd_box_is_selected(&(wzrd_box) { .name = str128_create("blue") }))
+				else if (wzrd_box_is_selected(&(wzrd_box) { 
+					//.name = str128_create("blue")
+					0
+				}))
 				{
 					// ...
 				}
 				else
 				{
-					selected_entity_id = (str128){ 0 };
+					selected_entity_id = wzrd_handle_create((str128){ 0 });
 				}
 
-				if (selected_entity_id.len)
+				if (wzrd_handle_is_valid(selected_entity_id))
 				{
 					//wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
 					wzrd_box_get_last()->border_type = BorderType_Black;

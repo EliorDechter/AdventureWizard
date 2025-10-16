@@ -37,12 +37,14 @@
 #define MAX_NUM_WIDGETS 128
 
 #define MAX_NUM_ITEMS 8
-#define MAX_NUM_CHILDREN 32
+#define MAX_NUM_CHILDREN 256
 
 #define Stringify1(x) #x
 #define Stringify(x) Stringify1(x)
 #define EditorDropDownBox(name) EditorDropDownBoxRaw(Stringify(__LINE__), name)
 #define EditorToggle(name) EditorToggleRaw(Stringify(__LINE__), name)
+
+#define MAX_NUM_BOXES 256
 
 typedef enum EditorWindow { EditorWindow_Lists, EditorWindow_Slice_Spritesheet } EditorWindow;
 typedef enum EditorTab { EditorTab_Entities, EditorTab_Events, EditorTab_Areas, EditorTab_Inventory } EditorTab;
@@ -156,19 +158,22 @@ typedef struct wzrd_widget_id {
 	str128 val;
 } wzrd_widget_id;
 
+typedef struct wzrd_handle
+{
+	//str128 handle;
+	int handle;
+	bool valid;
+} wzrd_handle;
+
 typedef struct Box {
-	str128 name;
+	wzrd_handle handle;
 	float x, y, w, h;
 	bool row_mode;
 	float pad_right, pad_bottom, pad_left, pad_top;
 	wzrd_color color;
-	int window_index;
 	wzrd_border_type border_type;
 	int children[MAX_NUM_CHILDREN];
 	int children_count;
-	SizeType size_type;
-	bool grow_horizontal;
-	bool grow_vertical;
 	float child_gap;
 	bool center;
 	Item items[MAX_NUM_ITEMS];
@@ -176,14 +181,12 @@ typedef struct Box {
 	bool three_dimensional_button;
 	bool flat_button;
 	int relative_box;
-	int index;
 	bool resizable;
 	bool fit_h, fit_w;
 	bool center_x, center_y;
 	int parent;
 	bool is_input_box;
 	bool is_button;
-	int z;
 	bool disable_input;
 	bool is_draggable, is_slot;
 	bool disable_hover;
@@ -258,7 +261,7 @@ typedef struct wzrd_input
 	bool disable_input;
 	int hovered_layer, active_layer;
 	wzrd_rect layers[32];
-	str128 hot_crate, active_crate;
+	wzrd_handle hot_crate, active_crate;
 } wzrd_input;
 
 typedef struct wzrd_style
@@ -267,14 +270,15 @@ typedef struct wzrd_style
 	wzrd_color background_color;
 	wzrd_border_type window_border_type;
 } wzrd_style;
-#define MAX_NUM_BOXES 128
+
 
 typedef struct Egui {
 
 	// Persistent
-	str128 hot_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
-	str128 right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
-	str128 active_input_box;
+	wzrd_handle hot_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
+	wzrd_handle right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
+	wzrd_handle active_input_box;
+
 	float input_box_timer;
 	double tooltip_time;
 	//bool is_interacting, is_hovering;
@@ -290,7 +294,9 @@ typedef struct Egui {
 	int total_num_panels, total_num_windows;
 	Crate crates_stack[32];
 	int current_crate_index;
-	str128 current_crate_name;
+	wzrd_handle current_crate_name;
+	int counter;
+	str128 debug_info;
 } wzrd_gui;
 
 
@@ -330,6 +336,8 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // API
+bool wzrd_handle_is_valid(wzrd_handle handle);
+wzrd_handle wzrd_handle_create(str128 str);
 void wzrd_update_input(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
 wzrd_style wzrd_style_get_default();
 void wzrd_begin(wzrd_gui* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, float*, float*), int layer);
@@ -345,7 +353,7 @@ wzrd_box* wzrd_box_get_previous();
 void wzrd_label(str128 str);
 void wzrd_item_add(Item item);
 bool EguiButtonRaw(wzrd_box box);
-bool EguiButton(str128 str);
+bool wzrd_button(str128 str);
 bool EguiButtonRawBegin(wzrd_box button);
 void EguiButtonRawEnd();
 bool IsStr32Equal(Str32 a, Str32 b);
@@ -365,7 +373,7 @@ bool *EguiToggle(wzrd_box box);
 void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
 void wzrd_text_add(str128 str);
 void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, str128 name, int parent, int layer);
-void EguiDialogEnd(bool active);
+void wzrd_dialog_end(bool active);
 void EguiBoxResize(wzrd_v2* size);
 wzrd_box* EguiHotItemGet();
 void wzrd_label_list(Label_list label_list, int *selected);
@@ -375,7 +383,7 @@ void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
 wzrd_rect wzrd_box_get_rect(wzrd_box * box);
 void wzrd_input_box(str128* str, int max_num_keys);
 void wzrd_crate_end();
-wzrd_box* wzrd_box_get_by_name(str128 str);
+wzrd_box* wzrd_box_get_by_handle(wzrd_handle str);
 bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color, str128 name);
 void wzrd_drag(bool *drag);
 wzrd_box* wzrd_box_get_last();
@@ -384,7 +392,7 @@ bool wzrd_box_is_dragged(wzrd_box* box);
 bool wzrd_box_is_hot(wzrd_box* box);
 bool wzrd_box_is_selected(wzrd_box* box);
 wzrd_box *wzrd_box_get_released();
-wzrd_box* wzrd_box_get_by_name_from_gui(wzrd_gui* gui, str128 name);
+wzrd_box* wzrd_box_get_by_name_from_gui(wzrd_gui* gui, wzrd_handle name);
 bool wzrd_is_releasing();
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
 bool EguiToggle2(wzrd_box box, str128 str, wzrd_color color, bool active);
