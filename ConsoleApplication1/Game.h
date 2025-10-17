@@ -52,30 +52,30 @@ typedef struct NodePos {
 typedef struct Entity {
 	NodePos node_pos;
 	//char texture_name[NAME_SIZE];
-	Texture sprite;
+	//Texture sprite;
 
-	EntityId id;
+	//EntityId id;
 
-	EntityType type;
-	PixelPos pixel_pos;
 
-	v2 size;
-	bool flipped;
+	//bool flipped;
 	/*struct {
 		char* key; Animation value;
 	}  *animations_map;*/
-	char* event;
-	char* current_animation;
+	//char* event;
+	//char* current_animation;
 
-	bool is_grabbable;
+	//bool is_grabbable;
 
-	bool is_locked;
+	//bool is_locked;
 
 	// NEW
 	Rect rect;
 	str128 name;
 	Texture_handle texture;
 	wzrd_color color;
+	EntityType type;
+	PixelPos pixel_pos;
+	v2 size;
 
 } Entity;
 
@@ -143,7 +143,7 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_gui* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer);
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer);
 void game_run(v2 window_size, bool enable, unsigned int scale);
 void game_draw(v2 game_screen_size, v2 mouse_pos);
 void game_draw_gui(wzrd_draw_commands_buffer* buffer);

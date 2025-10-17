@@ -160,7 +160,7 @@ PlatformTexture g_close_texture;
 typedef enum PlatformCursor { PlatformCursorDefault, PlatformCursorHand, PlatformCursorVerticalArrow, PlatformCursorHorizontalArrow } PlatformCursor;
 
 // API
-void platform_string_get_size(char* str, float* w, float* h);
+void platform_string_get_size(char* str, int* w, int* h);
 void PlatformRectDraw(PlatformRect rect, platform_color color);
 void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect);

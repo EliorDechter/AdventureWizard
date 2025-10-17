@@ -4,6 +4,9 @@ str1024 str1024_create(const char* format, ...) {
 	va_list arg;
 	str1024 result = { 0 };
 
+	if (!format)
+		return result;
+
 	va_start(arg, format);
 	vsnprintf_s(result.val, 1024, 1024, format, arg);
 	va_end(arg);
@@ -27,7 +30,7 @@ str128 str128_create(const char* format, ...) {
 	vsnprintf_s(result.val, 128, 128, format, arg);
 	va_end(arg);
 
-	result.len = strnlen_s(result.val, 128);
+	result.len = (int)strnlen_s(result.val, 128);
 
 	return result;
 }

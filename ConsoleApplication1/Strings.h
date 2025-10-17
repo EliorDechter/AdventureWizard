@@ -13,7 +13,7 @@ typedef struct str1024 {
 
 typedef struct str128 {
 	char val[128];
-	size_t len;
+	int len;
 } str128;
 
 typedef struct Str32 {

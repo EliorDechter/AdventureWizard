@@ -32,7 +32,7 @@ PlatformV2i PlatformTextGetSize(const char* str) {
 	return result;
 }
 
-void platform_string_get_size(char* str, float* w, float* h)
+void platform_string_get_size(char* str, int* w, int* h)
 {
 	int w_int = 0, h_int = 0;
 	str128 line = { 0 };
@@ -56,8 +56,8 @@ void platform_string_get_size(char* str, float* w, float* h)
 		bool result = TTF_GetStringSize(g_sdl.font, line.val, 0, &w_int, &h_int);
 		assert(result);
 
-		*w += (float)w_int;
-		*h += (float)h_int;
+		*w += (int)w_int;
+		*h += (int)h_int;
 	}
 
 }
@@ -139,26 +139,29 @@ void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
 		wzrd_draw_command command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Texture) {
-			PlatformTextureDrawFromSource(*(PlatformTexture*)&command.texture,
-				*(PlatformRect*)&command.dest_rect, *(PlatformRect*)&command.src_rect, (platform_color) { 255, 255, 255, 255 });
+			PlatformTextureDrawFromSource((PlatformTexture) { command.texture.data, .h = command.texture.h, .h = command.texture.w },
+				(PlatformRect) {
+				(float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h
+			}, (PlatformRect) { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h }, (platform_color) { 255, 255, 255, 255 });
 		}
 		else if (command.type == DrawCommandType_String) {
-			PlatformTextDraw(command.str.val, command.dest_rect.x, command.dest_rect.y,
+			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
 				command.color.r, command.color.g, command.color.b, command.color.a);
 		}
 		else if (command.type == DrawCommandType_Rect) {
 			SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
-			SDL_RenderFillRect(g_sdl.renderer, (SDL_FRect*)&command.dest_rect);
+			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
+			SDL_RenderFillRect(g_sdl.renderer, &rect);
 		}
 		else if (command.type == DrawCommandType_Line) {
-			PlatformLineDraw(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w, command.dest_rect.h,
+			PlatformLineDraw((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h,
 				command.color.r, command.color.g, command.color.b);
 		}
 		else if (command.type == DrawCommandType_VerticalLine) {
-			PlatformLineDrawVertical(command.dest_rect.x, command.dest_rect.y, command.dest_rect.h);
+			PlatformLineDrawVertical((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.h);
 		}
 		else if (command.type == DrawCommandType_HorizontalLine) {
-			PlatformLineDrawHorizontal(command.dest_rect.x, command.dest_rect.y, command.dest_rect.w);
+			PlatformLineDrawHorizontal((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w);
 		}
 		else if (command.type == DrawCommandType_Clip)
 		{
@@ -176,7 +179,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	(void)appstate;
 	(void)argc;
 	(void)argv;
-
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
@@ -323,34 +325,6 @@ void platform_cursor_set(PlatformCursor cursor) {
 
 str1024 g_debug_text;
 
-void platform_debug_gui_do(int layer) {
-	static wzrd_gui gui;
-	static wzrd_cursor cursor;
-	static wzrd_draw_commands_buffer buffer;
-	wzrd_update_input((wzrd_v2) { g_platform.mouse_x, g_platform.mouse_y },
-		(wzrd_state)g_platform.mouse_left,
-		* (wzrd_keyboard_keys*)&g_platform.keys_pressed);
-
-	wzrd_style style = wzrd_style_get_default();
-	style.window_border_type = BorderType_Default;
-
-	wzrd_begin(&gui,
-		(wzrd_rect) {
-		(float)g_platform.window_width - 300.0f, 10.0f, 295.0f, 500.0f
-	},
-		style,
-		platform_string_get_size,
-		layer
-	);
-	static float scrollbar_x, scrollbar_y;
-	wzrd_box_get_last()->clip = true;
-	wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
-	wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
-	wzrd_label(str128_create(g_debug_text.val));
-	wzrd_box_do((wzrd_box) { .h = 1000, .w = 50, .color = EGUI_BLUE });
-	wzrd_end(&cursor, &buffer);
-	platform_draw_wzrd(&buffer);
-}
 
 typedef struct Second
 {
@@ -446,14 +420,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 	platform_begin();
 	{
-		static wzrd_gui editor_gui, game_gui;
+		static wzrd_canvas editor_gui, game_gui;
 		static wzrd_rect game_screen_rect;
-
-		wzrd_update_layers((wzrd_v2) {
-			g_platform.mouse_x, g_platform.mouse_y
-		},
-			(wzrd_state)g_platform.mouse_left);
-
 
 		// Editor
 		const bool enable_editor = true;
@@ -462,7 +430,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		if (enable_editor) {
 			static wzrd_draw_commands_buffer editor_buffer;
 			wzrd_icons icons = game_icons_get();
-			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0);
+			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0, (wzrd_str){g_debug_text.val, g_debug_text.len});
 			platform_draw_wzrd(&editor_buffer);
 
 			static uint64_t samples[32];
@@ -480,7 +448,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		}
 
-#if 0
+		// Game ui and stuff
+		wzrd_box* box = wzrd_box_get_by_name_from_canvas(&editor_gui, wzrd_str_create("Target"));
+		game_screen_rect = wzrd_box_get_rect(box);
+		if (wzrd_box_is_hot(&editor_gui, box))
 		{
 			// Clear target
 			PlatformTextureBeginTarget(game_target_texture_get());
@@ -490,27 +461,20 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			}
 			PlatformTextureEndTarget();
 
-			wzrd_box* box = wzrd_box_get_by_name_from_gui(&editor_gui, wzrd_handle_create(str128_create("Target")));
-			game_screen_rect = wzrd_box_get_rect(box);
-
 			float mouse_x = g_platform.mouse_x - game_screen_rect.x;
 			float mouse_y = g_platform.mouse_y - game_screen_rect.y;
 			g_game.mouse_delta = (v2){ mouse_x - g_game.mouse_pos.x, mouse_y - g_game.mouse_pos.y };
 			g_game.mouse_pos.x = mouse_x;
 			g_game.mouse_pos.y = mouse_y;
+
 			// Game
 			wzrd_cursor game_cursor = wzrd_cursor_default;
 			static wzrd_draw_commands_buffer game_gui_buffer;
 			bool enable_game_input = true;
-		/*	if (editor_gui.is_interacting || editor_gui.is_hovering)
-			{
-				enable_game_input = false;
-			}*/
 
-			//game_run(game_screen_size, enable_game_input && !game_gui.is_interacting, scale);
-
-			//v2 mouse_pos = { mouse_x / scale, mouse_y / scale };
-
+			//(void)game_cursor;
+			//(void)enable_game_input;
+	
 			// Draw entities
 			PlatformTextureBeginTarget(g_game.target_texture);
 			{
@@ -538,18 +502,22 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			{
 				//v2 game_screen_size = (v2){ game_screen_rect.w, game_screen_rect.h };
 				unsigned int scale = (unsigned int)(game_screen_rect.w / game_target_texture_get().w);
-				game_gui_do(&game_gui_buffer, &game_gui, *(wzrd_rect*)&game_screen_rect, &game_cursor, enable_game_input, scale, 1);
-				//game_draw_gui(&game_gui_buffer);
+				(void)game_cursor;
+				(void)enable_game_input;
+				(void)scale;
+				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1);
+				PlatformTextureBeginTarget(g_game.target_texture);
+				platform_draw_wzrd(&game_gui_buffer);
+				PlatformTextureEndTarget();
+
 			}
 		}
 		//
-#endif
 
 		// Debug view
-		str1024_concat(&g_debug_text, str1024_create(editor_gui.debug_info.val));
+		str1024_concat(&g_debug_text, str1024_create(editor_gui.debug_info.str));
 
 		str1024_concat(&g_debug_text, str1024_create("frame time: %f ms", g_platform.average_spf * 1000.0f));
-		platform_debug_gui_do(2);
 
 		
 #if 0
