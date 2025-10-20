@@ -62,11 +62,13 @@ void platform_string_get_size(char* str, int* w, int* h)
 
 }
 
-void PlatformRectDraw(PlatformRect rect, platform_color color) {
+void platform_rect_draw(PlatformRect rect, platform_color color) {
 	// WARNING: 0.01 ms to run this function
+	//SDL_FRect sdl_rect = { rect.x), (float)floor(rect.y), (float)floor(rect.w), (float)floor(rect.h) };
+	SDL_FRect sdl_rect = { rect.x, rect.y, rect.w, rect.h };
 	SDL_SetRenderDrawBlendMode(g_sdl.renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderDrawColor(g_sdl.renderer, color.r, color.g, color.b, color.a);
-	SDL_RenderFillRect(g_sdl.renderer, (SDL_FRect*)&rect);
+	SDL_RenderFillRect(g_sdl.renderer, &sdl_rect);
 }
 
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect) {
@@ -85,6 +87,12 @@ PlatformTargetTexture PlatformTargetTextureCreate() {
 	PlatformTargetTexture result = { .data = texture, .w = GAME_WIDTH , .h = GAME_HEIGHT };
 
 	return result;
+}
+
+void platform_clear_target_to_white()
+{
+	SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
+	SDL_RenderClear(g_sdl.renderer);
 }
 
 void PlatformTextureBeginTarget(PlatformTargetTexture texture) {
@@ -427,10 +435,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		const bool enable_editor = true;
 		wzrd_cursor editor_cursor = wzrd_cursor_default;
 
+		wzrd_str debug_str =
+		{ g_debug_text.val, g_debug_text.len };
+
 		if (enable_editor) {
 			static wzrd_draw_commands_buffer editor_buffer;
 			wzrd_icons icons = game_icons_get();
-			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0, (wzrd_str){g_debug_text.val, g_debug_text.len});
+			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0, &debug_str);
 			platform_draw_wzrd(&editor_buffer);
 
 			static uint64_t samples[32];
@@ -451,7 +462,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		// Game ui and stuff
 		wzrd_box* box = wzrd_box_get_by_name_from_canvas(&editor_gui, wzrd_str_create("Target"));
 		game_screen_rect = wzrd_box_get_rect(box);
+		bool enable_game_input = false;
 		if (wzrd_box_is_hot(&editor_gui, box))
+		{
+			enable_game_input = true;
+		}
 		{
 			// Clear target
 			PlatformTextureBeginTarget(game_target_texture_get());
@@ -470,32 +485,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			// Game
 			wzrd_cursor game_cursor = wzrd_cursor_default;
 			static wzrd_draw_commands_buffer game_gui_buffer;
-			bool enable_game_input = true;
 
-			//(void)game_cursor;
-			//(void)enable_game_input;
-	
+			
 			// Draw entities
-			PlatformTextureBeginTarget(g_game.target_texture);
-			{
-				int iterator_index = 0;
-				Entity* entity = 0;
-				while ((entity = entity_get_next(&iterator_index))) {
-					Texture* texture = game_texture_get(entity->texture);
-					if (texture)
-					{
-						PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
-							(PlatformRect) {
-							0, 0, texture->val.w, texture->val.h
-						}, * (platform_color*)&entity->color);
-					}
-					else {
-						PlatformRectDraw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
-					}
-
-				}
-			}
-			PlatformTextureEndTarget();
+			game_draw_entities();
 
 			// Inside game editing gui
 			if (!g_game.run)
@@ -505,17 +498,16 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				(void)game_cursor;
 				(void)enable_game_input;
 				(void)scale;
-				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1);
+				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui_buffer);
 				PlatformTextureEndTarget();
-
 			}
 		}
 		//
 
 		// Debug view
-		str1024_concat(&g_debug_text, str1024_create(editor_gui.debug_info.str));
+		str1024_concat(&g_debug_text, str1024_create(debug_str.str));
 
 		str1024_concat(&g_debug_text, str1024_create("frame time: %f ms", g_platform.average_spf * 1000.0f));
 

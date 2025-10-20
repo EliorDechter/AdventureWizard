@@ -188,6 +188,7 @@
     <ClInclude Include="Platform.h" />
     <ClInclude Include="raygui.h" />
     <ClInclude Include="stb_ds.h" />
+    <ClInclude Include="stb_textedit.h" />
     <ClInclude Include="Strings.h" />
     <ClInclude Include="Textures.h" />
   </ItemGroup>

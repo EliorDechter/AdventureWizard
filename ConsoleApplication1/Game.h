@@ -6,6 +6,7 @@
 #include "ArrayList.h"
 
 #define GAME_TEXTURES_COUNT 256
+#define GAME_ENTITIES_COUNT 256
 
 typedef struct Entity_handle {
 	Handle val;
@@ -43,11 +44,6 @@ typedef struct NodePos {
 	v2i pos;
 } NodePos;
 
-//typedef struct wzrd_color {
-//	char c, m, y, k;
-//} wzrd_color;
-//
-
 
 typedef struct Entity {
 	NodePos node_pos;
@@ -76,7 +72,8 @@ typedef struct Entity {
 	EntityType type;
 	PixelPos pixel_pos;
 	v2 size;
-
+	int rendering_order;
+	Entity_handle handle;
 } Entity;
 
 typedef enum GrabStatus { GrabStatus_None, GrabStatus_Grabbing, GrabStatus_Releasing } GrabStatus;
@@ -117,7 +114,9 @@ typedef struct Game {
 	Texture textures[GAME_TEXTURES_COUNT];
 
 	Handle_map entities_handle_map;
-	Entity entities[GAME_TEXTURES_COUNT];
+	Entity entities[GAME_ENTITIES_COUNT];
+	int sorted_entities[GAME_ENTITIES_COUNT];
+	int sorted_entities_count;
 
 	PlatformTargetTexture target_texture;
 
@@ -136,6 +135,8 @@ typedef struct Game {
 
 extern Game g_game;
 
+void game_draw_entities();
+Entity_handle game_entity_create(Entity entity);
 PlatformTargetTexture game_target_texture_get();
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove(Texture_handle handle);
@@ -143,9 +144,11 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer);
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str);
 void game_run(v2 window_size, bool enable, unsigned int scale);
 void game_draw(v2 game_screen_size, v2 mouse_pos);
 void game_draw_gui(wzrd_draw_commands_buffer* buffer);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);
+Texture* game_texture_get_by_name(str128 str);
+Texture_handle game_texture_get_handle_by_name(str128 str);

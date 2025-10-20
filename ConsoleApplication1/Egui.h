@@ -89,7 +89,7 @@ typedef struct wzrd_color {
 #define EGUI_RAYWHITE  (wzrd_color){ 245, 245, 245, 255 }   // My own White (raylib logo)
 
 typedef enum EguiState {
-	WZRD_INACTIVE, EguiActivating, WZRD_ACTIVE, EguiDeactivating
+	WZRD_INACTIVE, EguiActivating, WZRD_ACTIVE, WZRD_DEACTIVATING
 } wzrd_state;
 
 typedef struct wzrd_rect {
@@ -173,7 +173,6 @@ typedef enum {
 
 typedef struct Box {
 	wzrd_handle handle;
-	wzrd_handle unique_handle;
 	wzrd_color color;
 	wzrd_border_type border_type;
 	wzrd_box_type type;
@@ -202,6 +201,8 @@ typedef struct Box {
 	char items_count;
 
 	int layer;
+	bool bring_to_front;
+	int index;
 } wzrd_box;
 
 typedef struct Crate {
@@ -267,13 +268,16 @@ typedef struct wzrd_style
 	wzrd_border_type window_border_type;
 } wzrd_style;
 
+#define MAX_NUM_HOVERED_ITEMS 32
 
 typedef struct wzrd_canvas {
 
 	// Persistent
-	wzrd_handle hot_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item, selected_item;
+	wzrd_handle hovered_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item;
 	wzrd_handle right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
 	wzrd_handle active_input_box;
+	wzrd_handle hovered_items_list[MAX_NUM_HOVERED_ITEMS];
+	int hovered_items_list_count;
 
 	wzrd_rect window;
 	float input_box_timer;
@@ -292,12 +296,13 @@ typedef struct wzrd_canvas {
 	wzrd_box boxes[MAX_NUM_BOXES];
 	int boxes_count;
 	
-	int total_num_panels, total_num_windows;
+	int boxes_in_stack_count, total_num_windows;
 
 	Crate crates_stack[32];
 	int current_crate_index;
 
-	wzrd_str debug_info;
+
+	bool enable_input;
 } wzrd_canvas;
 
 
@@ -323,9 +328,10 @@ typedef struct WidgetData {
 #define EDITOR_BUTTON_SIZE_X 72
 #define EDITOR_BUTTON_SIZE_Y 24
 
+#define MAX_NUM_LABELS 32
 
 typedef struct Label_list {
-	wzrd_str val[32];
+	wzrd_str val[MAX_NUM_LABELS];
 	int count;
 } Label_list;
 
@@ -337,28 +343,29 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // API
+bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 bool wzrd_handle_is_valid(wzrd_handle handle);
 wzrd_handle wzrd_handle_create();
 void wzrd_canvas_begin(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
 wzrd_style wzrd_style_get_default();
-void wzrd_begin(wzrd_canvas* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys);
+void wzrd_begin(wzrd_canvas* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
 void wzrd_layer_add(unsigned int layer, wzrd_rect size);
-void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer);
-bool wzrd_box_begin(wzrd_box box);
+void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* debug_str);
 void wzrd_box_end();
 bool EditorButtonIcon(const char* str, const char* tooltip_str);
 void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color color);
 wzrd_box* wzrd_box_get_from_top_of_stack();
 wzrd_box* wzrd_box_get_parent();
 wzrd_box* wzrd_box_get_previous();
+void wzrd_box_begin(wzrd_box box);
 void wzrd_label(wzrd_str str);
 void wzrd_item_add(Item item);
 bool EguiButtonRaw(wzrd_box box);
 bool wzrd_button(wzrd_str str);
-bool EguiButtonRawBegin(wzrd_box button);
-void EguiButtonRawEnd();
+bool egui_button_raw_begin(wzrd_box button);
+void egui_button_raw_end();
 bool IsStr32Equal(Str32 a, Str32 b);
-bool wzrd_box_do(wzrd_box box);
+void wzrd_box_do(wzrd_box box);
 bool EguiLabelButton(wzrd_str str);
 bool EguiLabelButtonBegin(wzrd_str str);
 void EguiLabelButtonEnd();
@@ -380,12 +387,12 @@ wzrd_box* EguiHotItemGet();
 void wzrd_label_list(Label_list label_list, int *selected);
 bool wzrd_button_icon(wzrd_texture texture);
 void wzrd_toggle_icon(wzrd_texture texture, bool* active);
-void wzrd_label_list2(Label_list label_list, wzrd_box box, int* selected);
+void wzrd_label_list2(wzrd_str* labels, int labels_count, int* ordered_label_indices, wzrd_box box, int* selected);
 wzrd_rect wzrd_box_get_rect(wzrd_box * box);
-void wzrd_input_box(char* str, int *len, int max_num_keys);
+void wzrd_input_box(char *str, int *len, int max_num_keys);
 void wzrd_crate_end();
 wzrd_box* wzrd_box_get_by_handle(wzrd_handle str);
-bool wzrd_game_buttonesque(wzrd_v2 pos, wzrd_v2 size, wzrd_color color, wzrd_str name);
+bool wzrd_game_buttonesque(wzrd_box box);
 void wzrd_drag(bool *drag);
 wzrd_box* wzrd_box_get_last();
 bool wzrd_box_is_active(wzrd_box *box);
@@ -402,4 +409,5 @@ bool wzrd_button_icon3(wzrd_box box, Item item);
 void wzrd_update_layers(wzrd_v2 screen_mouse_pos, wzrd_state mouse_state);
 wzrd_str wzrd_str_create(char* str);
 wzrd_handle wzrd_unique_handle_create(wzrd_str str);
+bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle);
 #endif

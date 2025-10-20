@@ -166,6 +166,9 @@ wzrd_v2 EguiV2iAdd(wzrd_v2 a, wzrd_v2 b) {
 	return result;
 }
 
+
+
+
 Texture_handle game_texture_add(Texture texture) {
 	Handle handle = handle_create(&g_game.textures_handle_map);
 	int index = handle_get(&g_game.textures_handle_map, handle);
@@ -184,6 +187,58 @@ void game_texture_remove(Texture_handle handle) {
 	handle_remove(&g_game.textures_handle_map, handle.val);
 }
 
+Texture* game_texture_get_next(int* iterator_index) {
+	Handle handle = { 0 };
+	Texture* result = 0;
+	if (handle_get_next(&g_game.textures_handle_map, iterator_index, &handle)) {
+		result = &g_game.textures[handle.index];
+	}
+
+	return result;
+}
+
+bool game_texture_get_next_handle(int* iterator_index, Texture_handle* handle) {
+	bool result = handle_get_next(&g_game.textures_handle_map, iterator_index, (Handle*)handle);
+
+	return result;
+}
+
+Texture_handle game_texture_get_handle_by_name(str128 str)
+{
+	int it = 1;
+	Texture_handle texture_handle = { 0 };
+	bool found = true;
+	while ((game_texture_get_next_handle(&it, &texture_handle)))
+	{
+		str128 name = game_texture_get(texture_handle)->name;
+		if (str128_equal(name, str))
+		{
+			found = true;
+			break;
+		}
+	}
+
+	assert(found);
+
+	return texture_handle;
+}
+
+Texture* game_texture_get_by_name(str128 str)
+{
+	int it = 1;
+	Texture* texture = 0;
+	while ((texture = game_texture_get_next(&it)))
+	{
+		if (str128_equal(texture->name, str))
+		{
+			break;
+		}
+	}
+
+	assert(texture);
+	return texture;
+}
+
 Texture* game_texture_get(Texture_handle handle) {
 	int index = handle_get(&g_game.textures_handle_map, handle.val);
 	Texture* result = 0;
@@ -192,18 +247,20 @@ Texture* game_texture_get(Texture_handle handle) {
 	{
 		result = g_game.textures + index;
 	}
-	
-	//assert(g_game.textures[index].name.len);
 
 	return result;
 }
 
-Entity_handle game_entity_add(Entity entity) {
+Entity_handle game_entity_create(Entity entity) {
+	entity.rendering_order = g_game.entities_handle_map.count;
 	Handle handle = handle_create(&g_game.entities_handle_map);
 	int index = handle_get(&g_game.entities_handle_map, handle);
-	g_game.entities[index] = entity;
 
 	Entity_handle result = (Entity_handle){ .val = handle };
+	entity.handle = result;
+	g_game.entities[index] = entity;
+	if (index)
+		g_game.sorted_entities[g_game.sorted_entities_count++] = handle.index;
 
 	return result;
 }
@@ -585,7 +642,7 @@ Entity* entity_get_next(int* iterator_index) {
 }
 
 bool entity_get_next_handle(int* iterator_index, Entity_handle* handle) {
-	bool result = handle_get_next(&g_game.entities_handle_map, iterator_index, (Handle *)handle);
+	bool result = handle_get_next(&g_game.entities_handle_map, iterator_index, (Handle*)handle);
 
 	return result;
 }
@@ -603,178 +660,217 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, unsigned int scale, unsigned int layer) {
-	// game screen gui
-	bool blue_button = false;
-	wzrd_v2 mouse_pos = (wzrd_v2){(int)g_game.mouse_pos.x / scale, (int)g_game.mouse_pos.y / scale};
+void game_draw_polygon(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
+{
+	static v2 nodes[32];
+	static ArrayList32 list;
 
-	WZRD_UNUSED(enable_input);
-
-	wzrd_begin(gui, window, (wzrd_style){0}, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed);
+	if (g_game.polygon_adding_active)
 	{
-
-		// NEW
-		PlatformTextureBeginTarget(g_game.target_texture);
+		if (g_platform.mouse_left == Deactivating)
 		{
-
-			SDL_SetRenderDrawColor(g_sdl.renderer, 255, 255, 255, 255);
-			SDL_RenderClear(g_sdl.renderer);
-
-			int size = 16;
-			int rects_in_row_count = g_game.target_texture.data->w / size;
-			int rects_in_column_count = g_game.target_texture.data->h / size;
-			float x = 0, y = 0;
-			bool flip = false;
-			for (int i = 1; i < rects_in_column_count; ++i) {
-				for (int j = 1; j < rects_in_row_count; ++j) {
-
-					PlatformRectDraw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
-
-					x += size;
-				}
-
-				x = 0;
-				y += size;
-				flip = !flip;
-			}
-
-			// POLYGON
+			if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < window.w && mouse_pos.y < window.h)
 			{
-				static v2 nodes[32];
-				static ArrayList32 list;
-
-				if (g_game.polygon_adding_active)
-				{
-					if (g_platform.mouse_left == Activating)
-					{
-						if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < window.w && mouse_pos.y < window.y)
-						{
-							int index = array_list_32_add(&list);
-							nodes[index] = (v2){ (float)mouse_pos.x, (float)mouse_pos.y };
-						}
-					}
-				}
-
-				int it = 1;
-				int index = 0;
-				while ((index = array_list_32_get_next(&list, &it)))
-				{
-					if (list.count > 1)
-					{
-						int next_index = list.nodes[index].next_node;
-						float x0 = nodes[index].x;
-						float y0 = nodes[index].y;
-						float x1 = nodes[next_index].x;
-						float y1 = nodes[next_index].y;
-
-						PlatformLineDraw(x0, y0, x1, y1, 255, 0, 0);
-					}
-
-					str128 name = str128_create("wow %d", index);
-					//sprintf(name.val, "wow %d", index);
-					name.len = (int)strlen(name.val);
-					wzrd_color color = { 255, 0, 0, 255 };
-					if (wzrd_game_buttonesque((wzrd_v2) { (int)nodes[index].x, (int)nodes[index].y },
-						(wzrd_v2) { 2, 2 }, color, (wzrd_str) { .str = name.val, .len = name.len }))
-					{
-						nodes[index].x += g_platform.mouse_delta_x / scale;
-						nodes[index].y += g_platform.mouse_delta_y / scale;
-					}
-
-					if (wzrd_box_is_selected(wzrd_box_get_last()))
-					{
-						wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
-
-						if (g_game.delete)
-						{
-							array_list_32_delete(&list, index);
-						}
-					}
-					else
-					{
-						wzrd_box_get_last()->color = (wzrd_color){ 255, 0, 0, 255 };
-					}
-
-				}
+				int index = array_list_32_add(&list);
+				nodes[index] = (v2){ (float)mouse_pos.x, (float)mouse_pos.y };
 			}
-
-			float p = (float)window.w / 16;
-			float h = p * 9;
-			//int w = p * 16;
-			float bar_h = (window.h - h) / 2;
-
-			PlatformRectDraw((PlatformRect) { 0, 0, (float)window.w, bar_h }, PLATFORM_BLACK);
-			PlatformRectDraw((PlatformRect) { 0, bar_h + h, (float)window.w, bar_h }, PLATFORM_BLACK);
-
-			// Draw selected entity border
-			Entity* selected_entity = game_entity_get(g_game.selected_entity);
-			if (selected_entity) {
-				//PlatformRect rect = { selected_entity->rect.x - 1, selected_entity->rect.y - 1, selected_entity->rect.w + 2, selected_entity->rect.h + 2 };
-				//PlatformRectDraw(rect, (platform_color) { 0, 0, 255, 255 });
-			}
-
-		
 		}
-		PlatformTextureEndTarget();
+	}
 
-		// Move Entity
+	int it = 1;
+	int index = 0;
+	while ((index = array_list_32_get_next(&list, &it)))
+	{
+		if (list.count > 1)
 		{
-			static wzrd_handle selected_entity_id;
-			int it = 1;
-			Entity* entity = 0;
-			while ((entity = entity_get_next(&it)))
-			{
-				wzrd_crate(1, (wzrd_box) {
-					.x = (int)entity->rect.x,
-						.y = (int)entity->rect.y,
-						.w = (int)entity->rect.w,
-						.h = (int)entity->rect.h,
-						.border_type = BorderType_None
-				});
+			int next_index = list.nodes[index].next_node;
+			float x0 = nodes[index].x;
+			float y0 = nodes[index].y;
+			float x1 = nodes[next_index].x;
+			float y1 = nodes[next_index].y;
 
-				if (wzrd_box_is_selected(wzrd_box_get_last()))
-				{
-					selected_entity_id = wzrd_box_get_last()->handle;
+			PlatformLineDraw(x0, y0, x1, y1, 255, 0, 0);
+		}
+
+		str128 name = str128_create("wow %d", index);
+		name.len = (int)strlen(name.val);
+		wzrd_color color = { 255, 0, 0, 255 };
+		wzrd_rect rect = { (int)nodes[index].x, (int)nodes[index].y, 2, 2 };
+		if (wzrd_game_buttonesque(
+			(wzrd_box) {
+			.type = wzrd_box_type_button, .color = color, .border_type = BorderType_None, .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+				.handle = wzrd_unique_handle_create((wzrd_str) { .str = name.val, .len = name.len })
+		}))
+		{
+			nodes[index].x += g_platform.mouse_delta_x / scale;
+			nodes[index].y += g_platform.mouse_delta_y / scale;
+		}
+
+		if (1)
+		{
+			wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
+
+			if (g_game.delete)
+			{
+				array_list_32_delete(&list, index);
+			}
+		}
+		else if (wzrd_box_is_active(wzrd_box_get_last()))
+		{
+			wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
+		}
+		else {
+			wzrd_box_get_last()->color = (wzrd_color){ 255, 0, 0, 255 };
+		}
+	}
+}
+
+
+void game_draw_screen_dots()
+{
+	int size = 16;
+	int rects_in_row_count = g_game.target_texture.data->w / size;
+	int rects_in_column_count = g_game.target_texture.data->h / size;
+	float x = 0, y = 0;
+	bool flip = false;
+	for (int i = 1; i < rects_in_column_count; ++i) {
+		for (int j = 1; j < rects_in_row_count; ++j) {
+
+			platform_rect_draw((PlatformRect) { x, y, 2, 2 }, PLATFORM_GRAY);
+
+			x += size;
+		}
+
+		x = 0;
+		y += size;
+		flip = !flip;
+	}
+}
+
+void game_move_entity(int scale, wzrd_canvas* gui, wzrd_box* background_box)
+{
+	static wzrd_handle selected_entity_id;
+	int it = 1;
+	Entity* entity = 0;
+	while ((entity = entity_get_next(&it)))
+	{
+		wzrd_crate(1, (wzrd_box) {
+			.x = (int)entity->rect.x,
+				.y = (int)entity->rect.y,
+				.w = (int)entity->rect.w,
+				.h = (int)entity->rect.h,
+				.border_type = BorderType_None
+		});
+
+		wzrd_box_get_last()->handle = wzrd_unique_handle_create((wzrd_str) { .str = entity->name.val, .len = entity->name.len });
+
+		if (wzrd_box_is_active(wzrd_box_get_last()))
+		{
+			selected_entity_id = wzrd_box_get_last()->handle;
+		}
+
+		if (wzrd_handle_is_equal(selected_entity_id, wzrd_box_get_last()->handle))
+		{
+			wzrd_box_get_last()->border_type = BorderType_Black;
+			str128 button_name = str128_create("blue button %s", entity->name);
+			wzrd_rect rect = (wzrd_rect){ (int)entity->rect.x + (int)entity->rect.w / 2 - 5, (int)entity->rect.y + (int)entity->rect.h / 2 - 5, 10, 10 };
+			bool blue_button = wzrd_game_buttonesque(
+				(wzrd_box) {
+				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+					.color = (wzrd_color){ 0, 0, 255, 255 },
+					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len, }),
+					.bring_to_front = true
+			});
+
+			// Late logic
+			static float offset_x, offset_y;
+			if (blue_button)
+			{
+				if (entity) {
+					offset_x += g_game.mouse_delta.x / (float)scale;
+					offset_y += g_game.mouse_delta.y / (float)scale;
+
+					printf("%f %f\n", offset_x, offset_y);
+
+					if (g_game.mouse_delta.x)
+					{
+						//button->x += (int)offset_x;
+						entity->rect.x += g_game.mouse_delta.x / (float)scale;
+					}
+
+					if (g_game.mouse_delta.y)
+					{
+						//button->y += (int)offset_y;
+						entity->rect.y += g_game.mouse_delta.y / (float)scale;
+					}
 				}
-				else if (wzrd_box_is_selected(&(wzrd_box) { 
-					//.name = str128_create("blue")
-					0
-				}))
+			}
+
+			// Resize
+			rect.x = (int)entity->rect.x - 5;
+			rect.y = (int)entity->rect.y - 5;
+			button_name = str128_create("green button %s", entity->name);
+			bool green_button = wzrd_game_buttonesque(
+				(wzrd_box) {
+				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+					.color = (wzrd_color){ 0, 255, 0, 255 },
+					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len })
+			});
+			printf("%u\n", gui->active_item.handle);
+			if (green_button)
+			{
+				if (g_game.mouse_delta.x < 0)
 				{
-					// ...
+					entity->rect.x += g_game.mouse_delta.x / (float)scale;
+					entity->rect.w += (float)fabs(g_game.mouse_delta.x) / (float)scale;
+				}
+				else {
+					entity->rect.x += g_game.mouse_delta.x / (float)scale;
+					entity->rect.w += -(float)fabs(g_game.mouse_delta.x) / (float)scale;
+				}
+
+				if (g_game.mouse_delta.y < 0)
+				{
+					entity->rect.y += g_game.mouse_delta.y / (float)scale;
+					entity->rect.h += (float)fabs(g_game.mouse_delta.y) / (float)scale;
 				}
 				else
 				{
-					selected_entity_id = wzrd_handle_create((wzrd_str){ 0 });
-				}
-
-				if (wzrd_handle_is_valid(selected_entity_id))
-				{
-					//wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
-					wzrd_box_get_last()->border_type = BorderType_Black;
-
-					blue_button = wzrd_game_buttonesque((wzrd_v2) { (int)entity->rect.x - 5, (int)entity->rect.y - 5 }, (wzrd_v2) { 10, 10 }, (wzrd_color) { 0, 0, 255, 255 }, wzrd_str_create("blue"));
-					// Late logic
-					if (blue_button)
-					{
-
-						if (entity) {
-
-							entity->rect.x += (float)(g_game.mouse_delta.x / scale);
-							entity->rect.y += (float)(g_game.mouse_delta.y / scale);
-
-							wzrd_box* button = wzrd_box_get_previous();
-							button->x += (int)g_game.mouse_delta.x / scale;
-							button->y += (int)g_game.mouse_delta.y / scale;
-
-						}
-					}
+					entity->rect.y += g_game.mouse_delta.y / (float)scale;
+					entity->rect.h += -(float)fabs(g_game.mouse_delta.y) / (float)scale;
 				}
 			}
 		}
+	}
+
+	if (wzrd_box_is_active(background_box))
+	{
+		selected_entity_id = (wzrd_handle){ 0 };
+	}
+}
+
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str) {
+	//game screen gui
+	wzrd_v2 mouse_pos = (wzrd_v2){ (int)g_game.mouse_pos.x / scale, (int)g_game.mouse_pos.y / scale };
+
+	WZRD_UNUSED(enable_input);
+
+	wzrd_begin(gui, window, (wzrd_style) { 0 }, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
+	{
+		wzrd_box* background_box = wzrd_box_get_last();
+
+		PlatformTextureBeginTarget(g_game.target_texture);
+		{
+			game_draw_screen_dots();
+			game_draw_polygon(mouse_pos, window, scale);
+		}
+		PlatformTextureEndTarget();
+
+		game_move_entity(scale, gui, background_box);
 
 	}
-	wzrd_end(cursor, buffer);
+
+	wzrd_end(cursor, buffer, debug_str);
 }
 
 void game_run(v2 window_size, bool enable, unsigned int scale) {
@@ -831,6 +927,61 @@ PlatformTargetTexture game_target_texture_get() {
 	return g_game.target_texture;
 }
 
+int compare_entities_by_rendering_order(const void* a, const void* b)
+{
+	Entity* entity_a = &g_game.entities[*(int *)a];
+	Entity* entity_b = &g_game.entities[*(int *)b];
+
+	if (entity_a->rendering_order > entity_b->rendering_order)
+	{
+		return 1;
+	}
+	else if (entity_a->rendering_order < entity_b->rendering_order)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+void game_sort_entities_by_rendering_order()
+{
+	//int it = 1;
+	//Entity* entity = 0;
+	//g_game.sorted_entities_count = 0;
+	//while ((entity = entity_get_next(&it)))
+	//{
+	//	g_game.sorted_entities[g_game.sorted_entities_count++] = entity->handle.val.index;
+	//}
+
+	//qsort(g_game.sorted_entities, g_game.sorted_entities_count, sizeof(int), compare_entities_by_rendering_order);
+}
+
+void game_draw_entities()
+{
+	game_sort_entities_by_rendering_order();
+
+	// Render
+	PlatformTextureBeginTarget(g_game.target_texture);
+	{
+		for (int i = 0; i < g_game.sorted_entities_count; ++i)
+		{
+			Entity* entity = &g_game.entities[g_game.sorted_entities[i]];
+			Texture* texture = game_texture_get(entity->texture);
+			if (texture)
+			{
+				PlatformTextureDrawFromSource(game_texture_get(entity->texture)->val, *(PlatformRect*)&entity->rect,
+					(PlatformRect) {
+					0, 0, texture->val.w, texture->val.h
+				}, * (platform_color*)&entity->color);
+			}
+			else {
+				platform_rect_draw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
+			}
+		}
+	}
+	PlatformTextureEndTarget();
+}
 
 void game_init() {
 
@@ -870,9 +1021,12 @@ void game_init() {
 	game_texture_add((Texture) { 0 });
 
 	// Empty entity
-	game_entity_add((Entity) { 0 });
+	game_entity_create((Entity) { 0 });
 
-	game_entity_add((Entity) {
+	// ...
+	game_texture_add(texture_get_by_name(str128_create("player")));
+
+	game_entity_create((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e1"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
 			.color = (wzrd_color){ 255, 255, 255, 255 }
