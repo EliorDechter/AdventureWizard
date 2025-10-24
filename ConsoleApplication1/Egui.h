@@ -102,7 +102,7 @@ typedef struct wzrd_v2 {
 
 #define DEBUG_PANELS 0
 
-typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_None } wzrd_border_type;
+typedef enum BorderType { BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_Custom, BorderType_None } wzrd_border_type;
 
 typedef struct wzrd_texture{
 	void* data;
@@ -171,25 +171,39 @@ typedef enum {
 	wzrd_box_type_crate
 } wzrd_box_type;
 
+typedef struct wzrd_style
+{
+	wzrd_color font_color;
+	wzrd_color background_color;
+	wzrd_border_type window_border_type;
+	wzrd_color b0, b1, b2, b3;
+} wzrd_style;
+
+typedef struct wzrd_style_handle {
+	int index;
+} wzrd_style_handle;
+
 typedef struct Box {
 	wzrd_handle handle;
+	
 	wzrd_color color;
 	wzrd_border_type border_type;
 	wzrd_box_type type;
-
-	int x, y, w, h;
 	int pad_right, pad_bottom, pad_left, pad_top;
 	int child_gap;
-
 	bool row_mode;
 	bool fit_h, fit_w;
 	bool center_x, center_y;
 	bool best_fit;
-
 	bool disable_input;
 	bool is_draggable, is_slot;
 	bool disable_hover;
 	bool clip;
+
+	int x, y, w, h;
+	
+	// TODO: Find a better more descriptive name!
+	bool free;
 
 	int* scrollbar_x, * scrollbar_y;
 	wzrd_v2 content_size;
@@ -197,12 +211,18 @@ typedef struct Box {
 	int children[MAX_NUM_CHILDREN];
 	char children_count;
 
+	int free_children[MAX_NUM_CHILDREN];
+	char free_children_count;
+
 	Item items[MAX_NUM_ITEMS];
 	char items_count;
 
 	int layer;
 	bool bring_to_front;
 	int index;
+
+	wzrd_style_handle style;
+
 } wzrd_box;
 
 typedef struct Crate {
@@ -259,15 +279,6 @@ typedef struct wzrd_icons {
 
 typedef enum wzrd_cursor { wzrd_cursor_default, wzrd_cursor_hand, wzrd_cursor_vertical_arrow, wzrd_cursor_horizontal_arrow } wzrd_cursor;
 
-
-
-typedef struct wzrd_style
-{
-	wzrd_color font_color;
-	wzrd_color background_color;
-	wzrd_border_type window_border_type;
-} wzrd_style;
-
 #define MAX_NUM_HOVERED_ITEMS 32
 
 typedef struct wzrd_canvas {
@@ -278,6 +289,8 @@ typedef struct wzrd_canvas {
 	wzrd_handle active_input_box;
 	wzrd_handle hovered_items_list[MAX_NUM_HOVERED_ITEMS];
 	int hovered_items_list_count;
+	wzrd_box hovered_boxes[MAX_NUM_HOVERED_ITEMS];
+	int hovered_boxes_count;
 
 	wzrd_rect window;
 	float input_box_timer;
@@ -301,8 +314,10 @@ typedef struct wzrd_canvas {
 	Crate crates_stack[32];
 	int current_crate_index;
 
-
 	bool enable_input;
+
+	wzrd_style_handle button_style;
+
 } wzrd_canvas;
 
 
@@ -343,17 +358,14 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // API
+wzrd_style_handle wzrd_style_add(wzrd_style style);
 bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 bool wzrd_handle_is_valid(wzrd_handle handle);
 wzrd_handle wzrd_handle_create();
-void wzrd_canvas_begin(wzrd_v2 mouse_pos, wzrd_state moues_left, wzrd_keyboard_keys input_keys);
 wzrd_style wzrd_style_get_default();
 void wzrd_begin(wzrd_canvas* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
-void wzrd_layer_add(unsigned int layer, wzrd_rect size);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* debug_str);
 void wzrd_box_end();
-bool EditorButtonIcon(const char* str, const char* tooltip_str);
-void EguiDrawText(const char* text, wzrd_rect bounds, int alignment, wzrd_color color);
 wzrd_box* wzrd_box_get_from_top_of_stack();
 wzrd_box* wzrd_box_get_parent();
 wzrd_box* wzrd_box_get_previous();
@@ -364,31 +376,24 @@ bool EguiButtonRaw(wzrd_box box);
 bool wzrd_button(wzrd_str str);
 bool egui_button_raw_begin(wzrd_box button);
 void egui_button_raw_end();
-bool IsStr32Equal(Str32 a, Str32 b);
 void wzrd_box_do(wzrd_box box);
 bool EguiLabelButton(wzrd_str str);
 bool EguiLabelButtonBegin(wzrd_str str);
 void EguiLabelButtonEnd();
-wzrd_str EguiInputBox(int max_num_keys);
 void wzrd_crate_begin(int window_id, wzrd_box box);
 int wzrd_box_get_current_index();
 void wzrd_crate(int window_id, wzrd_box box);
-void wzrd_crate_clipped(int window_id, wzrd_box box, int *x, int *y);
 void wzrd_dropdown(int* selected_text, const wzrd_str* str, int str_count, int w, bool* active);
-void EguiToggleEnd();
-bool *EguiToggleBegin(wzrd_box box);
-bool *EguiToggle(wzrd_box box);
 void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
 void wzrd_text_add(wzrd_str str);
 void wzrd_dialog_begin(wzrd_v2 *pos, wzrd_v2 size, bool *active, wzrd_str name, int layer);
 void wzrd_dialog_end(bool active);
 void EguiBoxResize(wzrd_v2* size);
-wzrd_box* EguiHotItemGet();
-void wzrd_label_list(Label_list label_list, int *selected);
 bool wzrd_button_icon(wzrd_texture texture);
 void wzrd_toggle_icon(wzrd_texture texture, bool* active);
-void wzrd_label_list2(wzrd_str* labels, int labels_count, int* ordered_label_indices, wzrd_box box, int* selected);
-wzrd_rect wzrd_box_get_rect(wzrd_box * box);
+void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items, wzrd_box box, unsigned int* selected, bool *is_selected);
+void wzrd_label_list(wzrd_str* item_names, unsigned int count, wzrd_box box, wzrd_handle* handles, unsigned int* selected, bool *is_selected);
+wzrd_rect wzrd_box_get_rect(wzrd_box* box);
 void wzrd_input_box(char *str, int *len, int max_num_keys);
 void wzrd_crate_end();
 wzrd_box* wzrd_box_get_by_handle(wzrd_handle str);
@@ -398,7 +403,6 @@ wzrd_box* wzrd_box_get_last();
 bool wzrd_box_is_active(wzrd_box *box);
 bool wzrd_box_is_dragged(wzrd_box* box);
 bool wzrd_box_is_hot(wzrd_canvas *canvas, wzrd_box* box);
-bool wzrd_box_is_selected(wzrd_box* box);
 wzrd_box *wzrd_box_get_released();
 wzrd_box* wzrd_box_get_by_name_from_canvas(wzrd_canvas* canvas, wzrd_str name);
 bool wzrd_is_releasing();
@@ -406,7 +410,6 @@ wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
 bool EguiToggle2(wzrd_box box, wzrd_str str, wzrd_color color, bool active);
 void EguiToggle3(wzrd_box box, wzrd_str str, bool *active);
 bool wzrd_button_icon3(wzrd_box box, Item item);
-void wzrd_update_layers(wzrd_v2 screen_mouse_pos, wzrd_state mouse_state);
 wzrd_str wzrd_str_create(char* str);
 wzrd_handle wzrd_unique_handle_create(wzrd_str str);
 bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle);

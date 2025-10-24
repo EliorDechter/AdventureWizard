@@ -10,9 +10,9 @@ wzrd_str wzrd_str_from_str128(str128* str)
 	return result;
 }
 
+
 void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor* cursor, PlatformTargetTexture target_texture, wzrd_icons icons, unsigned int layer, wzrd_str* debug_str) {
-	static int selected_item = -1;
-	static int selected_category;
+	//static int selected_category;
 
 	platform_time_begin();
 
@@ -110,22 +110,8 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 					.w = 2
 			});
 
-			static bool delete_toggle;
-			wzrd_toggle_icon(icons.delete, &delete_toggle);
-
-			if (delete_toggle) {
-				if (selected_category == 0) {
-					if (selected_item >= 0) {
-						game_texture_remove_by_index(selected_item);
-					}
-				}
-
-				g_game.delete = true;
-			}
-			else
-			{
-				g_game.delete = false;
-			}
+			bool delete_toggle = wzrd_button_icon(icons.delete);
+			g_game.delete = delete_toggle;
 
 			// Seperator
 			wzrd_box_do((wzrd_box) {
@@ -133,28 +119,20 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 					.w = 2
 			});
 
-			/*static bool b = false;
-			if (wzrd_button_icon(icons.entity))
-			{
-			}*/
-
 			static bool finish;
 			bool is_dragged = wzrd_box_is_dragged(&(wzrd_box) {
-				//.name = wzrd_str_create("hi") 
 				0
 			});
 			if (!is_dragged && !finish)
 			{
 				wzrd_box_do((wzrd_box) {
 					.w = 25, .h = 25, .is_draggable = true,
-						//.name = wzrd_str_create("hi")
 				});
 			}
 
 			static wzrd_color color = { 100, 100, 100, 255 };
 			wzrd_box_do((wzrd_box) {
 				.w = 25, .h = 25, .is_slot = true, .color = color,
-					//.name = wzrd_str_create("bye")
 			});
 
 			if (wzrd_box_is_hot(gui, wzrd_box_get_last()) && wzrd_is_releasing())
@@ -188,7 +166,6 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			static wzrd_v2 p;
 			wzrd_box_do((wzrd_box) {
 				.w = 25, .h = 25, .x = p.x, .y = p.y,
-					//.name = wzrd_str_create("die")
 			});
 
 			if (wzrd_box_is_hot(gui, wzrd_box_get_last()))
@@ -203,12 +180,10 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 
 		wzrd_box_begin(((wzrd_box) {
 			.border_type = BorderType_None,
-				//.name = wzrd_str_create("main space"),
 				.row_mode = true, .child_gap = 5
 		}));
 		{
 			wzrd_box_begin((wzrd_box) {
-				//.name = wzrd_str_create("left menu"),
 				.pad_top = 5,
 					.pad_left = 5,
 					.pad_right = 5,
@@ -224,27 +199,37 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 
 				wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
 				static bool active;
+				static int selected_category;
 				wzrd_dropdown(&selected_category, texts, 3, 100, &active);
 
 				wzrd_box_begin((wzrd_box) {
 					.border_type = BorderType_Clicked, .color = EGUI_WHITE,
 				});
 				{
-
 					if (selected_category == 0) {
 
 						wzrd_str labels[MAX_NUM_ENTITIES] = { 0 };
-						for (int i = 0; i < g_game.sorted_entities_count; ++i)
+						for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
 						{
-							int index = g_game.sorted_entities[i];
-							labels[i] = (wzrd_str){ .str = g_game.entities[index].name.val, .len = g_game.entities[index].name.len };
+							Entity_handle handle = g_game.sorted_entities[i];
+							Entity* entity = game_entity_get(handle);
+							labels[i] = (wzrd_str){ .str = entity->name.val, .len = entity->name.len };
 						}
 
-						wzrd_label_list2(labels, g_game.sorted_entities_count, g_game.sorted_entities,
+						if (g_game.selected_entity_index_to_sorted_entities >= 0)
+						{
+							// TODO: if I remove the if code crashes
+							if (g_game.delete)
+							{
+								game_entity_remove(g_game.sorted_entities[g_game.selected_entity_index_to_sorted_entities]);
+							}
+						}
+
+						wzrd_label_list_sorted(labels, g_game.sorted_entities_count, (int *)g_game.sorted_entities,
 							(wzrd_box) {
 							.color = EGUI_WHITE, .border_type = BorderType_None,
 						},
-							&selected_item);
+							&g_game.selected_entity_index_to_sorted_entities, &g_game.is_entity_selected);
 
 					}
 				}
@@ -277,14 +262,11 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 					wzrd_box_end();
 				}
 				wzrd_box_end();
-
 			}
-			//wzrd_box_end();
 		}
 		wzrd_box_end();
 
 		wzrd_box_begin(((wzrd_box) {
-			//.name = wzrd_str_create("bottom "),
 			.row_mode = true,
 				.h = 40,
 				.border_type = BorderType_None
@@ -300,7 +282,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			wzrd_v2 size = { 500, 500 };
 			bool ok = false, cancel = false;
 			static str128 name;
-			static int selected;
+			static unsigned int selected;
 
 			wzrd_dialog_begin(&create_object_pos, size, &create_object_active, wzrd_str_create("add object"), 4);
 			if (create_object_active) {
@@ -309,10 +291,14 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 
 				});
 				{
-					wzrd_label_list((Label_list) {
-						.count = 2,
-							.val = { wzrd_str_create("Texture"), wzrd_str_create("Entity"), wzrd_str_create("Event") }
-					}, & selected);
+					wzrd_str labels[] = { wzrd_str_create("Entity"), wzrd_str_create("Texture") };
+					bool is_selected = false;
+					wzrd_label_list(labels, 2,
+						(wzrd_box) {
+						.w = 100,
+						.color = EGUI_WHITE, 
+					},
+						 0, & selected, &is_selected);
 
 					wzrd_box_begin((wzrd_box) {
 						.border_type = BorderType_Clicked,
@@ -320,7 +306,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 							.pad_top = 5
 					});
 					{
-						if (selected == 0) {
+						if (selected == 1) {
 							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h = 50, });
 							{
 								wzrd_label(wzrd_str_create("Name:"));
@@ -328,7 +314,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 							}
 							wzrd_box_end();
 						}
-						else if (selected == 1) {
+						else if (selected == 0) {
 							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h = 50, });
 							{
 								wzrd_label(wzrd_str_create("Name:"));
@@ -370,11 +356,11 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			wzrd_dialog_end(create_object_active);
 
 			if (ok) {
-				if (selected == 0) {
+				if (selected == 1) {
 					Texture texture = texture_get_by_name(name);
 					game_texture_add(texture);
 				}
-				else if (selected == 1)
+				else if (selected == 0)
 				{
 					game_entity_create((Entity) {
 						.name = str128_create(name.val),

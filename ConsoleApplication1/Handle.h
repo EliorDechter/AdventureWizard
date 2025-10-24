@@ -5,8 +5,8 @@
 #define HANDLES_COUNT_MAX 256
 
 typedef struct Handle {
-	int generation;
 	int index;
+	//int generation;
 } Handle;
 
 typedef struct Handle_internal {
@@ -29,4 +29,4 @@ Handle handle_create(Handle_map* map);
 int handle_get(const Handle_map* map, Handle handle);
 void handle_remove_by_index(Handle_map* map, int index);
 bool handle_get_next(const Handle_map* map, int* iterator_index, Handle* result_handle);
-bool handle_equal(Handle a, Handle b);
+bool handle_is_equal(Handle a, Handle b);

@@ -251,6 +251,38 @@ Texture* game_texture_get(Texture_handle handle) {
 	return result;
 }
 
+
+int compare_entities_by_rendering_order(const void* a, const void* b)
+{
+	Entity* entity_a = &g_game.entities[*(int*)a];
+	Entity* entity_b = &g_game.entities[*(int*)b];
+
+	if (entity_a->rendering_order > entity_b->rendering_order)
+	{
+		return 1;
+	}
+	else if (entity_a->rendering_order < entity_b->rendering_order)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+void game_sort_entities_by_rendering_order()
+{
+	int it = 1;
+	Entity* entity = 0;
+	g_game.sorted_entities_count = 0;
+	memset(g_game.sorted_entities, 0, sizeof(*g_game.sorted_entities) * g_game.sorted_entities_count);
+	while ((entity = entity_get_next(&it)))
+	{
+		g_game.sorted_entities[g_game.sorted_entities_count++] = entity->handle;
+	}
+
+	qsort(g_game.sorted_entities, g_game.sorted_entities_count, sizeof(int), compare_entities_by_rendering_order);
+}
+
 Entity_handle game_entity_create(Entity entity) {
 	entity.rendering_order = g_game.entities_handle_map.count;
 	Handle handle = handle_create(&g_game.entities_handle_map);
@@ -259,24 +291,23 @@ Entity_handle game_entity_create(Entity entity) {
 	Entity_handle result = (Entity_handle){ .val = handle };
 	entity.handle = result;
 	g_game.entities[index] = entity;
-	if (index)
-		g_game.sorted_entities[g_game.sorted_entities_count++] = handle.index;
+	game_sort_entities_by_rendering_order();
 
 	return result;
 }
 
 void game_entity_remove_by_index(int index) {
 	handle_remove_by_index(&g_game.entities_handle_map, index);
+	game_sort_entities_by_rendering_order();
 }
 
 void game_entity_remove(Entity_handle handle) {
 	handle_remove(&g_game.entities_handle_map, handle.val);
+	game_sort_entities_by_rendering_order();
 }
 
 Entity* game_entity_get(Entity_handle handle) {
 	int index = handle_get(&g_game.entities_handle_map, handle.val);
-
-	if (!index) return 0;
 
 	Entity* result = g_game.entities + index;
 
@@ -660,7 +691,7 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-void game_draw_polygon(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
+void game_polygon_gui_do(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
 {
 	static v2 nodes[32];
 	static ArrayList32 list;
@@ -725,6 +756,15 @@ void game_draw_polygon(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
 	}
 }
 
+bool game_entity_is_equal(Entity_handle a, Entity_handle b)
+{
+	if (handle_is_equal(a.val, b.val))
+	{
+		return true;
+	}
+
+	return false;
+}
 
 void game_draw_screen_dots()
 {
@@ -747,29 +787,41 @@ void game_draw_screen_dots()
 	}
 }
 
-void game_move_entity(int scale, wzrd_canvas* gui, wzrd_box* background_box)
+void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 {
-	static wzrd_handle selected_entity_id;
-	int it = 1;
-	Entity* entity = 0;
-	while ((entity = entity_get_next(&it)))
+	(void)gui;
+	wzrd_handle selected_entity_handle = { 0 };
+
+	for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
 	{
-		wzrd_crate(1, (wzrd_box) {
-			.x = (int)entity->rect.x,
-				.y = (int)entity->rect.y,
-				.w = (int)entity->rect.w,
-				.h = (int)entity->rect.h,
-				.border_type = BorderType_None
-		});
+		Entity* entity = game_entity_get(g_game.sorted_entities[i]);
 
-		wzrd_box_get_last()->handle = wzrd_unique_handle_create((wzrd_str) { .str = entity->name.val, .len = entity->name.len });
-
-		if (wzrd_box_is_active(wzrd_box_get_last()))
+		// Entity gui rect
 		{
-			selected_entity_id = wzrd_box_get_last()->handle;
+			wzrd_crate(1, (wzrd_box) {
+				.x = (int)entity->rect.x,
+					.y = (int)entity->rect.y,
+					.w = (int)entity->rect.w,
+					.h = (int)entity->rect.h,
+					.border_type = BorderType_None
+			});
+
+			wzrd_box_get_last()->handle = wzrd_unique_handle_create((wzrd_str) { .str = entity->name.val, .len = entity->name.len });
+
+			if (wzrd_box_is_active(wzrd_box_get_last()))
+			{
+				selected_entity_handle = wzrd_box_get_last()->handle;
+				g_game.selected_entity_index_to_sorted_entities = i;
+				g_game.is_entity_selected = true;
+			}
+			else if (g_game.is_entity_selected && g_game.selected_entity_index_to_sorted_entities == i)
+			{
+				selected_entity_handle = wzrd_box_get_last()->handle;
+			}
 		}
 
-		if (wzrd_handle_is_equal(selected_entity_id, wzrd_box_get_last()->handle))
+		// Entity dragging and scaling gui
+		if (wzrd_handle_is_equal(selected_entity_handle, wzrd_box_get_last()->handle))
 		{
 			wzrd_box_get_last()->border_type = BorderType_Black;
 			str128 button_name = str128_create("blue button %s", entity->name);
@@ -794,13 +846,11 @@ void game_move_entity(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 
 					if (g_game.mouse_delta.x)
 					{
-						//button->x += (int)offset_x;
 						entity->rect.x += g_game.mouse_delta.x / (float)scale;
 					}
 
 					if (g_game.mouse_delta.y)
 					{
-						//button->y += (int)offset_y;
 						entity->rect.y += g_game.mouse_delta.y / (float)scale;
 					}
 				}
@@ -814,9 +864,9 @@ void game_move_entity(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 				(wzrd_box) {
 				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
 					.color = (wzrd_color){ 0, 255, 0, 255 },
-					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len })
+					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len }),
+					.bring_to_front = true
 			});
-			printf("%u\n", gui->active_item.handle);
 			if (green_button)
 			{
 				if (g_game.mouse_delta.x < 0)
@@ -843,43 +893,47 @@ void game_move_entity(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 		}
 	}
 
+	// Deselect entity
 	if (wzrd_box_is_active(background_box))
 	{
-		selected_entity_id = (wzrd_handle){ 0 };
+		g_game.selected_entity_index_to_sorted_entities = 0;
+		g_game.is_entity_selected = false;
 	}
 }
 
 void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str) {
-	//game screen gui
+	
 	wzrd_v2 mouse_pos = (wzrd_v2){ (int)g_game.mouse_pos.x / scale, (int)g_game.mouse_pos.y / scale };
 
 	WZRD_UNUSED(enable_input);
 
-	wzrd_begin(gui, window, (wzrd_style) { 0 }, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
+	wzrd_begin(gui, window, (wzrd_style) { .background_color = { 255, 255, 255, 0 } }, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
 	{
 		wzrd_box* background_box = wzrd_box_get_last();
 
 		PlatformTextureBeginTarget(g_game.target_texture);
 		{
-			game_draw_screen_dots();
-			game_draw_polygon(mouse_pos, window, scale);
+			game_polygon_gui_do(mouse_pos, window, scale);
 		}
 		PlatformTextureEndTarget();
 
-		game_move_entity(scale, gui, background_box);
-
+		game_entity_gui_do(scale, gui, background_box);
 	}
 
 	wzrd_end(cursor, buffer, debug_str);
 }
 
 void game_run(v2 window_size, bool enable, unsigned int scale) {
+	
+
 
 	// entity mouse interaction 
+	(void)scale;
 	if (enable)
 	{
 		if (g_game.mouse_pos.x >= 0 && g_game.mouse_pos.y >= 0 && g_game.mouse_pos.x <= window_size.x && g_game.mouse_pos.y <= window_size.y) {
 			Entity_handle hovered_entity = { 0 };
+
 			int iterator_index = 1;
 			Entity_handle entity_handle = { 0 };
 			while (entity_get_next_handle(&iterator_index, &entity_handle)) {
@@ -896,7 +950,7 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 			if (hovered_entity.val.index) {
 				if (g_game.active_entity.val.index) {
 					if (g_platform.mouse_left == Deactivating) {
-						g_game.selected_entity = g_game.active_entity;
+						//g_game.selected_entity_index_to_sorted_entities = g_game.active_entity;
 						g_game.active_entity = (Entity_handle){ 0 };
 					}
 				}
@@ -916,7 +970,7 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 			}
 			else {
 				if (g_platform.mouse_left == Deactivating) {
-					g_game.selected_entity = (Entity_handle){ 0 };
+					//g_game.selected_entity = (Entity_handle){ 0 };
 				}
 			}
 		}
@@ -927,46 +981,14 @@ PlatformTargetTexture game_target_texture_get() {
 	return g_game.target_texture;
 }
 
-int compare_entities_by_rendering_order(const void* a, const void* b)
-{
-	Entity* entity_a = &g_game.entities[*(int *)a];
-	Entity* entity_b = &g_game.entities[*(int *)b];
-
-	if (entity_a->rendering_order > entity_b->rendering_order)
-	{
-		return 1;
-	}
-	else if (entity_a->rendering_order < entity_b->rendering_order)
-	{
-		return -1;
-	}
-
-	return 0;
-}
-
-void game_sort_entities_by_rendering_order()
-{
-	//int it = 1;
-	//Entity* entity = 0;
-	//g_game.sorted_entities_count = 0;
-	//while ((entity = entity_get_next(&it)))
-	//{
-	//	g_game.sorted_entities[g_game.sorted_entities_count++] = entity->handle.val.index;
-	//}
-
-	//qsort(g_game.sorted_entities, g_game.sorted_entities_count, sizeof(int), compare_entities_by_rendering_order);
-}
 
 void game_draw_entities()
 {
-	game_sort_entities_by_rendering_order();
-
-	// Render
 	PlatformTextureBeginTarget(g_game.target_texture);
 	{
-		for (int i = 0; i < g_game.sorted_entities_count; ++i)
+		for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
 		{
-			Entity* entity = &g_game.entities[g_game.sorted_entities[i]];
+			Entity* entity = game_entity_get(g_game.sorted_entities[i]);
 			Texture* texture = game_texture_get(entity->texture);
 			if (texture)
 			{
@@ -975,8 +997,9 @@ void game_draw_entities()
 					0, 0, texture->val.w, texture->val.h
 				}, * (platform_color*)&entity->color);
 			}
-			else {
-				platform_rect_draw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 255, 0, 255 });
+			else
+			{
+				platform_rect_draw(*(PlatformRect*)&entity->rect, (platform_color) { 255, 0, 0, 255 });
 			}
 		}
 	}
@@ -1031,6 +1054,22 @@ void game_init() {
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
 			.color = (wzrd_color){ 255, 255, 255, 255 }
 	});
+	game_entity_create((Entity) {
+		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e2"),
+			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
+			.color = (wzrd_color){ 255, 255, 255, 255 }
+	});
+	game_entity_create((Entity) {
+		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e3"),
+			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
+			.color = (wzrd_color){ 255, 255, 255, 255 }
+	});
+	game_entity_create((Entity) {
+		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e4"),
+			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
+			.color = (wzrd_color){ 255, 255, 255, 255 }
+	});
+
 
 }
 

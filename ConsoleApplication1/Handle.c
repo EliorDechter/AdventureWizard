@@ -5,7 +5,7 @@ struct Handle_node;
 void handle_remove(Handle_map* map, Handle handle) {
 	Handle_internal* handle_internal = map->handles + handle.index;
 
-	assert(handle_internal->generation == handle.generation);
+	//assert(handle_internal->generation == handle.generation);
 
 	handle_internal->used = false;
 	handle_internal->generation++;
@@ -30,7 +30,7 @@ Handle handle_create(Handle_map* map) {
 	assert(found);
 
 	Handle result = (Handle){
-		.generation = generation,
+		//.generation = generation,
 		.index = index
 	};
 
@@ -44,7 +44,8 @@ int handle_get(const Handle_map* map, Handle handle) {
 
 	int result = 0;
 
-	if (handle_internal.used && handle_internal.generation == handle.generation)
+	if (handle_internal.used)
+		//&& handle_internal.generation == handle.generation)
 	{
 		result = handle.index;
 	}
@@ -68,7 +69,7 @@ bool handle_get_next(const Handle_map* map, int* iterator_index, Handle* result_
 		if (result) break;
 		if (map->handles[*iterator_index].used) {
 			*result_handle = (Handle) {
-				.generation = map->handles[*iterator_index].generation,
+				//.generation = map->handles[*iterator_index].generation,
 				.index = *iterator_index
 			};
 			result = true;
@@ -78,8 +79,10 @@ bool handle_get_next(const Handle_map* map, int* iterator_index, Handle* result_
 	return result;
 }
 
-bool handle_equal(Handle a, Handle b) {
-	bool result = a.index == b.index && a.generation == b.generation;
+bool handle_is_equal(Handle a, Handle b) {
+	bool result = a.index == b.index;
+	//&& a.generation == b.generation;
 
 	return result;
 }
+

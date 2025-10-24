@@ -115,14 +115,16 @@ typedef struct Game {
 
 	Handle_map entities_handle_map;
 	Entity entities[GAME_ENTITIES_COUNT];
-	int sorted_entities[GAME_ENTITIES_COUNT];
-	int sorted_entities_count;
+	Entity_handle sorted_entities[GAME_ENTITIES_COUNT];
+	unsigned int sorted_entities_count;
+	unsigned int selected_entity_index_to_sorted_entities;
+	bool is_entity_selected;
 
 	PlatformTargetTexture target_texture;
 
 	v2 mouse_pos, mouse_delta;
 
-	Entity_handle hot_entity, active_entity, selected_entity;
+	Entity_handle hot_entity, active_entity;
 
 	wzrd_icons icons;
 
@@ -131,6 +133,7 @@ typedef struct Game {
 	bool delete;
 
 	bool run;
+
 } Game;
 
 extern Game g_game;
@@ -146,9 +149,11 @@ void game_texture_remove_by_index(int index);
 void game_init();
 void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str);
 void game_run(v2 window_size, bool enable, unsigned int scale);
-void game_draw(v2 game_screen_size, v2 mouse_pos);
-void game_draw_gui(wzrd_draw_commands_buffer* buffer);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);
+Entity* game_entity_get(Entity_handle handle);
+void game_entity_remove(Entity_handle handle);
 Texture* game_texture_get_by_name(str128 str);
 Texture_handle game_texture_get_handle_by_name(str128 str);
+void game_draw_screen_dots();
+bool game_entity_is_equal(Entity_handle a, Entity_handle b);

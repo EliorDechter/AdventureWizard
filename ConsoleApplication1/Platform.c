@@ -486,8 +486,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			wzrd_cursor game_cursor = wzrd_cursor_default;
 			static wzrd_draw_commands_buffer game_gui_buffer;
 
-			
-			// Draw entities
+			// Run game
+			PlatformTextureBeginTarget(g_game.target_texture);
+			game_draw_screen_dots();
+			PlatformTextureEndTarget();
 			game_draw_entities();
 
 			// Inside game editing gui
@@ -501,6 +503,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui_buffer);
+				
 				PlatformTextureEndTarget();
 			}
 		}
