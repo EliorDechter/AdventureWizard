@@ -33,12 +33,15 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 
 		// Files Panel
 		wzrd_box_begin(((wzrd_box) {
-			.row_mode = true,
-				.border_type = BorderType_None,
-				.h = 30,
-				.child_gap = 10,
-				.pad_left = 5,
-				.center_y = true,
+			.h_do_not_touch = 30,
+				.style = wzrd_style_add((wzrd_style)
+			{
+				.row_mode = true,
+					.border_type = BorderType_None,
+					.child_gap = 10,
+					.pad_left = 5,
+					.center_y = true,
+			})
 		}));
 		{
 			static wzrd_v2 s;
@@ -47,15 +50,15 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			if (EguiLabelButtonBegin(wzrd_str_create("File"))) f = !f;
 			{
 				if (f) {
-					wzrd_v2 origin = (wzrd_v2){ 40, wzrd_box_get_from_top_of_stack()->h };
+					wzrd_v2 origin = (wzrd_v2){ 40, wzrd_box_get_from_top_of_stack()->h_do_not_touch };
 					static wzrd_v2 offset;
 					wzrd_crate(
 						6,
 						(wzrd_box) {
-						.x = origin.x,
-							.y = origin.y + offset.y,
-							.w = 50,
-							.h = 50
+						.x_do_not_touch = origin.x,
+							.y_do_not_touch = origin.y + offset.y,
+							.w_do_not_touch = 50,
+							.h_do_not_touch = 50
 					});
 
 					if (wzrd_box_is_hot(gui, wzrd_box_get_last()))
@@ -78,18 +81,19 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 		// Seperator
 		wzrd_box_do((wzrd_box) {
 			.border_type = BorderType_BottomLine,
-				.h = 2
+				.h_do_not_touch = 2
 		});
 
 		// Buttons panel
 		wzrd_box_begin(((wzrd_box) {
-			//.name = wzrd_str_create("sss"),
-			.pad_left = 5,
-				.center_y = true,
-				.child_gap = 5,
-				.row_mode = true,
-				.h = 36,
-				.border_type = BorderType_None,
+			.h_do_not_touch = 36,
+			.style = wzrd_style_add((wzrd_style) {
+				.pad_left = 5,
+					.center_y = true,
+					.child_gap = 5,
+					.row_mode = true,
+					.border_type = BorderType_None,
+			})
 		}));
 		{
 			static wzrd_v2 s;
@@ -101,13 +105,13 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 				create_object_active = true;
 			}
 
-			EguiToggle3((wzrd_box) { .center_x = true, .center_y = true, .w = 200, .h = 32 },
+			EguiToggle3((wzrd_box) { .center_x = true, .center_y = true, .w_do_not_touch = 200, .h_do_not_touch = 32 },
 				wzrd_str_create("Add Polygon"), & g_game.polygon_adding_active);
 
 			// Seperator
 			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
-					.w = 2
+					.w_do_not_touch = 2
 			});
 
 			bool delete_toggle = wzrd_button_icon(icons.delete);
@@ -116,7 +120,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			// Seperator
 			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
-					.w = 2
+					.w_do_not_touch = 2
 			});
 
 			static bool finish;
@@ -126,13 +130,13 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			if (!is_dragged && !finish)
 			{
 				wzrd_box_do((wzrd_box) {
-					.w = 25, .h = 25, .is_draggable = true,
+					.w_do_not_touch = 25, .h_do_not_touch = 25, .is_draggable = true,
 				});
 			}
 
 			static wzrd_color color = { 100, 100, 100, 255 };
 			wzrd_box_do((wzrd_box) {
-				.w = 25, .h = 25, .is_slot = true, .color = color,
+				.w_do_not_touch = 25, .h_do_not_touch = 25, .is_slot = true, .color = color,
 			});
 
 			if (wzrd_box_is_hot(gui, wzrd_box_get_last()) && wzrd_is_releasing())
@@ -144,7 +148,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			// Seperator
 			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
-					.w = 2
+					.w_do_not_touch = 2
 			});
 
 			wzrd_toggle_icon(icons.play, &g_game.run);
@@ -160,12 +164,12 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			// Seperator
 			wzrd_box_do((wzrd_box) {
 				.border_type = BorderType_LeftLine,
-					.w = 2
+					.w_do_not_touch = 2
 			});
 
 			static wzrd_v2 p;
 			wzrd_box_do((wzrd_box) {
-				.w = 25, .h = 25, .x = p.x, .y = p.y,
+				.w_do_not_touch = 25, .h_do_not_touch = 25, .x_do_not_touch = p.x, .y_do_not_touch = p.y,
 			});
 
 			if (wzrd_box_is_hot(gui, wzrd_box_get_last()))
@@ -188,7 +192,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 					.pad_left = 5,
 					.pad_right = 5,
 					.pad_bottom = 5,
-					.w = 200,
+					.w_do_not_touch = 200,
 					.child_gap = 5,
 					.border_type = BorderType_Clicked,
 			});
@@ -241,16 +245,21 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			{
 				// Target
 				wzrd_box_begin(((wzrd_box) {
-					.center_x = true, .center_y = true,
-						.color = (wzrd_color){ 50, 50, 50, 255 },
-						.disable_input = true,
-						.border_type = BorderType_Clicked
+					.disable_input = true,
+					.style = wzrd_style_add((wzrd_style) {
+						.center_x = true, .center_y = true,
+							.color = (wzrd_color){ 50, 50, 50, 255 },
+							.border_type = BorderType_Clicked
+					})
 				}));
 				{
 					wzrd_box_begin(((wzrd_box) {
-						.w = 1920 / 6, .h = 1080 / 6, .best_fit = true,
+						.w_do_not_touch = 1920 / 6, .h_do_not_touch = 1080 / 6, 
+							.disable_input = true,
 							.handle = wzrd_unique_handle_create(wzrd_str_create("Target")),
-							.disable_input = true
+							.style = wzrd_style_create((wzrd_style) {
+							.best_fit = true,
+						})
 					}));
 					{
 						wzrd_item_add((Item) {
@@ -267,12 +276,14 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 		wzrd_box_end();
 
 		wzrd_box_begin(((wzrd_box) {
-			.row_mode = true,
-				.h = 40,
-				.border_type = BorderType_None
+			.h_do_not_touch = 40,
+			.style = wzrd_style_add((wzrd_style) {
+				.row_mode = true,
+					.border_type = BorderType_None
+			})
 		}));
 		{
-			wzrd_box_do((wzrd_box) { .w = 90 });
+			wzrd_box_do((wzrd_box) { .w_do_not_touch = 90 });
 			wzrd_box_do((wzrd_box) { 0 });
 		}
 		wzrd_box_end();
@@ -287,27 +298,34 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 			wzrd_dialog_begin(&create_object_pos, size, &create_object_active, wzrd_str_create("add object"), 4);
 			if (create_object_active) {
 				wzrd_box_begin((wzrd_box) {
-					.row_mode = true, .border_type = BorderType_None, .child_gap = 5,
-
+					.style = wzrd_style_create((wzrd_style) {
+						.row_mode = true, .border_type = BorderType_None, .child_gap = 5,
+					})
 				});
 				{
 					wzrd_str labels[] = { wzrd_str_create("Entity"), wzrd_str_create("Texture") };
 					bool is_selected = false;
 					wzrd_label_list(labels, 2,
 						(wzrd_box) {
-						.w = 100,
-						.color = EGUI_WHITE, 
+						.w_do_not_touch = 100,
+							.style = wzrd_style_create((wzrd_style) {
+							.color = EGUI_WHITE,
+						})
 					},
 						 0, & selected, &is_selected);
 
 					wzrd_box_begin((wzrd_box) {
-						.border_type = BorderType_Clicked,
-							.pad_left = 5,
-							.pad_top = 5
-					});
+						.style = wzrd_style_create((wzrd_style) {
+
+							.border_type = BorderType_Clicked,
+								.pad_left = 5,
+								.pad_top = 5
+						})
+						});
 					{
 						if (selected == 1) {
-							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h = 50, });
+							wzrd_box_begin((wzrd_box) { 
+								.border_type = BorderType_None, .row_mode = true, .h_do_not_touch = 50, });
 							{
 								wzrd_label(wzrd_str_create("Name:"));
 								wzrd_input_box(name.val, &name.len, 10);
@@ -315,7 +333,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 							wzrd_box_end();
 						}
 						else if (selected == 0) {
-							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h = 50, });
+							wzrd_box_begin((wzrd_box) { .border_type = BorderType_None, .row_mode = true, .h_do_not_touch = 50, });
 							{
 								wzrd_label(wzrd_str_create("Name:"));
 								wzrd_input_box(name.val, &name.len, 10);
@@ -327,7 +345,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 				}
 				wzrd_box_end();
 
-				wzrd_box_begin((wzrd_box) { .row_mode = true, .h = 50, .border_type = BorderType_None });
+				wzrd_box_begin((wzrd_box) { .row_mode = true, .h_do_not_touch = 50, .border_type = BorderType_None });
 				{
 					wzrd_box_do((wzrd_box) { .border_type = BorderType_None });
 					wzrd_box_begin((wzrd_box) {
@@ -337,7 +355,7 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 							.pad_top = 5,
 							.pad_right = 5,
 							.pad_bottom = 5,
-							.row_mode = true, .w = 140,
+							.row_mode = true, .w_do_not_touch = 140,
 							.border_type = BorderType_None
 					});
 					{
@@ -381,10 +399,10 @@ void editor_do(wzrd_canvas* gui, wzrd_draw_commands_buffer* buffer, wzrd_cursor*
 #if 1
 		wzrd_crate_begin(2,
 			(wzrd_box) {
-			.x = (int)g_platform.window_width - 300,
-				.y = 10,
-				.w = 295,
-				.h = 500
+			.x_do_not_touch = (int)g_platform.window_width - 300,
+				.y_do_not_touch = 10,
+				.w_do_not_touch = 295,
+				.h_do_not_touch = 500
 		});
 		{
 			//static float scrollbar_x, scrollbar_y;

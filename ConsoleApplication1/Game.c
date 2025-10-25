@@ -729,7 +729,7 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
 		wzrd_rect rect = { (int)nodes[index].x, (int)nodes[index].y, 2, 2 };
 		if (wzrd_game_buttonesque(
 			(wzrd_box) {
-			.type = wzrd_box_type_button, .color = color, .border_type = BorderType_None, .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+			.type = wzrd_box_type_button, .color = color, .border_type = BorderType_None, .x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
 				.handle = wzrd_unique_handle_create((wzrd_str) { .str = name.val, .len = name.len })
 		}))
 		{
@@ -799,10 +799,10 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 		// Entity gui rect
 		{
 			wzrd_crate(1, (wzrd_box) {
-				.x = (int)entity->rect.x,
-					.y = (int)entity->rect.y,
-					.w = (int)entity->rect.w,
-					.h = (int)entity->rect.h,
+				.x_do_not_touch = (int)entity->rect.x,
+					.y_do_not_touch = (int)entity->rect.y,
+					.w_do_not_touch = (int)entity->rect.w,
+					.h_do_not_touch = (int)entity->rect.h,
 					.border_type = BorderType_None
 			});
 
@@ -828,7 +828,7 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 			wzrd_rect rect = (wzrd_rect){ (int)entity->rect.x + (int)entity->rect.w / 2 - 5, (int)entity->rect.y + (int)entity->rect.h / 2 - 5, 10, 10 };
 			bool blue_button = wzrd_game_buttonesque(
 				(wzrd_box) {
-				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+				.x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
 					.color = (wzrd_color){ 0, 0, 255, 255 },
 					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len, }),
 					.bring_to_front = true
@@ -862,7 +862,7 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 			button_name = str128_create("green button %s", entity->name);
 			bool green_button = wzrd_game_buttonesque(
 				(wzrd_box) {
-				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+				.x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
 					.color = (wzrd_color){ 0, 255, 0, 255 },
 					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len }),
 					.bring_to_front = true

@@ -171,21 +171,13 @@ typedef enum {
 	wzrd_box_type_crate
 } wzrd_box_type;
 
-typedef struct wzrd_style
+typedef struct wzrd_style 
 {
 	wzrd_color font_color;
 	wzrd_color background_color;
 	wzrd_border_type window_border_type;
 	wzrd_color b0, b1, b2, b3;
-} wzrd_style;
 
-typedef struct wzrd_style_handle {
-	int index;
-} wzrd_style_handle;
-
-typedef struct Box {
-	wzrd_handle handle;
-	
 	wzrd_color color;
 	wzrd_border_type border_type;
 	wzrd_box_type type;
@@ -195,13 +187,27 @@ typedef struct Box {
 	bool fit_h, fit_w;
 	bool center_x, center_y;
 	bool best_fit;
-	bool disable_input;
-	bool is_draggable, is_slot;
+	int x_do_not_touch, y_do_not_touch, w_do_not_touch, h_do_not_touch;
+} wzrd_style;
+
+typedef struct wzrd_style_handle {
+	int index;
+} wzrd_style_handle;
+
+typedef struct Box {
+	wzrd_handle handle;
+	
+	wzrd_style_handle style;
+
+
+	// 
+	
 	bool disable_hover;
 	bool clip;
 
-	int x, y, w, h;
-	
+	bool disable_input;
+	bool is_draggable, is_slot;
+
 	// TODO: Find a better more descriptive name!
 	bool free;
 
@@ -220,8 +226,6 @@ typedef struct Box {
 	int layer;
 	bool bring_to_front;
 	int index;
-
-	wzrd_style_handle style;
 
 } wzrd_box;
 
@@ -318,6 +322,10 @@ typedef struct wzrd_canvas {
 
 	wzrd_style_handle button_style;
 
+#define MAX_NUM_STYLES 256
+	wzrd_style styles[MAX_NUM_STYLES];
+	int styles_count;
+
 } wzrd_canvas;
 
 
@@ -359,6 +367,7 @@ typedef struct wzrd_polygon {
 
 // API
 wzrd_style_handle wzrd_style_add(wzrd_style style);
+wzrd_style wzrd_style_get(wzrd_style_handle handle);
 bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 bool wzrd_handle_is_valid(wzrd_handle handle);
 wzrd_handle wzrd_handle_create();
