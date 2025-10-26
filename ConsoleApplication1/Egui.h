@@ -180,7 +180,6 @@ typedef struct wzrd_style
 
 	wzrd_color color;
 	wzrd_border_type border_type;
-	wzrd_box_type type;
 	int pad_right, pad_bottom, pad_left, pad_top;
 	int child_gap;
 	bool row_mode;
@@ -188,6 +187,7 @@ typedef struct wzrd_style
 	bool center_x, center_y;
 	bool best_fit;
 	int x_do_not_touch, y_do_not_touch, w_do_not_touch, h_do_not_touch;
+
 } wzrd_style;
 
 typedef struct wzrd_style_handle {
@@ -196,12 +196,10 @@ typedef struct wzrd_style_handle {
 
 typedef struct Box {
 	wzrd_handle handle;
-	
+	wzrd_box_type type;
 	wzrd_style_handle style;
 
 
-	// 
-	
 	bool disable_hover;
 	bool clip;
 
@@ -366,7 +364,7 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // API
-wzrd_style_handle wzrd_style_add(wzrd_style style);
+wzrd_style_handle wzrd_style_create(wzrd_style style);
 wzrd_style wzrd_style_get(wzrd_style_handle handle);
 bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 bool wzrd_handle_is_valid(wzrd_handle handle);
