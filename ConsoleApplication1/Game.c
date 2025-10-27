@@ -17,16 +17,11 @@ wzrd_v2 TextGetSizeFromLength(int len) {
 	return *(wzrd_v2*)&result;
 }
 
-void EguiBoxDo(wzrd_box box) {
-	wzrd_box_begin(box);
-	wzrd_box_end();
-}
-
-wzrd_rect EguiRectScale(wzrd_rect rect, int scale) {
+wzrd_rect_struct EguiRectScale(wzrd_rect_struct rect, int scale) {
 	int new_w = rect.w * scale;
 	int new_h = rect.h * scale;
 
-	wzrd_rect result = {
+	wzrd_rect_struct result = {
 		rect.x + (rect.w / 2 - new_w / 2),
 		rect.y + (rect.h / 2 - new_h / 2),
 		new_w,
@@ -149,7 +144,7 @@ void nodes() {
 		EguiBoxEnd();
 
 		// Name
-		if (EguiLabelButton(nodes[i].str, (EguiV2i) { 10, 10 })) {
+		if (EguiLabelButton(nodes[i].str)) {
 			result = nodes[i].str;
 		}
 	}
@@ -691,7 +686,7 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-void game_polygon_gui_do(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
+void game_polygon_gui_do(wzrd_v2 mouse_pos, wzrd_rect_struct window, int scale)
 {
 	static v2 nodes[32];
 	static ArrayList32 list;
@@ -726,15 +721,10 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, wzrd_rect window, int scale)
 		str128 name = str128_create("wow %d", index);
 		name.len = (int)strlen(name.val);
 		wzrd_color color = { 255, 0, 0, 255 };
-		wzrd_rect rect = { (int)nodes[index].x, (int)nodes[index].y, 2, 2 };
-		if (wzrd_game_buttonesque(
-			(wzrd_box) {
-			.type = wzrd_box_type_button,
-			.style = wzrd_style_create((wzrd_style) {
-					.color = color, .border_type = BorderType_None,
-			}),.x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
-				.handle = wzrd_unique_handle_create((wzrd_str) { .str = name.val, .len = name.len })
-		}))
+		wzrd_rect_struct rect = { (int)nodes[index].x, (int)nodes[index].y, 2, 2 };
+		if (wzrd_button_handle(rect, color,
+				(wzrd_str) { .str = name.val, .len = name.len })
+		)
 		{
 			nodes[index].x += g_platform.mouse_delta_x / scale;
 			nodes[index].y += g_platform.mouse_delta_y / scale;
@@ -801,17 +791,11 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 
 		// Entity gui rect
 		{
-			wzrd_crate(1, (wzrd_box) {
-				.x_do_not_touch = (int)entity->rect.x,
-					.y_do_not_touch = (int)entity->rect.y,
-					.w_do_not_touch = (int)entity->rect.w,
-					.h_do_not_touch = (int)entity->rect.h,
-					.style = wzrd_style_create((wzrd_style) {
-					.border_type = BorderType_None
-				})
-			});
-
-			wzrd_box_get_last()->handle = wzrd_unique_handle_create((wzrd_str) { .str = entity->name.val, .len = entity->name.len });
+			wzrd_rect_unique((wzrd_rect_struct){.x = (int)entity->rect.x,
+				.y = (int)entity->rect.y,
+				.w = (int)entity->rect.w,
+				.h = (int)entity->rect.h
+		}, (wzrd_str) { .str = entity->name.val, .len = entity->name.len });
 
 			if (wzrd_box_is_active(wzrd_box_get_last()))
 			{
@@ -830,16 +814,15 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 		{
 			//wzrd_box_get_last()->border_type = BorderType_Black;
 			str128 button_name = str128_create("blue button %s", entity->name);
-			wzrd_rect rect = (wzrd_rect){ (int)entity->rect.x + (int)entity->rect.w / 2 - 5, (int)entity->rect.y + (int)entity->rect.h / 2 - 5, 10, 10 };
-			bool blue_button = wzrd_game_buttonesque(
-				(wzrd_box) {
-				.x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
-					.style = wzrd_style_create((wzrd_style) {
-					.color = (wzrd_color){ 0, 0, 255, 255 },
-				}),
-					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len, }),
-					.bring_to_front = true
+			wzrd_rect_struct rect = (wzrd_rect_struct){ (int)entity->rect.x + (int)entity->rect.w / 2 - 5, (int)entity->rect.y + (int)entity->rect.h / 2 - 5, 10, 10 };
+			bool blue_button = wzrd_button_handle(rect,
+				(wzrd_color) {
+				0, 0, 255, 255
+			},
+				(wzrd_str) {
+				.str = button_name.val, .len = button_name.len,
 			});
+					//.bring_to_front = true
 
 			// Late logic
 			static float offset_x, offset_y;
@@ -867,15 +850,16 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 			rect.x = (int)entity->rect.x - 5;
 			rect.y = (int)entity->rect.y - 5;
 			button_name = str128_create("green button %s", entity->name);
-			bool green_button = wzrd_game_buttonesque(
-				(wzrd_box) {
-				.x_do_not_touch = rect.x, .y_do_not_touch = rect.y, .w_do_not_touch = rect.w, .h_do_not_touch = rect.h,
-					.style = wzrd_style_create((wzrd_style) {
-					.color = (wzrd_color){ 0, 255, 0, 255 },
-				}),
-					.handle = wzrd_unique_handle_create((wzrd_str) { .str = button_name.val, .len = button_name.len }),
-					.bring_to_front = true
+			bool green_button = wzrd_button_handle(
+				rect,
+				(wzrd_color) {
+				0, 255, 0, 255
+			},
+				(wzrd_str) {
+				.str = button_name.val, .len = button_name.len
 			});
+					//.bring_to_front = true
+
 			if (green_button)
 			{
 				if (g_game.mouse_delta.x < 0)
@@ -910,13 +894,13 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, wzrd_box* background_box)
 	}
 }
 
-void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str) {
+void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect_struct window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str) {
 	
 	wzrd_v2 mouse_pos = (wzrd_v2){ (int)g_game.mouse_pos.x / scale, (int)g_game.mouse_pos.y / scale };
 
 	WZRD_UNUSED(enable_input);
 
-	wzrd_begin(gui, window, (wzrd_style) { .background_color = { 255, 255, 255, 0 } }, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
+	wzrd_begin(gui, window, platform_string_get_size, layer, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
 	{
 		wzrd_box* background_box = wzrd_box_get_last();
 

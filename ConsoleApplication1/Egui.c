@@ -10,13 +10,51 @@
 
 static wzrd_canvas* canvas;
 
+wzrd_style_handle wzrd_style_create(wzrd_style style);
+wzrd_style wzrd_style_get(wzrd_style_handle handle);
+bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
+bool wzrd_handle_is_valid(wzrd_handle handle);
+wzrd_handle wzrd_handle_create();
+wzrd_style wzrd_style_get_default();
+void wzrd_box_end();
+wzrd_box* wzrd_box_get_from_top_of_stack();
+wzrd_box* wzrd_box_get_parent();
+wzrd_box* wzrd_box_get_previous();
+void wzrd_box_begin(wzrd_box box);
+void wzrd_label(wzrd_str str);
+void wzrd_item_add(Item item);
+void wzrd_box_do(wzrd_box box);
+void wzrd_crate_begin(int window_id, wzrd_box box);
+void wzrd_crate(int window_id, wzrd_box box);
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size);
+void wzrd_text_add(wzrd_str str);
+void wzrd_box_resize(wzrd_v2* size);
+void wzrd_crate_end();
+wzrd_box* wzrd_box_get_by_handle(wzrd_handle str);
+void wzrd_drag(bool *drag);
+wzrd_box* wzrd_box_get_last();
+bool wzrd_box_is_dragged(wzrd_box* box);
+bool wzrd_box_is_hot(wzrd_canvas *canvas, wzrd_box* box);
+wzrd_box *wzrd_box_get_released();
+wzrd_box* wzrd_box_find(wzrd_canvas* canvas, wzrd_str name);
+bool wzrd_is_releasing();
+wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
+wzrd_handle wzrd_unique_handle_create(wzrd_str str);
+bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle);
+
 wzrd_style wzrd_style_get(wzrd_style_handle handle)
 {
 	wzrd_style result = canvas->styles[handle.index];
 
 	return result;
 }
+wzrd_style_handle wzrd_style_create(wzrd_style style)
+{
+	wzrd_style_handle result = (wzrd_style_handle){ canvas->styles_count };
+	canvas->styles[canvas->styles_count++] = style;
 
+	return result;
+}
 wzrd_style_handle wzrd_style_set_color(wzrd_style_handle handle, wzrd_color color)
 {
 	wzrd_style style = wzrd_style_get(handle);
@@ -26,18 +64,11 @@ wzrd_style_handle wzrd_style_set_color(wzrd_style_handle handle, wzrd_color colo
 	return result;
 }
 
-wzrd_style_handle wzrd_style_create(wzrd_style style)
-{
-	wzrd_style_handle result = (wzrd_style_handle){ canvas->styles_count };
-	canvas->styles[canvas->styles_count++] = style;
 
-	return result;
-}
 
 bool wzrd_handle_is_valid(wzrd_handle handle)
 {
 	return (bool)handle.handle;
-
 }
 
 wzrd_handle wzrd_handle_create()
@@ -76,7 +107,7 @@ wzrd_handle wzrd_unique_handle_create(wzrd_str str)
 	return result;
 }
 
-bool wzrd_is_rect_inside_rect(wzrd_rect a, wzrd_rect b) {
+bool wzrd_is_rect_inside_rect(wzrd_rect_struct a, wzrd_rect_struct b) {
 	bool res = a.x >= b.x;
 	res &= a.x >= b.x;
 	res &= a.x + a.w <= b.x + b.w;
@@ -85,7 +116,7 @@ bool wzrd_is_rect_inside_rect(wzrd_rect a, wzrd_rect b) {
 	return res;
 }
 
-int wzrd_v2_is_inside_rect(wzrd_v2 v, wzrd_rect rect) {
+int wzrd_v2_is_inside_rect(wzrd_v2 v, wzrd_rect_struct rect) {
 	bool result = false;
 	if (v.x >= rect.x &&
 		v.y >= rect.y &&
@@ -122,11 +153,6 @@ wzrd_box* wzrd_box_get_parent() {
 
 	return result;
 }
-
-wzrd_style wzrd_box_style_get_from_top_of_stack() {
-	return wzrd_style_get(wzrd_box_get_from_top_of_stack()->style);
-}
-
 wzrd_box* wzrd_box_get_from_top_of_stack() {
 	WZRD_ASSERT(canvas->current_crate_index >= 0);
 	int crate_index = canvas->current_crate_index;
@@ -143,6 +169,11 @@ wzrd_box* wzrd_box_get_from_top_of_stack() {
 
 	return result;
 }
+wzrd_style wzrd_box_style_get_from_top_of_stack() {
+	return wzrd_style_get(wzrd_box_get_from_top_of_stack()->style);
+}
+
+
 
 int wzrd_box_get_current_index() {
 	WZRD_ASSERT(canvas->current_crate_index >= 0);
@@ -302,7 +333,7 @@ bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b)
 }
 
 
-void EguiBoxResize(wzrd_v2* size) {
+void wzrd_box_resize(wzrd_v2* size) {
 	wzrd_box* box = wzrd_box_get_from_top_of_stack();
 	wzrd_box* previous_box = wzrd_box_get_parent();
 
@@ -335,8 +366,8 @@ void EguiBoxResize(wzrd_v2* size) {
 		}
 	}
 
-	wzrd_box_get_from_top_of_stack()->w_do_not_touch += size->x;
-	wzrd_box_get_from_top_of_stack()->h_do_not_touch += size->y;
+	wzrd_box_get_from_top_of_stack()->w_internal += size->x;
+	wzrd_box_get_from_top_of_stack()->h_internal += size->y;
 }
 
 int wzrd_int_compare(int a, int b)
@@ -382,10 +413,10 @@ wzrd_box* wzrd_box_create(wzrd_box box) {
 	wzrd_style box_style = wzrd_style_get(box.style);
 
 	if (box_style.fit_w) {
-		box.w_do_not_touch += 4 * WZRD_BORDER_SIZE;
+		box.w_internal += 4 * WZRD_BORDER_SIZE;
 	}
 	if (box_style.fit_h) {
-		box.h_do_not_touch += 4 * WZRD_BORDER_SIZE;
+		box.h_internal += 4 * WZRD_BORDER_SIZE;
 	}
 
 	// Default color 
@@ -410,6 +441,17 @@ wzrd_box* wzrd_box_create(wzrd_box box) {
 
 void wzrd_box_begin(wzrd_box box_data)
 {
+	// TODO: Is this the right place for this?
+	//for (int i = 0; i < canvas->boxes_count;++i)
+	{
+		wzrd_style style = wzrd_style_get(box_data.style);
+		box_data.x_internal = style.x;
+		box_data.y_internal = style.y;
+		box_data.w_internal = style.w;
+		box_data.h_internal = style.h;
+	}
+
+
 	wzrd_box* current_box = wzrd_box_get_from_top_of_stack();
 
 	canvas->boxes_in_stack_count++;
@@ -441,6 +483,8 @@ void wzrd_box_end() {
 	canvas->boxes_in_stack_count--;
 	WZRD_ASSERT(canvas->boxes_in_stack_count >= 0);
 
+
+
 	wzrd_box* current_box = wzrd_box_get_from_top_of_stack();
 	Crate* current_crate = EguiGetCurrentWindow();
 
@@ -451,28 +495,28 @@ void wzrd_box_end() {
 
 		// Handle fitting
 		if (previous_box_style.fit_h) {
-			WZRD_ASSERT(current_box->h_do_not_touch);
-			WZRD_ASSERT(current_box->w_do_not_touch);
+			WZRD_ASSERT(current_box->h_internal);
+			WZRD_ASSERT(current_box->w_internal);
 
 			if (!previous_box_style.row_mode) {
-				previous_box->h_do_not_touch += current_box->h_do_not_touch;
+				previous_box->h_internal += current_box->h_internal;
 			}
 			else {
-				if (current_box->h_do_not_touch > previous_box->h_do_not_touch) {
-					previous_box->h_do_not_touch += current_box->h_do_not_touch;
+				if (current_box->h_internal > previous_box->h_internal) {
+					previous_box->h_internal += current_box->h_internal;
 				}
 			}
 		}
 		if (previous_box_style.fit_w) {
-			WZRD_ASSERT(current_box->h_do_not_touch);
-			WZRD_ASSERT(current_box->w_do_not_touch);
+			WZRD_ASSERT(current_box->h_internal);
+			WZRD_ASSERT(current_box->w_internal);
 
 			if (previous_box_style.row_mode) {
-				previous_box->w_do_not_touch += current_box->w_do_not_touch;
+				previous_box->w_internal += current_box->w_internal;
 			}
 			else {
-				if (current_box->w_do_not_touch > previous_box->w_do_not_touch) {
-					previous_box->w_do_not_touch += current_box->w_do_not_touch;
+				if (current_box->w_internal > previous_box->w_internal) {
+					previous_box->w_internal += current_box->w_internal;
 				}
 			}
 		}
@@ -552,7 +596,7 @@ void wzrd_crate(int window_id, wzrd_box box) {
 	wzrd_crate_end();
 }
 
-void wzrd_begin_ex(wzrd_canvas* gui, wzrd_box box, wzrd_style style, int layer)
+void wzrd_begin_ex(wzrd_canvas* gui, wzrd_box box, int layer)
 {
 
 	WZRD_UNUSED(layer);
@@ -560,7 +604,7 @@ void wzrd_begin_ex(wzrd_canvas* gui, wzrd_box box, wzrd_style style, int layer)
 
 	canvas->current_crate_index = -1;
 	canvas->boxes_count = 0;
-	canvas->style = style;
+	//canvas->style = style;
 	canvas->layer = layer;
 	canvas->input_box_timer += 16.7f;
 
@@ -590,7 +634,7 @@ wzrd_style wzrd_style_get_default()
 	return result;
 }
 
-void wzrd_begin(wzrd_canvas* gui, wzrd_rect window, wzrd_style style, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input)
+void wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input)
 {
 	canvas = gui;
 
@@ -606,29 +650,37 @@ void wzrd_begin(wzrd_canvas* gui, wzrd_rect window, wzrd_style style, void (*get
 
 	wzrd_style_create((wzrd_style) { .color = EGUI_LIGHTGRAY });
 
-	gui->button_style = wzrd_style_create((wzrd_style) { 0 });
+	//wzrd_v2 v = { FONT_WIDTH * (int)str.len + 12, WZRD_FONT_HEIGHT + 12 };
+	gui->button_style = wzrd_style_create((wzrd_style) {
+		.w = 75,
+			.h = 23,
+			.pad_left = 2,
+			.pad_right = 2,
+			.pad_bottom = 2,
+			.pad_top = 2
+	});
 
 	wzrd_box box =
 		(wzrd_box){
-		.x_do_not_touch = window.x,
-		.y_do_not_touch = window.y,
-		.w_do_not_touch = window.w,
-		.h_do_not_touch = window.h,
 		.disable_input = true,
 		.style = wzrd_style_create((wzrd_style) {
-		.pad_left = 5, .pad_top = 5,
-		.pad_right = 5,
-		.pad_bottom = 5,
-		.child_gap = 5,
-		.border_type = style.window_border_type,
-		.color = style.background_color
+			.pad_left = 5, .pad_top = 5,
+			.x = window.x,
+			.y = window.y,
+			.w = window.w,
+			.h = window.h,
+			.pad_right = 5,
+			.pad_bottom = 5,
+			.child_gap = 5,
+			//.border_type = style.window_border_type,
+			//.color = style.background_color
 	})
 	};
 
-	wzrd_begin_ex(gui, box, style, layer);
+	wzrd_begin_ex(gui, box, layer);
 }
 
-void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color color, int z) {
+void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect_struct rect, wzrd_color color, int z) {
 
 	wzrd_draw_command command = (wzrd_draw_command){
 		.type = DrawCommandType_Rect,
@@ -642,28 +694,7 @@ void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect rect, wzrd_color 
 
 }
 
-wzrd_box* wzrd_box_get_by_handle(wzrd_handle handle) {
-	if (!wzrd_handle_is_valid(handle))
-	{
-		return canvas->boxes;
-	}
-
-	wzrd_box* result = 0;
-	for (int i = 0; i < canvas->boxes_count; ++i)
-	{
-		if (canvas->boxes[i].handle.handle == handle.handle)
-		{
-			result = canvas->boxes + i;
-			break;
-		}
-	}
-
-	assert(result);
-
-	return result;
-}
-
-wzrd_box* wzrd_box_get_by_name_from_canvas(wzrd_canvas* c, wzrd_str name)
+wzrd_box* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
 {
 	// TODO: optimize	
 	unsigned int hash = wzrd_hash(name);
@@ -699,14 +730,14 @@ void wzrd_handle_cursor(wzrd_cursor* cursor)
 		wzrd_box* active_box = wzrd_box_get_by_handle(canvas->active_item);
 
 		if (hot_box) {
-		/*	if (hot_box->type == wzrd_box_type_button) {
-				*cursor = wzrd_cursor_hand;
-			}*/
+			/*	if (hot_box->type == wzrd_box_type_button) {
+					*cursor = wzrd_cursor_hand;
+				}*/
 		}
 		if (active_box) {
-		/*	if (active_box->type == wzrd_box_type_button) {
-				*cursor = wzrd_cursor_hand;
-			}*/
+			/*	if (active_box->type == wzrd_box_type_button) {
+					*cursor = wzrd_cursor_hand;
+				}*/
 		}
 	}
 }
@@ -729,25 +760,25 @@ void wzrd_handle_border_resize(wzrd_cursor* cursor)
 			if (!child->type == wzrd_box_type_resizable) continue;
 
 			bool is_inside_left_border =
-				canvas->mouse_pos.x >= child->x_do_not_touch &&
-				canvas->mouse_pos.y >= child->y_do_not_touch &&
-				canvas->mouse_pos.x < child->x_do_not_touch + border_size &&
-				canvas->mouse_pos.y < child->y_do_not_touch + child->h_do_not_touch;
+				canvas->mouse_pos.x >= child->x_internal &&
+				canvas->mouse_pos.y >= child->y_internal &&
+				canvas->mouse_pos.x < child->x_internal + border_size &&
+				canvas->mouse_pos.y < child->y_internal + child->h_internal;
 			bool is_inside_right_border =
-				canvas->mouse_pos.x >= child->x_do_not_touch + child->w_do_not_touch - border_size &&
-				canvas->mouse_pos.y >= child->y_do_not_touch &&
-				canvas->mouse_pos.x < child->x_do_not_touch + child->w_do_not_touch &&
-				canvas->mouse_pos.y < child->y_do_not_touch + child->h_do_not_touch;
+				canvas->mouse_pos.x >= child->x_internal + child->w_internal - border_size &&
+				canvas->mouse_pos.y >= child->y_internal &&
+				canvas->mouse_pos.x < child->x_internal + child->w_internal &&
+				canvas->mouse_pos.y < child->y_internal + child->h_internal;
 			bool is_inside_top_border =
-				canvas->mouse_pos.x >= child->x_do_not_touch &&
-				canvas->mouse_pos.y >= child->y_do_not_touch &&
-				canvas->mouse_pos.x < child->x_do_not_touch + child->w_do_not_touch &&
-				canvas->mouse_pos.y < child->y_do_not_touch + border_size;
+				canvas->mouse_pos.x >= child->x_internal &&
+				canvas->mouse_pos.y >= child->y_internal &&
+				canvas->mouse_pos.x < child->x_internal + child->w_internal &&
+				canvas->mouse_pos.y < child->y_internal + border_size;
 			bool is_inside_bottom_border =
-				canvas->mouse_pos.x >= child->x_do_not_touch &&
-				canvas->mouse_pos.y >= child->y_do_not_touch + child->h_do_not_touch - border_size &&
-				canvas->mouse_pos.x < child->x_do_not_touch + child->w_do_not_touch &&
-				canvas->mouse_pos.y < child->y_do_not_touch + child->h_do_not_touch;
+				canvas->mouse_pos.x >= child->x_internal &&
+				canvas->mouse_pos.y >= child->y_internal + child->h_internal - border_size &&
+				canvas->mouse_pos.x < child->x_internal + child->w_internal &&
+				canvas->mouse_pos.y < child->y_internal + child->h_internal;
 
 			if (wzrd_handle_is_equal(canvas->hovered_item, child->handle) || wzrd_handle_is_equal(canvas->active_item, child->handle)) {
 
@@ -792,7 +823,7 @@ void wzrd_handle_input(int* indices, int count)
 	for (int i = 0; i < count; ++i) {
 		wzrd_box* box = canvas->boxes + indices[i];
 
-		wzrd_rect scaled_rect = { box->x_do_not_touch, box->y_do_not_touch, box->w_do_not_touch, box->h_do_not_touch };
+		wzrd_rect_struct scaled_rect = { box->x_internal, box->y_internal, box->w_internal, box->h_internal };
 
 		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { canvas->mouse_pos.x, canvas->mouse_pos.y },
 			scaled_rect);
@@ -877,10 +908,10 @@ void wzrd_handle_input(int* indices, int count)
 
 	if (wzrd_handle_is_valid(hot_box->handle)) {
 
-	/*	if (hot_box->type == wzrd_box_type_flat_button)
-		{
-			hot_box->color = (wzrd_color){ 0, 255, 255, 255 };
-		}*/
+		/*	if (hot_box->type == wzrd_box_type_flat_button)
+			{
+				hot_box->color = (wzrd_color){ 0, 255, 255, 255 };
+			}*/
 		if (canvas->mouse_left == EguiActivating) {
 			canvas->active_item = hot_box->handle;
 
@@ -914,12 +945,12 @@ void wzrd_handle_input(int* indices, int count)
 	if (wzrd_handle_is_valid(canvas->clicked_item)) {
 		wzrd_box* clicked_box = wzrd_box_get_by_handle(canvas->clicked_item);
 		WZRD_ASSERT(clicked_box);
-	/*	if (clicked_box->type == wzrd_box_type_input_box) {
-			canvas->active_input_box = clicked_box->handle;
-		}
-		else {
-			canvas->active_input_box = (wzrd_handle){ 0 };
-		}*/
+		/*	if (clicked_box->type == wzrd_box_type_input_box) {
+				canvas->active_input_box = clicked_box->handle;
+			}
+			else {
+				canvas->active_input_box = (wzrd_handle){ 0 };
+			}*/
 	}
 }
 
@@ -944,8 +975,8 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 	// Dragging
 	if (wzrd_handle_is_valid(canvas->dragged_box.handle))
 	{
-		canvas->dragged_box.x_do_not_touch += canvas->mouse_delta.x;
-		canvas->dragged_box.y_do_not_touch += canvas->mouse_delta.y;
+		canvas->dragged_box.x_internal += canvas->mouse_delta.x;
+		canvas->dragged_box.y_internal += canvas->mouse_delta.y;
 
 		wzrd_crate(1, canvas->dragged_box);
 	}
@@ -972,12 +1003,12 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 			for (int j = 0; j < parent->children_count; ++j)
 			{
 				wzrd_box* child = &canvas->boxes[parent->children[j]];
-				children_w += child->w_do_not_touch;
-				children_h += child->h_do_not_touch;
+				children_w += child->w_internal;
+				children_h += child->h_internal;
 			}
 
-			available_w = parent->w_do_not_touch - parent_style.pad_left - parent_style.pad_right - 4 * WZRD_BORDER_SIZE;
-			available_h = parent->h_do_not_touch - parent_style.pad_top - parent_style.pad_bottom - 4 * WZRD_BORDER_SIZE;
+			available_w = parent->w_internal - parent_style.pad_left - parent_style.pad_right - 4 * WZRD_BORDER_SIZE;
+			available_h = parent->h_internal - parent_style.pad_top - parent_style.pad_bottom - 4 * WZRD_BORDER_SIZE;
 
 			if (parent->children_count)
 			{
@@ -994,55 +1025,55 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 			wzrd_box* child = &canvas->boxes[parent->children[j]];
 			wzrd_style child_style = wzrd_style_get(child->style);
 
-			if (child->w_do_not_touch == 0 && !child_style.fit_w)
+			if (child->w_internal == 0 && !child_style.fit_w)
 			{
 				if (parent_style.row_mode) {
-					child->w_do_not_touch = available_w - children_w;
+					child->w_internal = available_w - children_w;
 				}
 				else {
-					child->w_do_not_touch = available_w;
+					child->w_internal = available_w;
 				}
 
-				WZRD_ASSERT(child->w_do_not_touch > 0);
+				WZRD_ASSERT(child->w_internal > 0);
 			}
 
-			if (child->h_do_not_touch == 0 && !child_style.fit_h)
+			if (child->h_internal == 0 && !child_style.fit_h)
 			{
 				if (!parent_style.row_mode)
 				{
-					child->h_do_not_touch = available_h - children_h;
+					child->h_internal = available_h - children_h;
 				}
 				else
 				{
-					child->h_do_not_touch = available_h;
+					child->h_internal = available_h;
 				}
 
-				WZRD_ASSERT(child->h_do_not_touch > 0);
+				WZRD_ASSERT(child->h_internal > 0);
 			}
 
 			if (child_style.best_fit)
 			{
-				int ratio_a = parent->w_do_not_touch / parent->h_do_not_touch;
-				int ratio_b = child->w_do_not_touch / child->h_do_not_touch;
+				int ratio_a = parent->w_internal / parent->h_internal;
+				int ratio_b = child->w_internal / child->h_internal;
 				int ratio = 0;
 
 				//if (ratio_b >= ratio_a)
 				if (wzrd_int_compare(ratio_b, ratio_a) >= 0)
 				{
-					ratio = (int)(parent->w_do_not_touch / child->w_do_not_touch);
+					ratio = (int)(parent->w_internal / child->w_internal);
 				}
 				else
 				{
-					ratio = (int)(parent->h_do_not_touch / child->h_do_not_touch);
+					ratio = (int)(parent->h_internal / child->h_internal);
 				}
 
-				child->w_do_not_touch = child->w_do_not_touch * ratio;
-				child->h_do_not_touch = child->h_do_not_touch * ratio;
+				child->w_internal = child->w_internal * ratio;
+				child->h_internal = child->h_internal * ratio;
 
 			}
 
-			WZRD_ASSERT(child->w_do_not_touch > 0);
-			WZRD_ASSERT(child->h_do_not_touch > 0);
+			WZRD_ASSERT(child->w_internal > 0);
+			WZRD_ASSERT(child->h_internal > 0);
 		}
 
 		// Calcuate size for free children
@@ -1050,16 +1081,16 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		{
 			wzrd_box* child = &canvas->boxes[parent->free_children[j]];
 
-			if (!child->w_do_not_touch)
+			if (!child->w_internal)
 			{
 
-				child->w_do_not_touch = parent->w_do_not_touch;
+				child->w_internal = parent->w_internal;
 
 			}
-			if (!child->h_do_not_touch)
+			if (!child->h_internal)
 			{
 
-				child->h_do_not_touch = parent->h_do_not_touch;
+				child->h_internal = parent->h_internal;
 			}
 		}
 
@@ -1093,23 +1124,23 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		{
 			wzrd_box child = canvas->boxes[parent->children[j]];
 
-			if (parent->h_do_not_touch > max_child_h)
+			if (parent->h_internal > max_child_h)
 			{
-				max_child_h = child.h_do_not_touch;
+				max_child_h = child.h_internal;
 			}
 
-			if (parent->w_do_not_touch > max_child_w)
+			if (parent->w_internal > max_child_w)
 			{
-				max_child_w = child.w_do_not_touch;
+				max_child_w = child.w_internal;
 			}
 
 			if (parent_style.row_mode)
 			{
-				parent->content_size.x += child.w_do_not_touch;
+				parent->content_size.x += child.w_internal;
 			}
 			else
 			{
-				parent->content_size.y += child.h_do_not_touch;
+				parent->content_size.y += child.h_internal;
 			}
 		}
 
@@ -1125,15 +1156,15 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		// Handle scrollbar
 		if (parent->clip && parent->scrollbar_x && parent->scrollbar_y)
 		{
-			int x = parent->x_do_not_touch + parent->w_do_not_touch - 40;
-			int y = parent->y_do_not_touch;
+			int x = parent->x_internal + parent->w_internal - 40;
+			int y = parent->y_internal;
 			const int button_height = 10;
 
 			// Gray Area
 			wzrd_crate(2,
 				(wzrd_box) {
-				.x_do_not_touch = x, .y_do_not_touch = y, .w_do_not_touch = 40,
-					.h_do_not_touch = parent->h_do_not_touch,
+				.x_internal = x, .y_internal = y, .w_internal = 40,
+					.h_internal = parent->h_internal,
 					.style = wzrd_style_create((wzrd_style) {
 
 					.border_type = BorderType_None,
@@ -1144,54 +1175,54 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 			// Top button
 			wzrd_crate(2,
 				(wzrd_box) {
-				.x_do_not_touch = x, .y_do_not_touch = y, .w_do_not_touch = 40,
-					.h_do_not_touch = button_height,
+				.x_internal = x, .y_internal = y, .w_internal = 40,
+					.h_internal = button_height,
 			});
 
 			// Bottom button
 			wzrd_crate(2,
 				(wzrd_box) {
-				.x_do_not_touch = x,
-					.y_do_not_touch = parent->y_do_not_touch + parent->h_do_not_touch - button_height,
-					.w_do_not_touch = 40,
-					.h_do_not_touch = button_height,
+				.x_internal = x,
+					.y_internal = parent->y_internal + parent->h_internal - button_height,
+					.w_internal = 40,
+					.h_internal = button_height,
 					.style = wzrd_style_create((wzrd_style) {
 					.color = EGUI_GRAY,
 				})
 			});
 
 			// TODO: handle x axis scrollbar
-			if (parent->content_size.y > parent->h_do_not_touch)
+			if (parent->content_size.y > parent->h_internal)
 			{
-				int h = (parent->h_do_not_touch / parent->content_size.y) * (parent->h_do_not_touch - 2 * button_height);
+				int h = (parent->h_internal / parent->content_size.y) * (parent->h_internal - 2 * button_height);
 
 				wzrd_crate(2,
 					(wzrd_box) {
-					.x_do_not_touch = x, .y_do_not_touch = y + button_height + *parent->scrollbar_y, .w_do_not_touch = 40,
-						.h_do_not_touch = h,
+					.x_internal = x, .y_internal = y + button_height + *parent->scrollbar_y, .w_internal = 40,
+						.h_internal = h,
 				});
 
 				wzrd_box* box = wzrd_box_get_last();
 				if (wzrd_box_is_active(box))
 				{
-					int new_pos = parent->y_do_not_touch + button_height + *parent->scrollbar_y + canvas->mouse_delta.y;
-					if (new_pos >= parent->y_do_not_touch + button_height && new_pos + box->h_do_not_touch < parent->y_do_not_touch + parent->h_do_not_touch - button_height)
+					int new_pos = parent->y_internal + button_height + *parent->scrollbar_y + canvas->mouse_delta.y;
+					if (new_pos >= parent->y_internal + button_height && new_pos + box->h_internal < parent->y_internal + parent->h_internal - button_height)
 					{
 						*parent->scrollbar_y += canvas->mouse_delta.y;
 					}
 				}
 
-				int ratio = *parent->scrollbar_y / (parent->h_do_not_touch - 2 * button_height);
+				int ratio = *parent->scrollbar_y / (parent->h_internal - 2 * button_height);
 				parent_style.pad_top -= ratio * parent->content_size.y;
 			}
 			else
 			{
-				int h = parent->h_do_not_touch - 2 * button_height;
+				int h = parent->h_internal - 2 * button_height;
 
 				wzrd_crate(2,
 					(wzrd_box) {
-					.x_do_not_touch = x, .y_do_not_touch = parent->y_do_not_touch + button_height + *parent->scrollbar_y, .w_do_not_touch = 40,
-						.h_do_not_touch = h,
+					.x_internal = x, .y_internal = parent->y_internal + button_height + *parent->scrollbar_y, .w_internal = 40,
+						.h_internal = h,
 						//.name = wzrd_str_create("scroly")
 				});
 			}
@@ -1203,7 +1234,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		wzrd_box* parent = &canvas->boxes[i];
 		wzrd_style parent_style = wzrd_style_get(parent->style);
 
-		int x = parent->x_do_not_touch + parent_style.pad_left, y = parent->y_do_not_touch + parent_style.pad_top;
+		int x = parent->x_internal + parent_style.pad_left, y = parent->y_internal + parent_style.pad_top;
 
 		x += 2 * WZRD_BORDER_SIZE;
 		y += 2 * WZRD_BORDER_SIZE;
@@ -1213,16 +1244,16 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		for (int j = 0; j < parent->children_count; ++j) {
 			wzrd_box* child = &canvas->boxes[parent->children[j]];
 
-			if (child->w_do_not_touch > max_w)
-				max_w = child->w_do_not_touch;
+			if (child->w_internal > max_w)
+				max_w = child->w_internal;
 
-			if (child->h_do_not_touch > max_h)
-				max_h = child->h_do_not_touch;
+			if (child->h_internal > max_h)
+				max_h = child->h_internal;
 
 			if (parent_style.row_mode)
-				w += child->w_do_not_touch;
+				w += child->w_internal;
 			else
-				h += child->h_do_not_touch;
+				h += child->h_internal;
 		}
 
 		if (parent_style.row_mode)
@@ -1231,34 +1262,34 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 			h += parent_style.child_gap * (parent->children_count - 1);
 
 		if (parent_style.center_x && parent_style.row_mode) {
-			x += (parent->w_do_not_touch - 4 * WZRD_BORDER_SIZE - parent_style.pad_left - parent_style.pad_right) / 2 - w / 2;
+			x += (parent->w_internal - 4 * WZRD_BORDER_SIZE - parent_style.pad_left - parent_style.pad_right) / 2 - w / 2;
 		}
 		if (parent_style.center_y && !parent_style.row_mode) {
-			y += (parent->h_do_not_touch - 4 * WZRD_BORDER_SIZE - parent_style.pad_top - parent_style.pad_bottom) / 2 - h / 2;
+			y += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent_style.pad_top - parent_style.pad_bottom) / 2 - h / 2;
 		}
 
 		// Calc positions
 		for (int j = 0; j < parent->children_count; ++j) {
 			wzrd_box* child = &canvas->boxes[parent->children[j]];
 
-			child->x_do_not_touch += x;
-			child->y_do_not_touch += y;
+			child->x_internal += x;
+			child->y_internal += y;
 
 			if (parent_style.center_y && parent_style.row_mode) {
-				child->y_do_not_touch += (parent->h_do_not_touch - 4 * WZRD_BORDER_SIZE - parent_style.pad_top
-					- parent_style.pad_bottom) / 2 - child->h_do_not_touch / 2;
+				child->y_internal += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent_style.pad_top
+					- parent_style.pad_bottom) / 2 - child->h_internal / 2;
 			}
 			if (parent_style.center_x && !parent_style.row_mode) {
-				child->x_do_not_touch += (parent->w_do_not_touch - 4 * WZRD_BORDER_SIZE -
-					parent_style.pad_top - parent_style.pad_bottom) / 2 - child->w_do_not_touch / 2;
+				child->x_internal += (parent->w_internal - 4 * WZRD_BORDER_SIZE -
+					parent_style.pad_top - parent_style.pad_bottom) / 2 - child->w_internal / 2;
 			}
 
 			if (parent_style.row_mode) {
-				x += child->w_do_not_touch;
+				x += child->w_internal;
 				x += parent_style.child_gap;
 			}
 			else {
-				y += child->h_do_not_touch;
+				y += child->h_internal;
 				y += parent_style.child_gap;
 			}
 		}
@@ -1267,8 +1298,8 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		for (int j = 0; j < parent->free_children_count; ++j) {
 			wzrd_box* child = &canvas->boxes[parent->free_children[j]];
 
-			child->x_do_not_touch += parent->x_do_not_touch;
-			child->y_do_not_touch += parent->y_do_not_touch;
+			child->x_internal += parent->x_internal;
+			child->y_internal += parent->y_internal;
 		}
 	}
 
@@ -1277,7 +1308,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 		for (int j = 0; j < canvas->boxes[i].children_count; ++j) {
 			wzrd_box* owner = canvas->boxes + i;
 			wzrd_box* child = canvas->boxes + canvas->boxes[i].children[j];
-			if (!wzrd_is_rect_inside_rect((wzrd_rect) { child->x_do_not_touch, child->y_do_not_touch, child->w_do_not_touch, child->h_do_not_touch }, (wzrd_rect) { owner->x_do_not_touch, owner->y_do_not_touch, owner->w_do_not_touch, owner->h_do_not_touch })) {
+			if (!wzrd_is_rect_inside_rect((wzrd_rect_struct) { child->x_internal, child->y_internal, child->w_internal, child->h_internal }, (wzrd_rect_struct) { owner->x_internal, owner->y_internal, owner->w_internal, owner->h_internal })) {
 				//owner->color = EGUI_ORANGE;
 				//child->color = EGUI_RED;
 			}
@@ -1334,11 +1365,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				};
 			}
 
-			EguiRectDraw(buffer, (wzrd_rect) {
-				.x = box.x_do_not_touch,
-					.y = box.y_do_not_touch,
-					.h = box.h_do_not_touch,
-					.w = box.w_do_not_touch
+			EguiRectDraw(buffer, (wzrd_rect_struct) {
+				.x = box.x_internal,
+					.y = box.y_internal,
+					.h = box.h_internal,
+					.w = box.w_internal
 			},
 				box_style.color,
 				box.layer);
@@ -1346,26 +1377,26 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 			// Borders (1215 x 810)
 			int line_size = WZRD_BORDER_SIZE;
 
-			wzrd_rect top0 = (wzrd_rect){ box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch - line_size, line_size };
-			wzrd_rect left0 = (wzrd_rect){ box.x_do_not_touch, box.y_do_not_touch, line_size, box.h_do_not_touch };
+			wzrd_rect_struct top0 = (wzrd_rect_struct){ box.x_internal, box.y_internal, box.w_internal - line_size, line_size };
+			wzrd_rect_struct left0 = (wzrd_rect_struct){ box.x_internal, box.y_internal, line_size, box.h_internal };
 
-			wzrd_rect top1 = (wzrd_rect){ box.x_do_not_touch + line_size, box.y_do_not_touch + line_size, box.w_do_not_touch - 3 * line_size, line_size };
-			wzrd_rect left1 = (wzrd_rect){ box.x_do_not_touch + line_size, box.y_do_not_touch + line_size, line_size, box.h_do_not_touch - line_size };
+			wzrd_rect_struct top1 = (wzrd_rect_struct){ box.x_internal + line_size, box.y_internal + line_size, box.w_internal - 3 * line_size, line_size };
+			wzrd_rect_struct left1 = (wzrd_rect_struct){ box.x_internal + line_size, box.y_internal + line_size, line_size, box.h_internal - line_size };
 
-			wzrd_rect bottom0 = (wzrd_rect){ box.x_do_not_touch, box.y_do_not_touch + box.h_do_not_touch - line_size, box.w_do_not_touch, line_size };
-			wzrd_rect right0 = (wzrd_rect){ box.x_do_not_touch + box.w_do_not_touch - line_size, box.y_do_not_touch, line_size, box.h_do_not_touch };
+			wzrd_rect_struct bottom0 = (wzrd_rect_struct){ box.x_internal, box.y_internal + box.h_internal - line_size, box.w_internal, line_size };
+			wzrd_rect_struct right0 = (wzrd_rect_struct){ box.x_internal + box.w_internal - line_size, box.y_internal, line_size, box.h_internal };
 
-			wzrd_rect bottom1 = (wzrd_rect){ box.x_do_not_touch + 1 * line_size, box.y_do_not_touch + box.h_do_not_touch - 2 * line_size, box.w_do_not_touch - 3 * line_size, line_size };
-			wzrd_rect right1 = (wzrd_rect){ box.x_do_not_touch + box.w_do_not_touch - 2 * line_size, box.y_do_not_touch + 1 * line_size, line_size, box.h_do_not_touch - 2 * line_size };
+			wzrd_rect_struct bottom1 = (wzrd_rect_struct){ box.x_internal + 1 * line_size, box.y_internal + box.h_internal - 2 * line_size, box.w_internal - 3 * line_size, line_size };
+			wzrd_rect_struct right1 = (wzrd_rect_struct){ box.x_internal + box.w_internal - 2 * line_size, box.y_internal + 1 * line_size, line_size, box.h_internal - 2 * line_size };
 
-			wzrd_is_rect_inside_rect(top0, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(left0, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(top1, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(left1, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(bottom0, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(right0, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(bottom1, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
-			wzrd_is_rect_inside_rect(right1, (wzrd_rect) { box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch });
+			wzrd_is_rect_inside_rect(top0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(left0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(top1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(left1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(bottom0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(right0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(bottom1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+			wzrd_is_rect_inside_rect(right1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
 
 			if (box_style.border_type == BorderType_Custom) {
 				// Draw top and left lines
@@ -1447,16 +1478,16 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				wzrd_draw_command command = { 0 };
 
 				if (item.size.x == 0)
-					item.size.x = box.w_do_not_touch;
+					item.size.x = box.w_internal;
 				if (item.size.y == 0)
-					item.size.y = box.h_do_not_touch;
+					item.size.y = box.h_internal;
 
 				if (item.type == wzrd_item_type_str) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_String,
 							.str = item.val.str,
-							.dest_rect = (wzrd_rect){ box.x_do_not_touch, box.y_do_not_touch,
-							box.w_do_not_touch, box.h_do_not_touch },
+							.dest_rect = (wzrd_rect_struct){ box.x_internal, box.y_internal,
+							box.w_internal, box.h_internal },
 							.color = item.color,
 							.z = box.layer
 					};
@@ -1464,24 +1495,24 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_Texture) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_Texture,
-						.dest_rect = (wzrd_rect){box.x_do_not_touch, box.y_do_not_touch, box.w_do_not_touch, box.h_do_not_touch},
-						.src_rect = (wzrd_rect) {0, 0, (int)item.val.texture.w, (int)item.val.texture.h},
+						.dest_rect = (wzrd_rect_struct){box.x_internal, box.y_internal, box.w_internal, box.h_internal},
+						.src_rect = (wzrd_rect_struct) {0, 0, (int)item.val.texture.w, (int)item.val.texture.h},
 						.texture = item.val.texture,
 						.z = box.layer
 					};
 
 					if (item.scissor) {
-						command.src_rect = (wzrd_rect){ 0, 0, command.dest_rect.w, command.dest_rect.h };
+						command.src_rect = (wzrd_rect_struct){ 0, 0, command.dest_rect.w, command.dest_rect.h };
 					}
 				}
 				else if (item.type == ItemType_Line) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_Line,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + item.val.rect.x,
-								box.y_do_not_touch + item.val.rect.y,
-								box.x_do_not_touch + item.val.rect.w,
-								box.y_do_not_touch + item.val.rect.h
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + item.val.rect.x,
+								box.y_internal + item.val.rect.y,
+								box.x_internal + item.val.rect.w,
+								box.y_internal + item.val.rect.h
 						},
 							.color = item.color,
 						.z = box.layer
@@ -1491,11 +1522,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_HorizontalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch / 2,
-								box.x_do_not_touch + box.w_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch / 2
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal,
+								box.y_internal + box.h_internal / 2,
+								box.x_internal + box.w_internal,
+								box.y_internal + box.h_internal / 2
 						},
 						.z = box.layer
 
@@ -1504,11 +1535,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_LeftHorizontalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch / 2,
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch + box.h_do_not_touch / 2
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal,
+								box.y_internal + box.h_internal / 2,
+								box.x_internal + box.w_internal / 2,
+								box.y_internal + box.h_internal / 2
 						},
 						.z = box.layer
 
@@ -1517,11 +1548,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_RightHorizontalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch + box.h_do_not_touch / 2,
-								box.x_do_not_touch + box.w_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch / 2
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + box.w_internal / 2,
+								box.y_internal + box.h_internal / 2,
+								box.x_internal + box.w_internal,
+								box.y_internal + box.h_internal / 2
 						},
 						.z = box.layer
 
@@ -1530,11 +1561,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_VerticalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch,
-								box.x_do_not_touch + box.w_do_not_touch / 2 + box.w_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + box.w_internal / 2,
+								box.y_internal,
+								box.x_internal + box.w_internal / 2 + box.w_internal,
+								box.y_internal + box.h_internal
 						},
 						.z = box.layer
 
@@ -1543,11 +1574,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_TopVerticalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch,
-								box.x_do_not_touch + box.w_do_not_touch / 2 + box.w_do_not_touch,
-								box.y_do_not_touch + box.h_do_not_touch / 2
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + box.w_internal / 2,
+								box.y_internal,
+								box.x_internal + box.w_internal / 2 + box.w_internal,
+								box.y_internal + box.h_internal / 2
 						},
 						.z = box.layer
 					};
@@ -1555,11 +1586,11 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_BottomVerticalDottedLine) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch + box.h_do_not_touch / 2,
-								box.x_do_not_touch + box.w_do_not_touch / 2,
-								box.y_do_not_touch + box.h_do_not_touch
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + box.w_internal / 2,
+								box.y_internal + box.h_internal / 2,
+								box.x_internal + box.w_internal / 2,
+								box.y_internal + box.h_internal
 						},
 						.z = box.layer
 
@@ -1568,9 +1599,9 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				else if (item.type == ItemType_Rect) {
 					command = (wzrd_draw_command){
 						.type = DrawCommandType_Rect,
-							.dest_rect = (wzrd_rect){
-								box.x_do_not_touch + item.val.rect.x,
-								box.y_do_not_touch + item.val.rect.y,
+							.dest_rect = (wzrd_rect_struct){
+								box.x_internal + item.val.rect.x,
+								box.y_internal + item.val.rect.y,
 								item.val.rect.w,
 								item.val.rect.h
 						},
@@ -1596,7 +1627,7 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 				buffer->commands[buffer->count++] = (wzrd_draw_command){
 					.type = DrawCommandType_Clip,
-					.dest_rect = (wzrd_rect) {box.x_do_not_touch + 2 * WZRD_BORDER_SIZE, box.y_do_not_touch + 2 * WZRD_BORDER_SIZE, box.w_do_not_touch - 4 * WZRD_BORDER_SIZE, box.h_do_not_touch - 4 * WZRD_BORDER_SIZE},
+					.dest_rect = (wzrd_rect) {box.x_internal + 2 * WZRD_BORDER_SIZE, box.y_internal + 2 * WZRD_BORDER_SIZE, box.w_internal - 4 * WZRD_BORDER_SIZE, box.h_internal - 4 * WZRD_BORDER_SIZE},
 					.z = box.layer
 				};
 			}*/
@@ -1620,16 +1651,36 @@ void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* 
 	}
 	canvas = 0;
 }
+bool egui_button_raw_begin(wzrd_box box) {
+	bool result = false;
+	wzrd_style style = wzrd_style_get(box.style);
+	box.type = wzrd_box_type_button;
+	box.style = wzrd_style_create(style);
+
+	wzrd_box_begin(box);
+
+	if (wzrd_handle_is_equal(wzrd_box_get_from_top_of_stack()->handle, canvas->released_item)) {
+		result = true;
+	}
+
+	return result;
+}
+
+void  egui_button_raw_end() {
+	wzrd_box_end();
+}
 
 bool EguiButtonIcon2(wzrd_texture texture) {
 	bool result = false;
 	result |= egui_button_raw_begin((wzrd_box) {
-		.w_do_not_touch = 24, .h_do_not_touch = 22,
-			.style = wzrd_style_create((wzrd_style) { .center_x = true, .center_y = true })
+
+		.style = wzrd_style_create((wzrd_style) { .w = 24, .h = 22, .center_x = true, .center_y = true })
 	});
 	{
 		result |= egui_button_raw_begin((wzrd_box) {
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None }), .w_do_not_touch = 10, .h_do_not_touch = 10
+			.style = wzrd_style_create((wzrd_style) {
+				.border_type = BorderType_None, .w = 10, .h = 10
+			}),
 		});
 		{
 			wzrd_item_add((Item) {
@@ -1643,12 +1694,15 @@ bool EguiButtonIcon2(wzrd_texture texture) {
 
 	return result;
 }
-bool wzrd_button_icon3(wzrd_box box, Item item) {
+
+bool wzrd_button_sized(wzrd_box box, Item item) {
 	bool result = false;
 	result |= egui_button_raw_begin(box);
 	{
 		result |= egui_button_raw_begin((wzrd_box) {
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None, }), .w_do_not_touch = 16, .h_do_not_touch = 16
+			.style = wzrd_style_create((wzrd_style) {
+				.border_type = BorderType_None, .w = 16, .h = 16
+			})
 		});
 		{
 			wzrd_item_add(item);
@@ -1665,7 +1719,8 @@ bool wzrd_button_icon2(wzrd_box box, wzrd_texture texture) {
 	result |= egui_button_raw_begin(box);
 	{
 		result |= egui_button_raw_begin((wzrd_box) {
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None, }), .w_do_not_touch = 16, .h_do_not_touch = 16
+			.style = wzrd_style_create((wzrd_style) { .w = 16, .h = 16, .border_type = BorderType_None, }),
+
 		});
 		{
 			wzrd_item_add((Item) {
@@ -1680,16 +1735,16 @@ bool wzrd_button_icon2(wzrd_box box, wzrd_texture texture) {
 	return result;
 }
 
-wzrd_rect wzrd_box_get_rect(wzrd_box* box) {
-	if (!box)
-	{
-		return (wzrd_rect) { 0 };
-	}
-
-	wzrd_rect result = (wzrd_rect){ box->x_do_not_touch, box->y_do_not_touch, box->w_do_not_touch, box->h_do_not_touch };
-
-	return result;
-}
+//wzrd_rect wzrd_box_get_rect(wzrd_box* box) {
+//	if (!box)
+//	{
+//		return (wzrd_rect) { 0 };
+//	}
+//
+//	wzrd_rect result = (wzrd_rect){ box->x_do_not_touch, box->y_do_not_touch, box->w_do_not_touch, box->h_do_not_touch };
+//
+//	return result;
+//}
 
 bool IsActive() {
 	if (wzrd_handle_is_equal(wzrd_box_get_from_top_of_stack()->handle, canvas->active_item)) {
@@ -1701,11 +1756,11 @@ bool IsActive() {
 
 void wzrd_toggle_icon(wzrd_texture texture, bool* active) {
 	bool result = false;
-	result |= egui_button_raw_begin((wzrd_box) { .w_do_not_touch = 24, .h_do_not_touch = 22, .style = wzrd_style_create((wzrd_style) { .center_x = true, .center_y = true }) });
+	result |= egui_button_raw_begin((wzrd_box) { .style = wzrd_style_create((wzrd_style) { .w = 24, .h = 22, .center_x = true, .center_y = true }) });
 	{
 
-		result |= egui_button_raw_begin((wzrd_box) { 
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None, }), .w_do_not_touch = 16, .h_do_not_touch = 16
+		result |= egui_button_raw_begin((wzrd_box) {
+			.style = wzrd_style_create((wzrd_style) { .w = 16, .h = 16, .border_type = BorderType_None, }),
 		});
 		{
 			wzrd_item_add((Item) {
@@ -1735,14 +1790,14 @@ void wzrd_toggle_icon(wzrd_texture texture, bool* active) {
 bool wzrd_button_icon(wzrd_texture texture) {
 	bool result = false;
 	bool active = false;
-	result |= egui_button_raw_begin((wzrd_box) { .w_do_not_touch = 24, .h_do_not_touch = 22,
-		.style = wzrd_style_create((wzrd_style) { .center_x = true, .center_y = true })
+	result |= egui_button_raw_begin((wzrd_box) {
+		.style = wzrd_style_create((wzrd_style) { .w = 24, .h = 22, .center_x = true, .center_y = true })
 	});
 	{
 		active = IsActive();
 
 		result |= egui_button_raw_begin((wzrd_box) {
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None, }), .w_do_not_touch = 16, .h_do_not_touch = 16
+			.style = wzrd_style_create((wzrd_style) { .w = 16, .h = 16, .border_type = BorderType_None, }),
 		});
 		{
 			active |= IsActive();
@@ -1764,16 +1819,22 @@ bool wzrd_button_icon(wzrd_texture texture) {
 	return result;
 }
 
-void EguiToggle3(wzrd_box box, wzrd_str str, bool* active) {
+void wzrd_toggle(wzrd_str str, bool* active) {
 	bool b1 = false, b2 = false, a1 = false, a2 = false;
+	wzrd_box box = (wzrd_box){
+		.style = wzrd_style_create((wzrd_style) {
+			.center_x = true, .center_y = true, .w = 200, .h = 32
+})
+	};
 	b1 = egui_button_raw_begin(box);
 	{
 		b2 = egui_button_raw_begin((wzrd_box) {
 			.style = wzrd_style_create((wzrd_style) {
 				.border_type = BorderType_None,
 					//.color = wzrd_box_get_from_top_of_stack()->color,
+					.w = (int)str.len * FONT_WIDTH, .h = WZRD_FONT_HEIGHT
 			}),
-				.w_do_not_touch = (int)str.len * FONT_WIDTH, .h_do_not_touch = WZRD_FONT_HEIGHT
+
 		});
 		{
 			wzrd_text_add(str);
@@ -1808,27 +1869,18 @@ bool egui_button_raw_begin_on_half_click(wzrd_box box) {
 	return result;
 }
 
-bool EguiToggle2(wzrd_box box, wzrd_str str, wzrd_color color, bool active)
+bool wzrd_label_button_half_click(wzrd_box box, wzrd_str str)
 {
-	(void)color;
 	bool b1 = false, b2 = false;
 	b1 = egui_button_raw_begin_on_half_click(box);
 	{
-		if (active)
-		{
-			//wzrd_box_get_from_top_of_stack()->color = color;
-		}
-
 		b2 = egui_button_raw_begin_on_half_click((wzrd_box) {
-			.w_do_not_touch = (int)str.len * FONT_WIDTH, .h_do_not_touch = WZRD_FONT_HEIGHT,
 			.style = wzrd_style_create((wzrd_style) {
 				.border_type = BorderType_None,
-					//.color = wzrd_box_get_from_top_of_stack()->color,
+					.w = (int)str.len * FONT_WIDTH, .h = WZRD_FONT_HEIGHT,
 			})
 		});
 		{
-			//if (active) wzrd_box_get_from_top_of_stack()->color = color;
-
 			wzrd_text_add(str);
 		}
 		egui_button_raw_end();
@@ -1875,26 +1927,8 @@ bool EguiButton2(wzrd_box box, wzrd_str str, wzrd_color color) {
 	return result;
 }
 
-bool egui_button_raw_begin(wzrd_box box) {
-	bool result = false;
-	wzrd_style style = wzrd_style_get(box.style);
-	box.type = wzrd_box_type_button;
-	box.style = wzrd_style_create(style);
-	
-	wzrd_box_begin(box);
 
-	if (wzrd_handle_is_equal(wzrd_box_get_from_top_of_stack()->handle, canvas->released_item)) {
-		result = true;
-	}
-
-	return result;
-}
-
-void  egui_button_raw_end() {
-	wzrd_box_end();
-}
-
-bool EguiButtonRaw(wzrd_box box)
+bool wzrd_button_raw(wzrd_box box)
 {
 	bool result = egui_button_raw_begin(box);
 	egui_button_raw_end();
@@ -1913,10 +1947,11 @@ void wzrd_label(wzrd_str str) {
 	canvas->get_string_size(str.str, &w, &h);
 
 	wzrd_box_begin((wzrd_box) {
-		.w_do_not_touch = w,
-			.h_do_not_touch = h,
-			.style = wzrd_style_create((wzrd_style) {
-			.border_type = BorderType_None,
+
+		.style = wzrd_style_create((wzrd_style) {
+			.w = w,
+				.h = h,
+				.border_type = BorderType_None,
 				.color = canvas->style.background_color
 		})
 	});
@@ -1937,11 +1972,12 @@ bool wzrd_is_active() {
 
 void wzrd_input_box(char* str, int* len, int max_num_keys) {
 	wzrd_box_begin((wzrd_box) {
-		.w_do_not_touch = FONT_WIDTH * (int)max_num_keys + 8,
-			.h_do_not_touch = WZRD_FONT_HEIGHT + 8,
-			.type = wzrd_box_type_input_box,
+
+		.type = wzrd_box_type_input_box,
 			.style = wzrd_style_create((wzrd_style) {
-			.color = EGUI_WHITE,
+			.w = FONT_WIDTH * (int)max_num_keys + 8,
+				.h = WZRD_FONT_HEIGHT + 8,
+				.color = EGUI_WHITE,
 				.pad_left = 2,
 				.pad_top = 2,
 				.pad_bottom = 2,
@@ -1953,9 +1989,9 @@ void wzrd_input_box(char* str, int* len, int max_num_keys) {
 	});
 	{
 		wzrd_box_begin((wzrd_box) {
-			.w_do_not_touch = FONT_WIDTH * (int)max_num_keys, .h_do_not_touch = WZRD_FONT_HEIGHT,
-				.type = wzrd_box_type_input_box,
+			.type = wzrd_box_type_input_box,
 				.style = wzrd_style_create((wzrd_style) {
+				.w = FONT_WIDTH * (int)max_num_keys, .h = WZRD_FONT_HEIGHT,
 					.border_type = BorderType_None, .color = EGUI_WHITE
 			}),
 		});
@@ -2029,40 +2065,41 @@ wzrd_str wzrd_str_create(char* str)
 	return result;
 }
 
-bool EguiLabelButtonBegin(wzrd_str str) {
+bool wzrd_label_button_begin(wzrd_str str) {
 	wzrd_v2 v = { FONT_WIDTH * (int)str.len, WZRD_FONT_HEIGHT };
 	wzrd_box_begin((wzrd_box) {
-		.w_do_not_touch = v.x,
-			.h_do_not_touch = v.y,
-			.type = wzrd_box_type_button,
+
+		.type = wzrd_box_type_button,
 
 			.style = wzrd_style_create((wzrd_style) {
 			.border_type = BorderType_None,
+				.w = v.x,
+				.h = v.y,
 				//.color = wzrd_box_get_from_top_of_stack()->color,
 		})
-		//.flat_button = true,
-		//.is_button = true
+			//.flat_button = true,
+			//.is_button = true
 	});
-		{
-			wzrd_text_add(str);
-		}
+	{
+		wzrd_text_add(str);
+	}
 
-		bool result = false;
-		if (wzrd_box_is_half_clicked(wzrd_box_get_last()))
-		{
-			result = true;
-		}
+	bool result = false;
+	if (wzrd_box_is_half_clicked(wzrd_box_get_last()))
+	{
+		result = true;
+	}
 
-		return result;
+	return result;
 }
 
-void EguiLabelButtonEnd() {
+void wzrd_label_button_end() {
 	wzrd_box_end();
 }
 
-bool EguiLabelButton(wzrd_str str) {
-	bool result = EguiLabelButtonBegin(str);
-	EguiLabelButtonEnd();
+bool wzrd_label_button(wzrd_str str) {
+	bool result = wzrd_label_button_begin(str);
+	wzrd_label_button_end();
 	return result;
 }
 
@@ -2074,18 +2111,17 @@ void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, 
 	if (!*active) return;
 
 	wzrd_crate_begin(layer, (wzrd_box) {
-		.x_do_not_touch = pos->x, .y_do_not_touch = pos->y, .w_do_not_touch = size.x, .h_do_not_touch = size.y,
+		.style = wzrd_style_create((wzrd_style) { .x = pos->x, .y = pos->y, .w = size.x, .h = size.y, })
 	});
 	bool close = false;
-	
-		wzrd_box_begin((wzrd_box) {
-			.h_do_not_touch = 28,
-			.style = wzrd_style_create((wzrd_style) { .border_type = BorderType_None, .row_mode = true })
+
+	wzrd_box_begin((wzrd_box) {
+		.style = wzrd_style_create((wzrd_style) { .h = 28, .border_type = BorderType_None, .row_mode = true })
 	});
 	{
-			wzrd_box_begin((wzrd_box) {
-				.style = wzrd_style_create((wzrd_style){
-					.border_type = BorderType_None,
+		wzrd_box_begin((wzrd_box) {
+			.style = wzrd_style_create((wzrd_style) {
+				.border_type = BorderType_None,
 					.color = (wzrd_color){ 57, 77, 205, 255 }
 			})
 		});
@@ -2098,25 +2134,26 @@ void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, 
 		wzrd_box_end();
 
 		wzrd_box_begin((wzrd_box) {
-			.w_do_not_touch = 28,
-				.style = wzrd_style_create((wzrd_style) {
-				.border_type = BorderType_None, .row_mode = true,
+
+			.style = wzrd_style_create((wzrd_style) {
+				.w = 28,
+					.border_type = BorderType_None, .row_mode = true,
 					.center_x = true, .center_y = true,
 					.color = (wzrd_color){ 57, 77, 205, 255 },
 			})
 		});
 		{
 			bool b = egui_button_raw_begin((wzrd_box) {
-				.w_do_not_touch = 20, .h_do_not_touch = 20,
-					.style = wzrd_style_create((wzrd_style) {
-					.center_x = true, .center_y = true
+
+				.style = wzrd_style_create((wzrd_style) {
+					.center_x = true, .center_y = true, .w = 20, .h = 20,
 				})
 			});
 			{
 				b |= egui_button_raw_begin((wzrd_box) {
-					.w_do_not_touch = 12, .h_do_not_touch = 12,
-						.style = wzrd_style_create((wzrd_style) {
-						.border_type = BorderType_None
+					.style = wzrd_style_create((wzrd_style) {
+						.border_type = BorderType_None,
+							.w = 12, .h = 12,
 					})
 				});
 				{
@@ -2167,11 +2204,11 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 	});
 	{
 		wzrd_box box = (wzrd_box){
-				.w_do_not_touch = w,
-				.h_do_not_touch = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
+
 
 				.style = wzrd_style_create((wzrd_style) {
-
+						.w = w,
+				.h = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
 			.center_x = true, .center_y = true,
 				.pad_left = 2,
 				.pad_top = 2,
@@ -2180,6 +2217,8 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 				.color = EGUI_WHITE,
 			})
 		};
+
+		wzrd_style box_style = wzrd_style_get(box.style);
 
 		int parent = 0;
 		EguiButton2(box, texts[*selected_text], EGUI_DARKBLUE);
@@ -2190,10 +2229,11 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 
 		//bool* toggle2;
 
-		bool button = wzrd_button_icon3((wzrd_box) {
-			.w_do_not_touch = 20, .h_do_not_touch = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
-				.style = wzrd_style_create((wzrd_style) {
-				.center_x = true, .center_y = true
+		bool button = wzrd_button_sized((wzrd_box) {
+
+			.style = wzrd_style_create((wzrd_style) {
+				.center_x = true, .center_y = true,
+					.w = 20, .h = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
 			})
 		}, (Item) { .type = ItemType_DropdownIcon });
 		if (button)
@@ -2207,12 +2247,12 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 			//static wzrd_v2i pos;
 
 			wzrd_crate_begin(2, (wzrd_box) {
-				.y_do_not_touch = box.h_do_not_touch,
-					.w_do_not_touch = box.w_do_not_touch + 4 * WZRD_BORDER_SIZE,
-					.h_do_not_touch = box.h_do_not_touch * texts_count + 4 * WZRD_BORDER_SIZE,
-					//.name = wzrd_str_create("%s-dropdown", wzrd_box_get_from_top_of_stack()->name.val),
-					.style = wzrd_style_create((wzrd_style) {
-					.border_type = BorderType_Black,
+
+				//.name = wzrd_str_create("%s-dropdown", wzrd_box_get_from_top_of_stack()->name.val),
+				.style = wzrd_style_create((wzrd_style) {
+					.border_type = BorderType_Black, .y = box_style.h,
+						.w = box_style.w + 4 * WZRD_BORDER_SIZE,
+						.h = box_style.h * texts_count + 4 * WZRD_BORDER_SIZE,
 				})
 			});
 			{
@@ -2233,15 +2273,10 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 }
 
 bool wzrd_button(wzrd_str str) {
-	wzrd_v2 v = { FONT_WIDTH * (int)str.len + 12, WZRD_FONT_HEIGHT + 12 };
+
 	bool result = egui_button_raw_begin((wzrd_box) {
-		.w_do_not_touch = v.x,
-			.h_do_not_touch = v.y,
-			//.pad_left = 2,
-			//.pad_right = 2,
-			//.pad_bottom = 2,
-			//.pad_top = 2,
-			.style = canvas->button_style
+
+		.style = canvas->button_style
 	});
 	{
 		result |= egui_button_raw_begin((wzrd_box) {
@@ -2324,9 +2359,11 @@ bool wzrd_handle_is_child_of_handle(wzrd_handle a, wzrd_handle b)
 }
 
 void wzrd_label_list(wzrd_str* item_names, unsigned int count,
-	wzrd_box box, wzrd_handle* handles, unsigned int* selected, bool* is_selected)
+	wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected)
 {
-	wzrd_box_begin(box);
+	wzrd_box_begin((wzrd_box) {
+		.style = wzrd_style_create((wzrd_style) { .color = EGUI_WHITE, .w = size.x, .h = size.y })
+	});
 	{
 		if (IsClicked()) {
 			*selected = 0;
@@ -2344,15 +2381,15 @@ void wzrd_label_list(wzrd_str* item_names, unsigned int count,
 			char str[32];
 			sprintf_s(str, 32, "%d label list %d", wzrd_box_get_last()->handle.handle, i);
 
-			bool is_label_clicked = EguiToggle2((wzrd_box) {
+			bool is_label_clicked = wzrd_label_button_half_click((wzrd_box) {
 				.handle = wzrd_unique_handle_create(wzrd_str_create(str)),
-					.h_do_not_touch = 32,
+
 					.style = wzrd_style_create((wzrd_style) {
-					.center_x = true, .center_y = true,
+					.center_x = true, .center_y = true, .h = 32,
 						.border_type = BorderType_None, .color = EGUI_WHITE,
 				})
 			},
-				item_names[i], (wzrd_color) { 0, 150, 150, 255 }, active);
+				item_names[i]);
 
 			if (handles)
 			{
@@ -2376,11 +2413,11 @@ void wzrd_label_list(wzrd_str* item_names, unsigned int count,
 }
 
 void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items,
-	wzrd_box box, unsigned int* selected, bool* is_selected) {
+	wzrd_v2 size, unsigned int* selected, bool* is_selected) {
 
 	wzrd_handle handles[MAX_NUM_LABELS] = { 0 };
 
-	wzrd_label_list(item_names, count, box, handles, selected, is_selected);
+	wzrd_label_list(item_names, count, size, handles, selected, is_selected);
 
 	// Ordering
 	{
@@ -2427,36 +2464,41 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 		// Set hover position
 		if (hovered_parent)
 		{
-			if (canvas->mouse_pos.y > hovered_parent->y_do_not_touch + hovered_parent->h_do_not_touch / 2)
+			wzrd_style hovered_parent_style = wzrd_style_get(hovered_parent->style);
+
+			if (canvas->mouse_pos.y > hovered_parent_style.y + hovered_parent_style.h / 2)
 			{
 				is_bottom = true;
 			}
+
+			// Label grabbed and hovering over another one
+			if (wzrd_handle_is_valid(active_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, active_label))
+			{
+
+				wzrd_box* p = wzrd_box_get_by_handle(hovered_label);
+				wzrd_box* c = 0;
+				if (is_bottom)
+				{
+					c = wzrd_box_create((wzrd_box) {
+						.free = true,
+							.style = wzrd_style_create((wzrd_style) {
+							.border_type = BorderType_None, .color = EGUI_PURPLE,
+								.y = hovered_parent_style.h - 2, .h = 2,
+						})
+					});
+
+					wzrd_box_add_free_child(p, c);
+				}
+				else
+				{
+					/*	 c = wzrd_box_create((wzrd_box) {
+							.h = 10, .border_type = BorderType_None, .color = EGUI_BROWN, .free = true
+						});*/
+				}
+			}
 		}
 
-		// Label grabbed and hovering over another one
-		if (wzrd_handle_is_valid(active_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, active_label))
-		{
 
-			wzrd_box* p = wzrd_box_get_by_handle(hovered_label);
-			wzrd_box* c = 0;
-			if (is_bottom)
-			{
-				c = wzrd_box_create((wzrd_box) {
-					.y_do_not_touch = hovered_parent->h_do_not_touch - 2, .h_do_not_touch = 2, .free = true,
-					.style = wzrd_style_create((wzrd_style) {
-						 .border_type = BorderType_None, .color = EGUI_PURPLE,
-					})
-				});
-
-				wzrd_box_add_free_child(p, c);
-			}
-			else
-			{
-				/*	 c = wzrd_box_create((wzrd_box) {
-						.h = 10, .border_type = BorderType_None, .color = EGUI_BROWN, .free = true
-					});*/
-			}
-		}
 
 		// Label released over another label
 		if (wzrd_handle_is_valid(released_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, released_label))
@@ -2491,10 +2533,22 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 
 }
 
+//(wzrd_str) {
+//	.str = name.val, .len = name.len
+// }
 
-bool wzrd_game_buttonesque(wzrd_box box) {
+bool wzrd_button_handle(wzrd_rect_struct rect, wzrd_color color, wzrd_str name) {
 
 	bool result = false;
+
+	wzrd_box box =
+		(wzrd_box){
+		.type = wzrd_box_type_button,
+			.style = wzrd_style_create((wzrd_style) {
+			.color = color, .border_type = BorderType_None, .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h,
+		}),
+			.handle = wzrd_unique_handle_create(name)
+	};
 
 	wzrd_crate_begin(1, box);
 	{
@@ -2506,10 +2560,6 @@ bool wzrd_game_buttonesque(wzrd_box box) {
 	return result;
 }
 
-void wzrd_slot() {
-
-}
-
 void wzrd_drag(bool* drag) {
 
 	if (canvas->mouse_left == WZRD_INACTIVE)
@@ -2519,9 +2569,10 @@ void wzrd_drag(bool* drag) {
 
 	if (!(*drag)) return;
 
+	wzrd_style dragged_box_style = wzrd_style_get(canvas->dragged_box.style);
 
-	canvas->dragged_box.x_do_not_touch += canvas->mouse_delta.x;
-	canvas->dragged_box.y_do_not_touch += canvas->mouse_delta.y;
+	dragged_box_style.x += canvas->mouse_delta.x;
+	dragged_box_style.y += canvas->mouse_delta.y;
 
 	wzrd_crate(1, canvas->dragged_box);
 }
@@ -2533,10 +2584,6 @@ bool wzrd_box_is_active(wzrd_box* box) {
 
 	return false;
 }
-
-
-
-
 
 bool wzrd_box_is_dragged(wzrd_box* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->dragged_item)) {
@@ -2572,6 +2619,27 @@ bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle) {
 //	return false;
 //}
 
+wzrd_box* wzrd_box_get_by_handle(wzrd_handle handle) {
+	if (!wzrd_handle_is_valid(handle))
+	{
+		return canvas->boxes;
+	}
+
+	wzrd_box* result = 0;
+	for (int i = 0; i < canvas->boxes_count; ++i)
+	{
+		if (canvas->boxes[i].handle.handle == handle.handle)
+		{
+			result = canvas->boxes + i;
+			break;
+		}
+	}
+
+	assert(result);
+
+	return result;
+}
+
 wzrd_box* wzrd_box_get_released()
 {
 	wzrd_box* result = 0;
@@ -2583,7 +2651,6 @@ wzrd_box* wzrd_box_get_released()
 
 	return result;
 }
-
 
 
 bool wzrd_is_releasing() {
@@ -2624,4 +2691,15 @@ bool wzrd_v2_is_inside_polygon(wzrd_v2 point, wzrd_polygon polygon) {
 	}
 
 	return inside;
+}
+
+void wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name)
+{
+	wzrd_crate(1, (wzrd_box) {
+		.style = wzrd_style_create((wzrd_style) {
+			.border_type = BorderType_None, .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h
+		})
+	});
+
+	wzrd_box_get_last()->handle = wzrd_unique_handle_create(name);
 }

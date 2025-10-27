@@ -429,7 +429,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	platform_begin();
 	{
 		static wzrd_canvas editor_gui, game_gui;
-		static wzrd_rect game_screen_rect;
+		static wzrd_rect_struct game_screen_rect;
 
 		// Editor
 		const bool enable_editor = true;
@@ -460,8 +460,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		}
 
 		// Game ui and stuff
-		wzrd_box* box = wzrd_box_get_by_name_from_canvas(&editor_gui, wzrd_str_create("Target"));
-		game_screen_rect = wzrd_box_get_rect(box);
+		wzrd_box* box = wzrd_box_find(&editor_gui, wzrd_str_create("Target"));
+		game_screen_rect = (wzrd_rect_struct){ box->x_internal, box->y_internal, box->w_internal, box->h_internal };
 		bool enable_game_input = false;
 		if (wzrd_box_is_hot(&editor_gui, box))
 		{
@@ -500,7 +500,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				(void)game_cursor;
 				(void)enable_game_input;
 				(void)scale;
-				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
+				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect_struct){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui_buffer);
 				
