@@ -439,7 +439,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		{ g_debug_text.val, g_debug_text.len };
 
 		if (enable_editor) {
-			static wzrd_draw_commands_buffer editor_buffer;
+			wzrd_draw_commands_buffer editor_buffer = { 0 };
 			wzrd_icons icons = game_icons_get();
 			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0, &debug_str);
 			platform_draw_wzrd(&editor_buffer);
@@ -463,7 +463,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		wzrd_box* box = wzrd_box_find(&editor_gui, wzrd_str_create("Target"));
 		game_screen_rect = (wzrd_rect_struct){ box->x_internal, box->y_internal, box->w_internal, box->h_internal };
 		bool enable_game_input = false;
-		if (wzrd_box_is_hot(&editor_gui, box))
+		if (wzrd_box_is_hot_using_canvas(&editor_gui, box))
 		{
 			enable_game_input = true;
 		}
@@ -495,15 +495,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			// Inside game editing gui
 			if (!g_game.run)
 			{
-				//v2 game_screen_size = (v2){ game_screen_rect.w, game_screen_rect.h };
 				unsigned int scale = (unsigned int)(game_screen_rect.w / game_target_texture_get().w);
-				(void)game_cursor;
-				(void)enable_game_input;
-				(void)scale;
 				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect_struct){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui_buffer);
-				
 				PlatformTextureEndTarget();
 			}
 		}

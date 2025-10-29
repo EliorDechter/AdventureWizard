@@ -36,7 +36,7 @@
 
 #define MAX_NUM_WIDGETS 128
 
-#define MAX_NUM_ITEMS 8
+#define MAX_NUM_ITEMS 32
 #define MAX_NUM_CHILDREN 256
 
 #define Stringify1(x) #x
@@ -286,7 +286,7 @@ typedef enum wzrd_cursor { wzrd_cursor_default, wzrd_cursor_hand, wzrd_cursor_ve
 typedef struct wzrd_canvas {
 
 	// Persistent
-	wzrd_handle hovered_item, hot_item_previous, active_item, clicked_item, half_clicked_item, released_item, dragged_item;
+	wzrd_handle hovered_item, hot_item_previous, active_item, clicked_item, activating_item, deactivating_item, dragged_item;
 	wzrd_handle right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
 	wzrd_handle active_input_box;
 	wzrd_handle hovered_items_list[MAX_NUM_HOVERED_ITEMS];
@@ -365,27 +365,29 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // GENERAL
-void wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
+wzrd_handle wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window, void (*get_string_size)(char*, int*, int*), int layer, wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
 void wzrd_end(wzrd_cursor* cursor, wzrd_draw_commands_buffer* buffer, wzrd_str* debug_str);
 
 // WIDGETS
-void wzrd_label(wzrd_str str);
-bool wzrd_label_button(wzrd_str str);
-bool wzrd_button_icon(wzrd_texture texture);
-bool wzrd_button(wzrd_str str);
+wzrd_handle wzrd_label_button(wzrd_str str, bool *handle, wzrd_handle parent);
+wzrd_handle wzrd_button_icon(wzrd_texture texture, bool *released, wzrd_handle parent);
+wzrd_handle wzrd_command_button(wzrd_str str, bool *b, wzrd_handle parent);
 void wzrd_dropdown(int* selected_text, const wzrd_str* str, int str_count, int w, bool* active);
-void wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, int layer);
+wzrd_handle wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, int layer, wzrd_handle parent);
 void wzrd_dialog_end(bool active);
-void wzrd_toggle(wzrd_str str, bool* active);
-void wzrd_toggle_icon(wzrd_texture texture, bool* active);
-void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items, wzrd_v2 size, unsigned int* selected, bool* is_selected);
-void wzrd_label_list(wzrd_str* item_names, unsigned int count, wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected);
-void wzrd_input_box(char* str, int* len, int max_num_keys);
-bool wzrd_button_handle(wzrd_rect_struct rect, wzrd_color color, wzrd_str name);
-void wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name);
-void wzrd_box_begin(wzrd_box box);
+wzrd_handle wzrd_command_toggle(wzrd_str str, bool* active, wzrd_handle parent);
+wzrd_handle wzrd_toggle_icon(wzrd_texture texture, bool* active, wzrd_handle parent);
+void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items, wzrd_v2 size, unsigned int* selected, bool* is_selected, wzrd_handle parent);
+void wzrd_label_list(wzrd_str* item_names, unsigned int count, wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected, wzrd_handle parent);
+void wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle parent);
+bool wzrd_button_handle(wzrd_rect_struct rect, wzrd_color color, wzrd_str name, wzrd_handle parent);
+wzrd_handle wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name, wzrd_handle parent);
+wzrd_handle wzrd_widget(wzrd_box box, wzrd_handle parent);
 void wzrd_box_end();
-void wzrd_box_do(wzrd_box box);
+wzrd_handle wzrd_vbox(wzrd_v2 size, wzrd_handle parent);
+wzrd_handle wzrd_widget(wzrd_box box_data, wzrd_handle parent);
+void wzrd_label(wzrd_str str, wzrd_handle parent);
+wzrd_handle wzrd_widget_free(wzrd_box box_data, wzrd_handle parent);
 
 // UTILS
 wzrd_str wzrd_str_create(char* str);
@@ -397,8 +399,9 @@ bool wzrd_is_releasing();
 wzrd_handle wzrd_unique_handle_create(wzrd_str str);
 bool wzrd_box_is_dragged(wzrd_box* box);
 void wzrd_box_resize(wzrd_v2* size);
-void wzrd_item_add(Item item);
-bool wzrd_box_is_hot(wzrd_canvas* canvas, wzrd_box* box);
+void wzrd_item_add(Item item, wzrd_handle box);
+bool wzrd_box_is_hot(wzrd_box* box);
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas *canvas, wzrd_box* box);
 bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 wzrd_style_handle wzrd_style_create(wzrd_style style);
 
