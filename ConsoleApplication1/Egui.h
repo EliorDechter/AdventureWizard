@@ -341,7 +341,7 @@ typedef struct wzrd_canvas {
 	int panel_skin, panel_border_skin, panel_border_click_skin, panel_structure, v_panel_layout, h_panel_layout;
 	int command_button_space, command_button_skin, command_button_structure, command_button_layout;
 	int toggle_icon_space;
-	int label_item_skin;
+	int label_item_skin, label_item_selected_skin;
 	int label_skin, label_structure;
 	int input_box_skin, input_box_structure, input_box_space, input_box_layout;
 	int command_button_on_skin;
@@ -412,16 +412,17 @@ wzrd_handle wzrd_command_toggle(wzrd_str str, bool* active, wzrd_handle parent);
 wzrd_handle wzrd_toggle_icon(wzrd_texture texture, bool* active, wzrd_handle parent);
 void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items, wzrd_v2 size, unsigned int* selected, bool* is_selected, wzrd_handle parent);
 void wzrd_label_list(wzrd_str* item_names, unsigned int count, wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected, wzrd_handle parent);
-void wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle parent);
+wzrd_handle wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle parent);
 wzrd_handle wzrd_handle_button(bool* active, wzrd_rect_struct rect, wzrd_color color, wzrd_str name, wzrd_handle parent);
 void wzrd_box_end();
 wzrd_handle wzrd_vbox(wzrd_v2 size, wzrd_handle parent);
 wzrd_handle wzrd_widget(wzrd_style style, wzrd_handle parent);
-void wzrd_label(wzrd_str str, wzrd_handle parent);
+wzrd_handle wzrd_label(wzrd_str str, wzrd_handle parent);
 wzrd_handle wzrd_widget_free(wzrd_style box_data, wzrd_handle parent);
 wzrd_handle wzrd_vbox_border(wzrd_v2 size, wzrd_handle parent);
 
 // UTILS
+void wzrd_box_add_child(wzrd_handle parent, wzrd_handle child);
 wzrd_handle wzrd_box_set_unique_handle(wzrd_handle handle, wzrd_str str);
 int wzrd_skin_create(wzrd_skin skin);
 int wzrd_structure_create(wzrd_structure structure);

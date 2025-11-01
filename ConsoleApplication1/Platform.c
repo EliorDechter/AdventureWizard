@@ -500,7 +500,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				PlatformTextureEndTarget();
 			}
 		}
-		//
 
 		// Debug view
 		str1024_concat(&g_debug_text, str1024_create(debug_str.str));
