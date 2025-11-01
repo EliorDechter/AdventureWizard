@@ -17,11 +17,9 @@ Handle handle_create(Handle_map* map) {
 	bool found = false;
 
 	int index = 0;
-	int generation = 0;
 	for (; index < HANDLES_COUNT_MAX; ++index) {
 		if (!map->handles[index].used) {
 			map->handles[index].used = true;
-			generation = map->handles[index].generation;
 			found = true;
 			break;
 		}

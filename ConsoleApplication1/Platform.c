@@ -38,6 +38,8 @@ void platform_string_get_size(char* str, int* w, int* h)
 	str128 line = { 0 };
 	size_t index = 0;
 	size_t str_len = strlen(str);
+	*w = 0;
+	*h = 0;
 	while (str[index])
 	{
 		line = (str128){ 0 };
@@ -141,13 +143,15 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
-void platform_draw_wzrd(wzrd_draw_commands_buffer* buffer) {
+void platform_draw_wzrd(wzrd_canvas *canvas) {
+
+	wzrd_draw_commands_buffer* buffer = &canvas->command_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
 		wzrd_draw_command command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Texture) {
-			PlatformTextureDrawFromSource((PlatformTexture) { command.texture.data, .h = command.texture.h, .h = command.texture.w },
+			PlatformTextureDrawFromSource((PlatformTexture) { command.texture.data, .h = command.texture.h, .w = command.texture.w },
 				(PlatformRect) {
 				(float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h
 			}, (PlatformRect) { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h }, (platform_color) { 255, 255, 255, 255 });
@@ -433,16 +437,14 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		// Editor
 		const bool enable_editor = true;
-		wzrd_cursor editor_cursor = wzrd_cursor_default;
 
 		wzrd_str debug_str =
 		{ g_debug_text.val, g_debug_text.len };
 
 		if (enable_editor) {
-			wzrd_draw_commands_buffer editor_buffer = { 0 };
 			wzrd_icons icons = game_icons_get();
-			editor_do(&editor_gui, &editor_buffer, &editor_cursor, game_target_texture_get(), icons, 0, &debug_str);
-			platform_draw_wzrd(&editor_buffer);
+			editor_do(&editor_gui, game_target_texture_get(), icons, &debug_str);
+			platform_draw_wzrd(&editor_gui);
 
 			static uint64_t samples[32];
 			static size_t samples_count;
@@ -482,10 +484,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			g_game.mouse_pos.x = mouse_x;
 			g_game.mouse_pos.y = mouse_y;
 
-			// Game
-			wzrd_cursor game_cursor = wzrd_cursor_default;
-			static wzrd_draw_commands_buffer game_gui_buffer;
-
 			// Run game
 			PlatformTextureBeginTarget(g_game.target_texture);
 			game_draw_screen_dots();
@@ -496,9 +494,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			if (!g_game.run)
 			{
 				unsigned int scale = (unsigned int)(game_screen_rect.w / game_target_texture_get().w);
-				game_gui_do(&game_gui_buffer, &game_gui, (wzrd_rect_struct){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, & game_cursor, enable_game_input, scale, 1, &debug_str);
+				game_gui_do(&game_gui, (wzrd_rect_struct){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, enable_game_input, scale, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
-				platform_draw_wzrd(&game_gui_buffer);
+				platform_draw_wzrd(&game_gui);
 				PlatformTextureEndTarget();
 			}
 		}
@@ -510,18 +508,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		str1024_concat(&g_debug_text, str1024_create("frame time: %f ms", g_platform.average_spf * 1000.0f));
 
 		
-#if 0
 		// Cursor
 		if (enable_game_input) {
-			platform_cursor_set(*(PlatformCursor*)&game_cursor);
-		}
-		else if (enable_editor_input) {
-			platform_cursor_set(*(PlatformCursor*)&editor_cursor);
+			platform_cursor_set(*(PlatformCursor*)&game_gui.cursor);
 		}
 		else {
-			platform_cursor_set(wzrd_cursor_default);
+			platform_cursor_set(*(PlatformCursor*)&editor_gui.cursor);
 		}
-#endif
 	}
 	platform_end();
 

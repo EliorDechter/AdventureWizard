@@ -147,7 +147,7 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_draw_commands_buffer* buffer, wzrd_canvas* gui, wzrd_rect_struct window, wzrd_cursor* cursor, bool enable_input, int scale, unsigned int layer, wzrd_str* debug_str);
+void game_gui_do(wzrd_canvas* gui, wzrd_rect_struct window, bool enable_input, int scale,  wzrd_str* debug_str);
 void game_run(v2 window_size, bool enable, unsigned int scale);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);
