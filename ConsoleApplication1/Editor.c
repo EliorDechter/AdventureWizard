@@ -13,8 +13,8 @@ wzrd_str wzrd_str_from_str128(str128* str)
 void editor_seperator_horizontal(wzrd_handle parent)
 {
 	wzrd_widget((wzrd_style) {
-		.space = wzrd_space_create((wzrd_space) { .h = 2 }),
-			.skin = wzrd_skin_create((wzrd_skin) { .border_type = BorderType_BottomLine })
+		.space = (wzrd_space){ .h = 2 },
+			.skin = (wzrd_skin){ .border_type = BorderType_BottomLine }
 	},
 		parent);
 }
@@ -22,8 +22,8 @@ void editor_seperator_horizontal(wzrd_handle parent)
 void editor_seperator_vertical(wzrd_handle parent)
 {
 	wzrd_widget((wzrd_style) {
-		.space = wzrd_space_create((wzrd_space) { .w = 2, }),
-			.skin = wzrd_skin_create((wzrd_skin) { .border_type = BorderType_LeftLine })
+		.space = (wzrd_space){ .w = 2, },
+			.skin = (wzrd_skin){ .border_type = BorderType_LeftLine }
 	}, parent);
 }
 
@@ -31,7 +31,7 @@ wzrd_handle editor_vertical_panel(wzrd_v2 size, wzrd_handle parent)
 {
 	wzrd_handle p = wzrd_widget((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y }),
+		.space = (wzrd_space){ .w = size.x, .h = size.y },
 			.layout = wzrd_canvas_get()->v_panel_layout,
 			.skin = wzrd_canvas_get()->panel_skin,
 			.structure = wzrd_canvas_get()->panel_structure
@@ -45,7 +45,7 @@ wzrd_handle editor_vertical_panel_bordered(wzrd_v2 size, wzrd_handle parent)
 {
 	wzrd_handle p = wzrd_widget((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y }),
+		.space = (wzrd_space){ .w = size.x, .h = size.y },
 			.layout = wzrd_canvas_get()->v_panel_layout,
 			.skin = wzrd_canvas_get()->panel_border_skin,
 			.structure = wzrd_canvas_get()->panel_structure
@@ -59,7 +59,7 @@ wzrd_handle editor_horizontal_panel_bordered(wzrd_v2 size, wzrd_handle parent)
 {
 	wzrd_handle p = wzrd_widget((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y }),
+		.space = (wzrd_space){ .w = size.x, .h = size.y },
 			.layout = wzrd_canvas_get()->h_panel_layout,
 			.skin = wzrd_canvas_get()->panel_border_skin,
 			.structure = wzrd_canvas_get()->panel_structure
@@ -73,7 +73,7 @@ wzrd_handle editor_horizontal_panel(wzrd_v2 size, wzrd_handle parent)
 {
 	wzrd_handle p = wzrd_widget((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y }),
+		.space = (wzrd_space){ .w = size.x, .h = size.y },
 			.layout = wzrd_canvas_get()->h_panel_layout,
 			.skin = wzrd_canvas_get()->panel_skin,
 			.structure = wzrd_canvas_get()->panel_structure
@@ -144,18 +144,10 @@ void editor_file_panel(wzrd_handle window)
 void editor_buttons_panel(wzrd_handle window)
 {
 	wzrd_handle panel = editor_horizontal_panel((wzrd_v2) { 0, 36 }, window);
-	{
-		wzrd_style2 style = wzrd_widget_get_style2(panel);
-		style.color.r = 255;
-		wzrd_widget_set_style2_explicit(panel, style, 0);
-	}
 
 	bool b = false;
 	wzrd_handle button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
-	wzrd_style2 style = g_styles[wzrd_box_get_by_handle(button)->style2];
-	style.color.r = 255;
-	style.color.a = 255;
-	wzrd_box_get_by_handle(button)->style2 = wzrd_style2_do("my style", style);
+	wzrd_box_get_by_handle(button)->skin.color.r = 255;
 
 	if (b)
 	{
@@ -210,7 +202,7 @@ void editor_right_panel(wzrd_handle parent, wzrd_texture texture)
 {
 	wzrd_handle panel = wzrd_widget((wzrd_style)
 	{
-		.skin = wzrd_skin_create((wzrd_skin) { .color = EGUI_GREEN, .border_type = BorderType_Clicked }),
+		.skin = (wzrd_skin){ .color = EGUI_GREEN, .border_type = BorderType_Clicked },
 			.layout = wzrd_canvas_get()->v_panel_layout
 	}, parent);
 
@@ -218,9 +210,9 @@ void editor_right_panel(wzrd_handle parent, wzrd_texture texture)
 
 	wzrd_handle target_panel = wzrd_widget((wzrd_style)
 	{
-		.layout = wzrd_layout_create((wzrd_layout) { .best_fit = true }),
-			.space = wzrd_space_create((wzrd_space) { .w = 1920 / 6, .h = 1080 / 6, }),
-			.skin = wzrd_skin_create((wzrd_skin) { .color = EGUI_RED })
+		.layout = (wzrd_layout){ .best_fit = true },
+			.space = (wzrd_space){ .w = 1920 / 6, .h = 1080 / 6, },
+			.skin = (wzrd_skin){ .color = EGUI_RED }
 	}
 	, panel);
 	target_panel = wzrd_box_set_unique_handle(target_panel, wzrd_str_create("Target"));
@@ -331,10 +323,11 @@ typedef struct ScrollPanel
 
 void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
 {
+#if 0
 	wzrd_box* box = 0;
 
 	editor_vertical_panel((wzrd_v2) { 0 }, parent);
-	
+
 	//wzrd_style style = wzrd_style_imm((wzrd_style) { ... });
 
 	if (box->clip)
@@ -348,7 +341,7 @@ void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
 			(wzrd_box) {
 			.x_internal = x, .y_internal = y, .w_internal = 40,
 				.h_internal = box->h_internal,
-				.skin = wzrd_skin_create((wzrd_skin)
+				.skin = (wzrd_skin)
 			{
 				.border_type = BorderType_None,
 					.color = EGUI_GRAY
@@ -369,7 +362,7 @@ void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
 				.y_internal = box->y_internal + box->h_internal - button_height,
 				.w_internal = 40,
 				.h_internal = button_height,
-				.skin = wzrd_skin_create((wzrd_skin) {
+				.skin = (wzrd_skin){
 				.color = EGUI_GRAY,
 			})
 		});
@@ -409,30 +402,31 @@ void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
 					//.name = wzrd_str_create("scroly")
 			});
 		}
-	
+
 	}
+#endif
 }
 
 void editor_debug_panel(wzrd_handle parent, wzrd_str str)
 {
 	wzrd_handle panel = wzrd_widget_free((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space)
+		.space = (wzrd_space)
 		{
 			.x = (int)g_platform.window_width - 300,
 				.y = 10,
 				.w = 295,
 				.h = 500,
-		}),
-			.skin = wzrd_skin_create((wzrd_skin)
+		},
+		.skin = (wzrd_skin)
 		{
 			.color = (wzrd_color){ 150, 200, 60, 200 }
-		})
+		}
 	}
 	, parent);
 
 	//static float scrollbar_x, scrollbar_y;
-	wzrd_box_get_last()->clip = true;
+	//wzrd_box_get_last()->clip = true;
 	//wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
 	//wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
 	wzrd_label(str, panel);
@@ -475,7 +469,6 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		{
 			editor_create_object_dialog(&g_editor.create_object_dialog_pos, &g_editor.create_object_dialog_active, window);
 		}
-
 	}
 	wzrd_end(debug_str);
 }

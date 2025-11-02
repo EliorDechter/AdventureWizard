@@ -190,10 +190,19 @@ typedef struct wzrd_style_space
 	int x, y, w, h;
 } wzrd_space;
 
+
+typedef enum LayoutType
+{
+	LayoutType_None,
+	LayoutType_Row,
+	LayoutType_Column,
+} LayoutType;
+
 typedef struct wzrd_style_layout
 {
 	int child_gap;
-	bool row_mode;
+	//bool row_mode;
+	LayoutType type;
 	bool fit_h, fit_w;
 	bool center_x, center_y;
 	bool best_fit;
@@ -231,7 +240,10 @@ typedef struct Box {
 	int index;
 	bool is_selected;
 
-	int space, structure, layout, skin;
+	wzrd_space space;
+	wzrd_structure structure;
+	wzrd_layout layout;
+	wzrd_skin skin;
 
 	int style2;
 
@@ -326,30 +338,14 @@ typedef struct wzrd_canvas {
 
 	bool enable_input;
 
-#define MAX_NUM_STYLES 256
-	wzrd_structure style_structures[MAX_NUM_STYLES];
-	unsigned int style_structures_count;
-	wzrd_space style_spaces[MAX_NUM_STYLES];
-	unsigned int style_spaces_count;
-	wzrd_layout style_layouts[MAX_NUM_STYLES];
-	unsigned int style_layouts_count;
-	wzrd_skin style_skins[MAX_NUM_STYLES];
-	unsigned int style_skins_count;
-	 
 	int styles_count;
 	wzrd_cursor cursor;
 	wzrd_draw_commands_buffer command_buffer;
 
-	int panel_skin, panel_border_skin, panel_border_click_skin, panel_structure, v_panel_layout, h_panel_layout;
-	int command_button_space, command_button_skin, command_button_structure, command_button_layout;
-	int toggle_icon_space;
-	int label_item_skin, label_item_selected_skin;
-	int label_skin, label_structure;
-	int input_box_skin, input_box_structure, input_box_space, input_box_layout;
-	int command_button_on_skin;
-	int list_skin;
-
-	int top_label_panel_layout;
+	wzrd_skin panel_skin, panel_border_skin, panel_border_click_skin, command_button_skin, label_item_skin, label_item_selected_skin, label_skin, input_box_skin, command_button_on_skin, list_skin;
+	wzrd_structure panel_structure, command_button_structure, label_structure, input_box_structure;
+	wzrd_layout v_panel_layout, h_panel_layout, command_button_layout, input_box_layout, top_label_panel_layout;
+	wzrd_space command_button_space, toggle_icon_space, input_box_space;
 
 } wzrd_canvas;
 
@@ -391,7 +387,10 @@ typedef struct wzrd_polygon {
 
 typedef struct wzrd_style
 {
-	int skin, layout, structure, space;
+	wzrd_skin skin;
+	wzrd_layout layout;
+	wzrd_structure structure;
+	wzrd_space space;
 } wzrd_style;
 
 typedef struct wzrd_style2
@@ -419,10 +418,6 @@ typedef struct wzrd_style2
 	bool best_fit;
 
 } wzrd_style2;
-
-wzrd_style2 g_styles[128];
-int g_styles_count;
-
 
 // GENERAL
 wzrd_handle wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window,
@@ -453,12 +448,6 @@ wzrd_handle wzrd_vbox_border(wzrd_v2 size, wzrd_handle parent);
 // UTILS
 void wzrd_box_add_child(wzrd_handle parent, wzrd_handle child);
 wzrd_handle wzrd_box_set_unique_handle(wzrd_handle handle, wzrd_str str);
-int wzrd_skin_create(wzrd_skin skin);
-int wzrd_structure_create(wzrd_structure structure);
-int wzrd_space_create(wzrd_space space);
-int wzrd_layout_create(wzrd_layout layout);
-wzrd_layout wzrd_layout_get_by_handle(int handle);
-wzrd_layout wzrd_layout_get(wzrd_handle handle);
 wzrd_box* wzrd_box_get_by_handle(wzrd_handle handle);
 wzrd_str wzrd_str_create(char* str);
 wzrd_box* wzrd_box_get_last();
@@ -476,9 +465,6 @@ bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 wzrd_handle wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name, wzrd_handle parent);
 void wzrd_handle_set_layer(wzrd_handle handle, unsigned int layer);
 wzrd_canvas* wzrd_canvas_get();
-int wzrd_style2_do(const char* name, wzrd_style2 style);
-wzrd_style2 wzrd_widget_get_style2(wzrd_handle widget);
-void wzrd_widget_set_style2_explicit(wzrd_handle widget, wzrd_style2 style, const char* name);
 
 #define wzrd_widget_set_style2(widget, style) wzrd_widget_set_style2_explicit(__LINE__, widget, style)
 
