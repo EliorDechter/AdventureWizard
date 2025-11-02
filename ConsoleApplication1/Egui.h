@@ -214,7 +214,7 @@ typedef struct Box {
 	// TODO: Find a better more descriptive name!
 	bool free;
 
-	int* scrollbar_x, * scrollbar_y;
+	//int* scrollbar_x, * scrollbar_y;
 	wzrd_v2 content_size;
 
 	int children[MAX_NUM_CHILDREN];
@@ -232,6 +232,8 @@ typedef struct Box {
 	bool is_selected;
 
 	int space, structure, layout, skin;
+
+	int style2;
 
 } wzrd_box;
 
@@ -392,6 +394,35 @@ typedef struct wzrd_style
 	int skin, layout, structure, space;
 } wzrd_style;
 
+typedef struct wzrd_style2
+{
+	const char* name;
+
+	// Skin
+	wzrd_color font_color;
+	wzrd_color color;
+	wzrd_color b0, b1, b2, b3;
+	wzrd_border_type border_type;
+	wzrd_border_type window_border_type;
+
+	// Structure
+	int pad_right, pad_bottom, pad_left, pad_top;
+
+	// Space
+	int x, y, w, h;
+
+	// Layout 
+	int child_gap;
+	bool row_mode;
+	bool fit_h, fit_w;
+	bool center_x, center_y;
+	bool best_fit;
+
+} wzrd_style2;
+
+wzrd_style2 g_styles[128];
+int g_styles_count;
+
 
 // GENERAL
 wzrd_handle wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window,
@@ -400,8 +431,6 @@ wzrd_handle wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window,
 void wzrd_end(wzrd_str* debug_str);
 
 // WIDGETS
-wzrd_handle wzrd_window(wzrd_rect_struct rect, wzrd_handle parent);
-wzrd_handle wzrd_hbox(wzrd_v2 size, wzrd_handle parent);
 wzrd_handle wzrd_label_button(wzrd_str str, bool* result, wzrd_handle parent);
 wzrd_handle wzrd_button_icon(wzrd_texture texture, bool* released, wzrd_handle parent);
 wzrd_handle wzrd_command_button(wzrd_str str, bool* b, wzrd_handle parent);
@@ -447,5 +476,11 @@ bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
 wzrd_handle wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name, wzrd_handle parent);
 void wzrd_handle_set_layer(wzrd_handle handle, unsigned int layer);
 wzrd_canvas* wzrd_canvas_get();
+int wzrd_style2_do(const char* name, wzrd_style2 style);
+wzrd_style2 wzrd_widget_get_style2(wzrd_handle widget);
+void wzrd_widget_set_style2_explicit(wzrd_handle widget, wzrd_style2 style, const char* name);
+
+#define wzrd_widget_set_style2(widget, style) wzrd_widget_set_style2_explicit(__LINE__, widget, style)
+
 
 #endif

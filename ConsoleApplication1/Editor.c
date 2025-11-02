@@ -23,7 +23,7 @@ void editor_seperator_vertical(wzrd_handle parent)
 {
 	wzrd_widget((wzrd_style) {
 		.space = wzrd_space_create((wzrd_space) { .w = 2, }),
-		.skin = wzrd_skin_create((wzrd_skin) { .border_type = BorderType_LeftLine })
+			.skin = wzrd_skin_create((wzrd_skin) { .border_type = BorderType_LeftLine })
 	}, parent);
 }
 
@@ -31,7 +31,7 @@ wzrd_handle editor_vertical_panel(wzrd_v2 size, wzrd_handle parent)
 {
 	wzrd_handle p = wzrd_widget((wzrd_style)
 	{
-		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y}),
+		.space = wzrd_space_create((wzrd_space) { .w = size.x, .h = size.y }),
 			.layout = wzrd_canvas_get()->v_panel_layout,
 			.skin = wzrd_canvas_get()->panel_skin,
 			.structure = wzrd_canvas_get()->panel_structure
@@ -144,9 +144,18 @@ void editor_file_panel(wzrd_handle window)
 void editor_buttons_panel(wzrd_handle window)
 {
 	wzrd_handle panel = editor_horizontal_panel((wzrd_v2) { 0, 36 }, window);
+	{
+		wzrd_style2 style = wzrd_widget_get_style2(panel);
+		style.color.r = 255;
+		wzrd_widget_set_style2_explicit(panel, style, 0);
+	}
 
 	bool b = false;
-	wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
+	wzrd_handle button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
+	wzrd_style2 style = g_styles[wzrd_box_get_by_handle(button)->style2];
+	style.color.r = 255;
+	style.color.a = 255;
+	wzrd_box_get_by_handle(button)->style2 = wzrd_style2_do("my style", style);
 
 	if (b)
 	{
@@ -202,7 +211,7 @@ void editor_right_panel(wzrd_handle parent, wzrd_texture texture)
 	wzrd_handle panel = wzrd_widget((wzrd_style)
 	{
 		.skin = wzrd_skin_create((wzrd_skin) { .color = EGUI_GREEN, .border_type = BorderType_Clicked }),
-		.layout = wzrd_canvas_get()->v_panel_layout
+			.layout = wzrd_canvas_get()->v_panel_layout
 	}, parent);
 
 	wzrd_box_get_by_handle(panel)->disable_input = true;
@@ -210,8 +219,8 @@ void editor_right_panel(wzrd_handle parent, wzrd_texture texture)
 	wzrd_handle target_panel = wzrd_widget((wzrd_style)
 	{
 		.layout = wzrd_layout_create((wzrd_layout) { .best_fit = true }),
-		.space = wzrd_space_create((wzrd_space) { .w = 1920 / 6, .h = 1080 / 6, }),
-		.skin = wzrd_skin_create((wzrd_skin) { .color = EGUI_RED })
+			.space = wzrd_space_create((wzrd_space) { .w = 1920 / 6, .h = 1080 / 6, }),
+			.skin = wzrd_skin_create((wzrd_skin) { .color = EGUI_RED })
 	}
 	, panel);
 	target_panel = wzrd_box_set_unique_handle(target_panel, wzrd_str_create("Target"));
@@ -253,7 +262,7 @@ void editor_create_object_dialog(wzrd_v2* pos, bool* active, wzrd_handle parent)
 	static bool is_selected = false;
 
 	wzrd_handle dialog = wzrd_dialog_begin(pos, size, active, wzrd_str_create("add object"), 4, parent);
-	
+
 	if (active) {
 		wzrd_handle panel = editor_horizontal_panel((wzrd_v2) { 0 }, dialog);
 		{
@@ -262,9 +271,9 @@ void editor_create_object_dialog(wzrd_v2* pos, bool* active, wzrd_handle parent)
 				(wzrd_v2) {
 				100, 0
 			},
-				0, &selected, &is_selected, panel);
+				0, & selected, & is_selected, panel);
 
-			wzrd_handle form = editor_vertical_panel_bordered((wzrd_v2){0}, panel);
+			wzrd_handle form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
 			editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (wzrd_handle) { 0 }));
 		}
 
@@ -312,9 +321,101 @@ void editor_create_object_dialog(wzrd_v2* pos, bool* active, wzrd_handle parent)
 	}
 }
 
+typedef struct ScrollPanel
+{
+	float scrollbar_x, scrollbar_y;
+} ScrollPanel;
+
+
+
+
+void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
+{
+	wzrd_box* box = 0;
+
+	editor_vertical_panel((wzrd_v2) { 0 }, parent);
+	
+	//wzrd_style style = wzrd_style_imm((wzrd_style) { ... });
+
+	if (box->clip)
+	{
+		int x = box->x_internal + box->w_internal - 40;
+		int y = box->y_internal;
+		const int button_height = 10;
+
+		// Gray Area
+		wzrd_crate(2,
+			(wzrd_box) {
+			.x_internal = x, .y_internal = y, .w_internal = 40,
+				.h_internal = box->h_internal,
+				.skin = wzrd_skin_create((wzrd_skin)
+			{
+				.border_type = BorderType_None,
+					.color = EGUI_GRAY
+			})
+		});
+
+		// Top button
+		wzrd_crate(2,
+			(wzrd_box) {
+			.x_internal = x, .y_internal = y, .w_internal = 40,
+				.h_internal = button_height,
+		});
+
+		// Bottom button
+		wzrd_crate(2,
+			(wzrd_box) {
+			.x_internal = x,
+				.y_internal = box->y_internal + box->h_internal - button_height,
+				.w_internal = 40,
+				.h_internal = button_height,
+				.skin = wzrd_skin_create((wzrd_skin) {
+				.color = EGUI_GRAY,
+			})
+		});
+
+		// TODO: handle x axis scrollbar
+		if (box->content_size.y > box->h_internal)
+		{
+			int h = (box->h_internal / box->content_size.y) * (box->h_internal - 2 * button_height);
+
+			wzrd_crate(2,
+				(wzrd_box) {
+				.x_internal = x, .y_internal = y + button_height + panel->scrollbar_y, .w_internal = 40,
+					.h_internal = h,
+			});
+
+			wzrd_box* box = wzrd_box_get_last();
+			if (wzrd_box_is_active(box))
+			{
+				int new_pos = box->y_internal + button_height + panel->scrollbar_y + wzrd_canvas_get()->mouse_delta.y;
+				if (new_pos >= box->y_internal + button_height && new_pos + box->h_internal < box->y_internal + box->h_internal - button_height)
+				{
+					panel->scrollbar_y += wzrd_canvas_get()->mouse_delta.y;
+				}
+			}
+
+			int ratio = panel->scrollbar_y / (box->h_internal - 2 * button_height);
+			//box_structure.pad_top -= ratio * box->content_size.y;
+		}
+		else
+		{
+			int h = box->h_internal - 2 * button_height;
+
+			wzrd_crate(2,
+				(wzrd_box) {
+				.x_internal = x, .y_internal = box->y_internal + button_height + panel->scrollbar_y, .w_internal = 40,
+					.h_internal = h,
+					//.name = wzrd_str_create("scroly")
+			});
+		}
+	
+	}
+}
+
 void editor_debug_panel(wzrd_handle parent, wzrd_str str)
 {
-	wzrd_handle panel = wzrd_widget_free((wzrd_style) 
+	wzrd_handle panel = wzrd_widget_free((wzrd_style)
 	{
 		.space = wzrd_space_create((wzrd_space)
 		{
@@ -323,9 +424,9 @@ void editor_debug_panel(wzrd_handle parent, wzrd_str str)
 				.w = 295,
 				.h = 500,
 		}),
-		.skin = wzrd_skin_create((wzrd_skin)
+			.skin = wzrd_skin_create((wzrd_skin)
 		{
-				.color = (wzrd_color){150, 200, 60, 200}
+			.color = (wzrd_color){ 150, 200, 60, 200 }
 		})
 	}
 	, parent);
@@ -338,7 +439,6 @@ void editor_debug_panel(wzrd_handle parent, wzrd_str str)
 	//*debug_str->str = 0;
 	//debug_str->len = 0;
 	//wzrd_box_do((wzrd_box) { .h = 1000, .w = 50, .color = EGUI_BLUE });
-
 }
 
 
