@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 typedef struct str1024 {
-	char val[1024];
+	char val[2048];
 	size_t len;
 } str1024;
 

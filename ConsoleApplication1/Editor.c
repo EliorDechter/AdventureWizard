@@ -10,118 +10,42 @@ wzrd_str wzrd_str_from_str128(str128* str)
 	return result;
 }
 
-void editor_seperator_horizontal(wzrd_handle parent)
+void editor_seperator_horizontal(WzHandle parent)
 {
-	wzrd_widget((wzrd_style) {
-		.space = (wzrd_space){ .h = 2 },
-			.skin = (wzrd_skin){ .border_type = BorderType_BottomLine }
-	},
-		parent);
+	WzHandle w = wz_hbox(parent);
+	wz_widget_set_h(w, 2);
+	wz_widget_set_border(w, BorderType_BottomLine);
 }
 
-void editor_seperator_vertical(wzrd_handle parent)
+void editor_seperator_vertical(WzHandle parent)
 {
-	wzrd_widget((wzrd_style) {
-		.space = (wzrd_space){ .w = 2, },
-			.skin = (wzrd_skin){ .border_type = BorderType_LeftLine }
-	}, parent);
+	WzHandle w = wz_hbox(parent);
+	wz_widget_set_w(w, 2);
 }
 
-wzrd_handle editor_vertical_panel(wzrd_v2 size, wzrd_handle parent)
+WzHandle editor_vertical_panel(wzrd_v2 size, WzHandle parent)
 {
-	wzrd_handle p = wzrd_widget((wzrd_style)
-	{
-		.space = (wzrd_space){ .w = size.x, .h = size.y },
-			.layout = wzrd_canvas_get()->v_panel_layout,
-			.skin = wzrd_canvas_get()->panel_skin,
-			.structure = wzrd_canvas_get()->panel_structure
-	}
-	, parent);
+	WzHandle p = wz_hbox(parent);
 
 	return p;
 }
 
-wzrd_handle editor_vertical_panel_bordered(wzrd_v2 size, wzrd_handle parent)
+WzHandle editor_vertical_panel_bordered(wzrd_v2 size, WzHandle parent)
 {
-	wzrd_handle p = wzrd_widget((wzrd_style)
-	{
-		.space = (wzrd_space){ .w = size.x, .h = size.y },
-			.layout = wzrd_canvas_get()->v_panel_layout,
-			.skin = wzrd_canvas_get()->panel_border_skin,
-			.structure = wzrd_canvas_get()->panel_structure
-	}
-	, parent);
+	WzHandle p = wz_hbox(parent);
+
+	wz_widget_set_size(p, size.x, size.y);
 
 	return p;
 }
 
-wzrd_handle editor_horizontal_panel_bordered(wzrd_v2 size, wzrd_handle parent)
+WzHandle editor_horizontal_panel_bordered(wzrd_v2 size, WzHandle parent)
 {
-	wzrd_handle p = wzrd_widget((wzrd_style)
-	{
-		.space = (wzrd_space){ .w = size.x, .h = size.y },
-			.layout = wzrd_canvas_get()->h_panel_layout,
-			.skin = wzrd_canvas_get()->panel_border_skin,
-			.structure = wzrd_canvas_get()->panel_structure
-	}
-	, parent);
+	WzHandle p = wz_hbox(parent);
+
+	wz_widget_set_size(p, size.x, size.y);
 
 	return p;
-}
-
-wzrd_handle editor_horizontal_panel(wzrd_v2 size, wzrd_handle parent)
-{
-	wzrd_handle p = wzrd_widget((wzrd_style)
-	{
-		.space = (wzrd_space){ .w = size.x, .h = size.y },
-			.layout = wzrd_canvas_get()->h_panel_layout,
-			.skin = wzrd_canvas_get()->panel_skin,
-			.structure = wzrd_canvas_get()->panel_structure
-	}
-	, parent);
-
-	return p;
-}
-
-void editor_left_panel(wzrd_handle parent)
-{
-	wzrd_handle outer_panel = editor_vertical_panel_bordered((wzrd_v2) { .x = 200 }, parent);
-
-	//wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
-	//static bool active;
-	static int selected_category;
-	//wzrd_dropdown(&selected_category, texts, 3, 100, &active);
-
-	wzrd_handle inner_panel = editor_vertical_panel((wzrd_v2) { 0 }
-	, outer_panel);
-
-	if (selected_category == 0) {
-
-		wzrd_str labels[MAX_NUM_ENTITIES] = { 0 };
-
-		for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
-		{
-			Entity_handle handle = g_game.sorted_entities[i];
-			Entity* entity = game_entity_get(handle);
-			labels[i] = (wzrd_str){ .str = entity->name.val, .len = entity->name.len };
-		}
-
-		if (g_game.selected_entity_index_to_sorted_entities >= 0)
-		{
-			// TODO: if I remove the if code crashes
-			if (g_game.delete)
-			{
-				game_entity_remove(g_game.sorted_entities[g_game.selected_entity_index_to_sorted_entities]);
-			}
-		}
-
-		wzrd_label_list_sorted(labels, g_game.sorted_entities_count, (int*)g_game.sorted_entities,
-			(wzrd_v2) {
-			0
-		},
-			& g_game.selected_entity_index_to_sorted_entities, & g_game.is_entity_selected, inner_panel);
-
-	}
 }
 
 typedef struct Editor
@@ -132,315 +56,135 @@ typedef struct Editor
 
 Editor g_editor;
 
-void editor_file_panel(wzrd_handle window)
-{
-	wzrd_handle files_panel = editor_horizontal_panel((wzrd_v2) { .y = 30 }, window);
 
-	bool b1 = false, b2 = false;
-	wzrd_label_button(wzrd_str_create("View"), &b1, files_panel);
-	wzrd_label_button(wzrd_str_create("Help"), &b2, files_panel);
-}
 
-void editor_buttons_panel(wzrd_handle window)
-{
-	wzrd_handle panel = editor_horizontal_panel((wzrd_v2) { 0, 36 }, window);
+float g_width = 20, g_target_width = 255;
 
-	bool b = false;
-	wzrd_handle button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
-	wzrd_box_get_by_handle(button)->skin.color.r = 255;
 
-	if (b)
-	{
-		g_editor.create_object_dialog_active = true;
-	}
 
-	wzrd_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
 
-	editor_seperator_vertical(panel);
 
-	//bool delete_toggle;
-	//wzrd_button_icon(icons.delete, &delete_toggle, buttons_panel);
-	//g_game.delete = delete_toggle;
-
-	// seperator
-
-	static bool finish;
-	bool is_dragged = wzrd_box_is_dragged(&(wzrd_box) {
-		0
-	});
-	if (!is_dragged && !finish)
-	{
-		/*	wzrd_widget((wzrd_style) {
-				.style = wzrd_style_create((wzrd_style_template) {
-					.w = 25, .h = 25
-				}), .is_draggable = true,
-			}, panel);*/
-	}
-
-	static wzrd_color color = { 100, 100, 100, 255 };
-	//wzrd_widget((wzrd_style) {
-	//	.is_slot = true,
-	//		.style = wzrd_style_create((wzrd_style_template) {
-	//		.color = color, .w = 25, .h = 25,
-	//	})
-	//}, panel);
-
-	if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_is_releasing())
-	{
-		color = EGUI_LIME;
-		finish = true;
-	}
-
-	editor_seperator_vertical(panel);
-
-	//wzrd_toggle_icon(icons.play, &g_game.run, &panel);
-
-	editor_seperator_vertical(panel);
-}
-
-void editor_right_panel(wzrd_handle parent, wzrd_texture texture)
-{
-	wzrd_handle panel = wzrd_widget((wzrd_style)
-	{
-		.skin = (wzrd_skin){ .color = EGUI_GREEN, .border_type = BorderType_Clicked },
-			.layout = wzrd_canvas_get()->v_panel_layout
-	}, parent);
-
-	wzrd_box_get_by_handle(panel)->disable_input = true;
-
-	wzrd_handle target_panel = wzrd_widget((wzrd_style)
-	{
-		.layout = (wzrd_layout){ .best_fit = true },
-			.space = (wzrd_space){ .w = 1920 / 6, .h = 1080 / 6, },
-			.skin = (wzrd_skin){ .color = EGUI_RED }
-	}
-	, panel);
-	target_panel = wzrd_box_set_unique_handle(target_panel, wzrd_str_create("Target"));
-
-	wzrd_box_get_by_handle(target_panel)->disable_input = true;
-
-	wzrd_item_add((Item) {
-		.type = ItemType_Texture,
-			.val = { .texture = texture },
-			.scissor = true
-	}, target_panel);
-}
-
-wzrd_handle editor_add_row(wzrd_handle form, wzrd_str label, wzrd_handle widget)
+WzHandle editor_add_row(WzHandle form, wzrd_str label, WzHandle widget)
 {
 	const int h = 30;
 
-	wzrd_handle row = editor_horizontal_panel((wzrd_v2) { 0, h }, form);
+	WzHandle row = wz_hbox(form);
+	wz_widget_set_h(row, h);
 	wzrd_label(label, row);
 	wzrd_box_add_child(row, widget);
 
 	return row;
 }
 
-void editor_status_bar(wzrd_handle parent)
+WzHandle wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzHandle parent, const char* tag)
 {
-	wzrd_handle bar = editor_horizontal_panel((wzrd_v2) { .y = 40 }, parent);
-	editor_horizontal_panel((wzrd_v2) { .x = 90 }, bar);
-	wzrd_widget((wzrd_style) { 0 }, bar);
+	const int scroll_bar_width = 20;
 
-}
+	WzHandle panel = wz_hbox(parent);
+	wz_widget_set_size(panel, size.x, size.y);
+	wzrd_widget_set_color(panel, EGUI_BEIGE);
 
-void editor_create_object_dialog(wzrd_v2* pos, bool* active, wzrd_handle parent)
-{
-	wzrd_v2 size = { 500, 500 };
-	bool ok = false, cancel = false;
-	static str128 name;
-	static unsigned int selected;
-	static bool is_selected = false;
+	WzHandle clip_panel = editor_vertical_panel((wzrd_v2) { 0 }, panel);
+	wz_widget_get(clip_panel)->color = EGUI_YELLOW;
+	wzrd_widget_clip(clip_panel);
+	wzrd_widget_tag(clip_panel, tag);
 
-	wzrd_handle dialog = wzrd_dialog_begin(pos, size, active, wzrd_str_create("add object"), 4, parent);
+	WzHandle user_panel = wz_hbox(clip_panel);
+	wz_widget_set_y(panel, -*scroll);
+	wz_widget_set_h(panel, 1500);
 
-	if (active) {
-		wzrd_handle panel = editor_horizontal_panel((wzrd_v2) { 0 }, dialog);
-		{
-			wzrd_str labels[] = { wzrd_str_create("Entity"), wzrd_str_create("Texture") };
-			wzrd_label_list(labels, 2,
-				(wzrd_v2) {
-				100, 0
-			},
-				0, & selected, & is_selected, panel);
+	WzHandle scrollbar_panel = wz_hbox(panel);
+	wz_widget_set_w(scrollbar_panel, scroll_bar_width + 4);
 
-			wzrd_handle form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
-			editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (wzrd_handle) { 0 }));
-		}
+	WzHandle top_button = wz_hbox(scrollbar_panel);
+	wz_widget_set_w(top_button, scroll_bar_width);
+	wz_widget_set_h(top_button, scroll_bar_width);
 
-		wzrd_handle bottom_panel = editor_horizontal_panel((wzrd_v2) { .y = 50 }, dialog);
-		{
-			wzrd_handle buttons_panel = editor_horizontal_panel((wzrd_v2) { 0 }, bottom_panel);
-			{
-				bool b1;
+	WzHandle middle_panel = wz_hbox(scrollbar_panel);
+	wz_widget_set_w(middle_panel, scroll_bar_width);
+	wz_widget_get(middle_panel)->color = EGUI_GRAY;
+	wz_widget_get(middle_panel)->tag = tag;
+	wz_widget_get(middle_panel)->secondary_tag = "scrollbar_middle";
 
-				wzrd_command_button(wzrd_str_create("OK"), &b1, buttons_panel);
-				if (b1) {
-					ok = true;
-				}
+	WzHandle bottom_button = wz_hbox(scrollbar_panel);
+	wz_widget_set_size(bottom_button, scroll_bar_width, scroll_bar_width);
 
-				bool b2;
-				wzrd_command_button(wzrd_str_create("Cancel"), &b2, buttons_panel);
-				if (b2) {
-					cancel = true;
-				}
-			}
-		}
-	}
-	wzrd_dialog_end(active);
-
-	if (ok) {
-		if (selected == 1) {
-			Texture texture = texture_get_by_name(name);
-			game_texture_add(texture);
-		}
-		else if (selected == 0)
-		{
-			game_entity_create((Entity) {
-				.name = str128_create(name.val),
-					.texture = game_texture_get_handle_by_name(str128_create("player")),
-					.rect = { .x = 0, .y = 0, .w = 100, .h = 100 },
-					.color = (wzrd_color){ 255, 255, 255, 255 }
-			});
-		}
-
-		*active = false;
-	}
-
-	if (cancel) {
-		*active = false;
-	}
-}
-
-typedef struct ScrollPanel
-{
-	float scrollbar_x, scrollbar_y;
-} ScrollPanel;
-
-
-
-
-void wzrd_scroll_panel(ScrollPanel* panel, wzrd_handle parent)
-{
-#if 0
-	wzrd_box* box = 0;
-
-	editor_vertical_panel((wzrd_v2) { 0 }, parent);
-
-	//wzrd_style style = wzrd_style_imm((wzrd_style) { ... });
-
-	if (box->clip)
+	WzWidget b = wzrd_widget_get_cached_box(tag);
+	WzHandle scrollbar = (WzHandle){ 0 };
+	if (wzrd_handle_is_valid(b.handle))
 	{
-		int x = box->x_internal + box->w_internal - 40;
-		int y = box->y_internal;
-		const int button_height = 10;
+		WzWidget* box = &b;
+		float ratio = (float)b.h_internal / (float)b.content_h;
+		if (ratio > 1)
+			ratio = 1;
 
-		// Gray Area
-		wzrd_crate(2,
-			(wzrd_box) {
-			.x_internal = x, .y_internal = y, .w_internal = 40,
-				.h_internal = box->h_internal,
-				.skin = (wzrd_skin)
-			{
-				.border_type = BorderType_None,
-					.color = EGUI_GRAY
-			})
-		});
+		scrollbar = wz_hbox(middle_panel);
+		wz_widget_get(scrollbar)->percentage_h = ratio;
+		wz_widget_get(scrollbar)->y = *scroll;
 
-		// Top button
-		wzrd_crate(2,
-			(wzrd_box) {
-			.x_internal = x, .y_internal = y, .w_internal = 40,
-				.h_internal = button_height,
-		});
-
-		// Bottom button
-		wzrd_crate(2,
-			(wzrd_box) {
-			.x_internal = x,
-				.y_internal = box->y_internal + box->h_internal - button_height,
-				.w_internal = 40,
-				.h_internal = button_height,
-				.skin = (wzrd_skin){
-				.color = EGUI_GRAY,
-			})
-		});
-
-		// TODO: handle x axis scrollbar
-		if (box->content_size.y > box->h_internal)
-		{
-			int h = (box->h_internal / box->content_size.y) * (box->h_internal - 2 * button_height);
-
-			wzrd_crate(2,
-				(wzrd_box) {
-				.x_internal = x, .y_internal = y + button_height + panel->scrollbar_y, .w_internal = 40,
-					.h_internal = h,
-			});
-
-			wzrd_box* box = wzrd_box_get_last();
-			if (wzrd_box_is_active(box))
-			{
-				int new_pos = box->y_internal + button_height + panel->scrollbar_y + wzrd_canvas_get()->mouse_delta.y;
-				if (new_pos >= box->y_internal + button_height && new_pos + box->h_internal < box->y_internal + box->h_internal - button_height)
-				{
-					panel->scrollbar_y += wzrd_canvas_get()->mouse_delta.y;
-				}
-			}
-
-			int ratio = panel->scrollbar_y / (box->h_internal - 2 * button_height);
-			//box_structure.pad_top -= ratio * box->content_size.y;
-		}
-		else
-		{
-			int h = box->h_internal - 2 * button_height;
-
-			wzrd_crate(2,
-				(wzrd_box) {
-				.x_internal = x, .y_internal = box->y_internal + button_height + panel->scrollbar_y, .w_internal = 40,
-					.h_internal = h,
-					//.name = wzrd_str_create("scroly")
-			});
-		}
-
+		wz_widget_get(scrollbar)->tag = tag;
+		wz_widget_get(scrollbar)->secondary_tag = "scrollbar";
 	}
-#endif
+
+	WzWidget scrollbar_middle_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar_middle");
+	WzWidget scrollbar_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar");
+
+	if (wzrd_widget_is_active(top_button))
+	{
+		if (*scroll > 0)
+			*scroll -= 1;
+	}
+
+	if (wzrd_widget_is_active(bottom_button))
+	{
+		if (*scroll + scrollbar_box.h_internal < scrollbar_middle_box.h_internal - 2)
+			*scroll += 1;
+	}
+
+	if (wzrd_widget_is_active(scrollbar))
+	{
+		int scroll_temp = *scroll + wzrd_canvas_get()->mouse_delta.y;
+
+		if (scroll_temp + scrollbar_box.h_internal < scrollbar_middle_box.h_internal - 2 && scroll_temp > 0)
+		{
+			*scroll = scroll_temp;
+		}
+	}
+
+	printf("%d %d\n", wzrd_canvas_get()->mouse_pos.x, wzrd_canvas_get()->mouse_pos.y);
+
+	return user_panel;
 }
 
-void editor_debug_panel(wzrd_handle parent, wzrd_str str)
+
+void editor_debug_panel(WzHandle parent, wzrd_str str)
 {
-	wzrd_handle panel = wzrd_widget_free((wzrd_style)
-	{
-		.space = (wzrd_space)
-		{
-			.x = (int)g_platform.window_width - 300,
-				.y = 10,
-				.w = 295,
-				.h = 500,
-		},
-		.skin = (wzrd_skin)
-		{
-			.color = (wzrd_color){ 150, 200, 60, 200 }
-		}
-	}
-	, parent);
+	WzHandle main_panel = wzrd_widget_free(parent);
+
+	wz_widget_set_size(main_panel, 295, 500);
+	wz_widget_set_pos(main_panel, (int)g_platform.window_width - 300, 10);
+
+	static int scroll;
+	WzHandle panel = wzrd_scroll_panel((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
 
 	//static float scrollbar_x, scrollbar_y;
 	//wzrd_box_get_last()->clip = true;
 	//wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
 	//wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
 	wzrd_label(str, panel);
+	WzHandle some_panel = editor_vertical_panel((wzrd_v2) { .x = 20, .y = 2000 }, panel);
+	wz_widget_get(some_panel)->color = EGUI_RED;
+
 	//*debug_str->str = 0;
 	//debug_str->len = 0;
 	//wzrd_box_do((wzrd_box) { .h = 1000, .w = 50, .color = EGUI_BLUE });
 }
 
-
 void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str* debug_str) {
 	(void)icons;
 
-	wzrd_handle window = wzrd_begin(gui,
-		(wzrd_rect_struct) {
+	WzHandle window = wz_begin(gui,
+		(WzRect) {
 		0, 0, (int)g_platform.window_width, (int)g_platform.window_height
 	},
 		platform_string_get_size,
@@ -449,25 +193,248 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	},
 		(wzrd_state)g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed, true);
-	{
 
-		editor_file_panel(window);
+	WzHandle box = wz_hbox(window);
+
+	WzHandle a = wz_widget(box);
+	wz_widget_set_strech_factor(a, 1);
+	wzrd_widget_set_color(a, EGUI_RED);
+
+	WzHandle b = wz_widget(box);
+	wz_widget_set_strech_factor(b, 1);
+	wzrd_widget_set_color(b, EGUI_BLUE);
+
+	if (0) {
+
+		//editor_file_panel(window);
+		{
+			WzHandle files_panel = wz_hbox(window);
+			wz_widget_set_h(files_panel, 30);
+
+			bool b1 = false, b2 = false;
+			wzrd_label_button(wzrd_str_create("View"), &b1, files_panel);
+			wzrd_label_button(wzrd_str_create("Help"), &b2, files_panel);
+		}
 
 		editor_seperator_horizontal(window);
 
-		editor_buttons_panel(window);
+		//editor_buttons_panel(window);
+		{
+			WzHandle panel = wz_hbox(window);
+			wz_widget_set_h(panel, 36);
 
-		wzrd_handle bottom_panel = editor_horizontal_panel_bordered((wzrd_v2) { 0 }, window);
-		editor_left_panel(bottom_panel);
-		editor_right_panel(bottom_panel, *(wzrd_texture*)&target_texture);
+			bool b = false;
+			WzHandle button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
 
-		editor_status_bar(window);
+			g_width = g_width + (g_target_width - g_width) * 0.1;
 
-		editor_debug_panel(window, *debug_str);
+			if (g_width > 250.0f)
+			{
+				g_target_width = 20;
+			}
+			else if (g_width < 25.0f)
+			{
+				g_target_width = 255;
+			}
+
+			wz_widget_get(button)->color.r = 255;
+			wz_widget_get(button)->w = (int)g_width;
+
+			if (b)
+			{
+				g_editor.create_object_dialog_active = true;
+			}
+
+			wzrd_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
+
+			editor_seperator_vertical(panel);
+
+			//bool delete_toggle;
+			//wzrd_button_icon(icons.delete, &delete_toggle, buttons_panel);
+			//g_game.delete = delete_toggle;
+
+			// seperator
+
+			static bool finish;
+			bool is_dragged = wzrd_box_is_dragged(&(WzWidget) {
+				0
+			});
+			if (!is_dragged && !finish)
+			{
+				/*	wzrd_widget((wzrd_style) {
+						.style = wzrd_style_create((wzrd_style_template) {
+							.w = 25, .h = 25
+						}), .is_draggable = true,
+					}, panel);*/
+			}
+
+			static wzrd_color color = { 100, 100, 100, 255 };
+			//wzrd_widget((wzrd_style) {
+			//	.is_slot = true,
+			//		.style = wzrd_style_create((wzrd_style_template) {
+			//		.color = color, .w = 25, .h = 25,
+			//	})
+			//}, panel);
+
+			//if (wzrd_box_is_hot(wzrd_box_get_last()) && wzrd_is_releasing())
+			//{
+			//	color = EGUI_LIME;
+			//	finish = true;
+			//}
+
+			editor_seperator_vertical(panel);
+
+			//wzrd_toggle_icon(icons.play, &g_game.run, &panel);
+
+			editor_seperator_vertical(panel);
+		}
+
+
+		WzHandle bottom_panel = editor_horizontal_panel_bordered((wzrd_v2) { 0 }, window);
+
+		//editor_left_panel(bottom_panel);
+		{
+			WzHandle outer_panel = editor_vertical_panel_bordered((wzrd_v2) { .x = 200 }, bottom_panel);
+
+			//wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
+			//static bool active;
+			static int selected_category;
+			//wzrd_dropdown(&selected_category, texts, 3, 100, &active);
+
+			WzHandle inner_panel = editor_vertical_panel((wzrd_v2) { 0 }, outer_panel);
+
+			if (selected_category == 0) {
+
+				wzrd_str labels[MAX_NUM_ENTITIES] = { 0 };
+
+				for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
+				{
+					Entity_handle handle = g_game.sorted_entities[i];
+					Entity* entity = game_entity_get(handle);
+					labels[i] = (wzrd_str){ .str = entity->name.val, .len = entity->name.len };
+				}
+
+				if (g_game.selected_entity_index_to_sorted_entities >= 0)
+				{
+					// TODO: if I remove the if code crashes
+					if (g_game.delete)
+					{
+						game_entity_remove(g_game.sorted_entities[g_game.selected_entity_index_to_sorted_entities]);
+					}
+				}
+
+				wzrd_label_list_sorted(labels, g_game.sorted_entities_count, (int*)g_game.sorted_entities,
+					(wzrd_v2) {
+					0
+				},
+					& g_game.selected_entity_index_to_sorted_entities, & g_game.is_entity_selected, inner_panel);
+
+			}
+		}
+
+
+		//editor_right_panel(bottom_panel, *(wzrd_texture*)&target_texture);
+		{
+			WzHandle panel = wz_hbox(bottom_panel);
+
+			wz_widget_get(panel)->disable_input = true;
+
+			WzHandle target_panel = wz_hbox(panel);
+
+			wz_widget_set_size(target_panel, 1920 / 6, 1080 / 6);
+
+			wz_widget_get(target_panel)->disable_input = true;
+
+			wzrd_item_add((Item) {
+				.type = ItemType_Texture,
+					.val = { .texture = *(wzrd_texture*)&target_texture },
+					.scissor = true
+			}, target_panel);
+		}
+
+		//editor_debug_panel(window, *debug_str);
+		{
+			WzHandle bar = wz_hbox(window);
+			wz_widget_set_h(bar, 40);
+
+			WzHandle b = wz_hbox(bar);
+			wz_widget_set_h(b, 90);
+		}
+
 
 		if (g_editor.create_object_dialog_active)
 		{
-			editor_create_object_dialog(&g_editor.create_object_dialog_pos, &g_editor.create_object_dialog_active, window);
+			//editor_create_object_dialog(&g_editor.create_object_dialog_pos, &g_editor.create_object_dialog_active, window);
+			{
+				wzrd_v2 size = { 500, 500 };
+				bool ok = false, cancel = false;
+				static str128 name;
+				static unsigned int selected;
+				static bool is_selected = false;
+
+				WzHandle dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_active, size, &g_editor.create_object_dialog_active, wzrd_str_create("add object"), 4, window);
+				bool* active = &g_editor.create_object_dialog_active;
+				if (*active) {
+					WzHandle panel = wz_hbox(dialog);
+					wzrd_v2 v = (wzrd_v2){
+							100, 0
+					};
+
+					{
+						wzrd_str labels[] = { wzrd_str_create("Entity"), wzrd_str_create("Texture") };
+						wzrd_label_list(labels, 2,
+							v,
+							0, &selected, &is_selected, panel);
+
+						WzHandle form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
+						editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (WzHandle) { 0 }));
+					}
+
+					WzHandle bottom_panel = wz_hbox(dialog);
+					wz_widget_set_h(bottom_panel, 50);
+					{
+						WzHandle buttons_panel = wz_hbox(bottom_panel);
+						{
+							bool b1;
+
+							wzrd_command_button(wzrd_str_create("OK"), &b1, buttons_panel);
+							if (b1) {
+								ok = true;
+							}
+
+							bool b2;
+							wzrd_command_button(wzrd_str_create("Cancel"), &b2, buttons_panel);
+							if (b2) {
+								cancel = true;
+							}
+						}
+					}
+				}
+				wzrd_dialog_end(active);
+
+				if (ok) {
+					if (selected == 1) {
+						Texture texture = texture_get_by_name(name);
+						game_texture_add(texture);
+					}
+					else if (selected == 0)
+					{
+						game_entity_create((Entity) {
+							.name = str128_create(name.val),
+								.texture = game_texture_get_handle_by_name(str128_create("player")),
+								.rect = { .x = 0, .y = 0, .w = 100, .h = 100 },
+								.color = (wzrd_color){ 255, 255, 255, 255 }
+						});
+					}
+
+					*active = false;
+				}
+
+				if (cancel) {
+					*active = false;
+				}
+			}
+
 		}
 	}
 	wzrd_end(debug_str);

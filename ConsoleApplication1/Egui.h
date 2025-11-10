@@ -1,9 +1,6 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
-
 #ifndef WZRD_GUI_H
 #define WZRD_GUI_H
+
 #include <float.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -16,7 +13,6 @@
 #include "Strings.h"
 
 #define WZRD_BORDER_SIZE 1
-
 
 // BUG: FONT SIZE CLASHES WITH THAT DEFINED IN PLATFORM.C
 #define WZRD_FONT_HEIGHT 22
@@ -94,7 +90,7 @@ typedef enum EguiState {
 
 typedef struct wzrd_rect_struct {
 	int x, y, w, h;
-} wzrd_rect_struct;
+} WzRect;
 
 typedef struct wzrd_v2 {
 	int x, y;
@@ -102,7 +98,11 @@ typedef struct wzrd_v2 {
 
 #define DEBUG_PANELS 0
 
-typedef enum BorderType { BorderType_None, BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_Custom } wzrd_border_type;
+typedef enum WzBorderType
+{
+	BorderType_None, BorderType_Default, BorderType_Black, BorderType_Clicked, BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_Custom
+}
+WzBorderType;
 
 typedef struct wzrd_texture {
 	void* data;
@@ -145,7 +145,7 @@ typedef struct Item {
 		//wzrd_str str;
 		wzrd_str str;
 		wzrd_texture texture;
-		wzrd_rect_struct rect;
+		WzRect rect;
 		Line line;
 	} val;
 	bool scissor;
@@ -160,7 +160,7 @@ typedef struct wzrd_widget_id {
 typedef struct wzrd_handle
 {
 	unsigned int handle;
-} wzrd_handle;
+} WzHandle;
 
 typedef enum {
 	wzrd_box_type_default,
@@ -171,83 +171,17 @@ typedef enum {
 	wzrd_box_type_crate
 } wzrd_box_type;
 
-typedef struct wzrd_style_structure
+typedef enum WzLayout
 {
-	int pad_right, pad_bottom, pad_left, pad_top;
-} wzrd_structure;
+	WzLayoutNone,
+	WzLayoutHorizontal,
+	WzLayoutVertical,
+} WzLayout;
 
-typedef struct wzrd_style_skin
-{
-	wzrd_color font_color;
-	wzrd_color color;
-	wzrd_color b0, b1, b2, b3;
-	wzrd_border_type border_type;
-	wzrd_border_type window_border_type;
-} wzrd_skin;
-
-typedef struct wzrd_style_space
-{
-	int x, y, w, h;
-} wzrd_space;
-
-
-typedef enum LayoutType
-{
-	LayoutType_None,
-	LayoutType_Row,
-	LayoutType_Column,
-} LayoutType;
-
-typedef struct wzrd_style_layout
-{
-	int child_gap;
-	//bool row_mode;
-	LayoutType type;
-	bool fit_h, fit_w;
-	bool center_x, center_y;
-	bool best_fit;
-} wzrd_layout;
-
-typedef struct Box {
-	wzrd_handle handle;
-	wzrd_box_type type;
-
-	int x_internal, y_internal, w_internal, h_internal;
-
-	bool disable_hover;
-	bool clip;
-
-	bool disable_input;
-	bool is_draggable, is_slot;
-
-	// TODO: Find a better more descriptive name!
-	bool free;
-
-	//int* scrollbar_x, * scrollbar_y;
-	wzrd_v2 content_size;
-
-	int children[MAX_NUM_CHILDREN];
-	unsigned char children_count;
-
-	int free_children[MAX_NUM_CHILDREN];
-	unsigned char free_children_count;
-
-	Item items[MAX_NUM_ITEMS];
-	int items_count;
-
-	unsigned int layer;
-	bool bring_to_front;
-	int index;
-	bool is_selected;
-
-	wzrd_space space;
-	wzrd_structure structure;
-	wzrd_layout layout;
-	wzrd_skin skin;
-
-	int style2;
-
-} wzrd_box;
+typedef enum {
+	WzAlignVCenter = 1 << 0,
+	WzAlignHCenter = 1 << 1,
+} WzAlignment;
 
 typedef struct Crate {
 	int layer;
@@ -270,13 +204,15 @@ typedef enum EguiDrawCommandType {
 	DrawCommandType_HorizontalLine,
 	DrawCommandType_String,
 	DrawCommandType_Texture,
-	DrawCommandType_Clip
+	DrawCommandType_Clip,
+	DrawCommandType_StopClip
 } EguiDrawCommandType;
 
 typedef struct EguiDrawCommand {
 	EguiDrawCommandType type;
-	wzrd_rect_struct dest_rect, src_rect;
+	int box_index;
 	wzrd_str str;
+	WzRect dest_rect, src_rect;
 	wzrd_color color;
 	wzrd_texture texture;
 	int z;
@@ -286,6 +222,66 @@ typedef struct wzrd_draw_commands_buffer {
 	wzrd_draw_command commands[MAX_NUM_DRAW_COMMANDS];
 	int count;
 } wzrd_draw_commands_buffer;
+
+typedef struct {
+	WzHandle handle;
+	int line_number;
+	const char* file;
+
+	int x_internal, y_internal;
+	unsigned int w_internal, h_internal;
+	bool disable_hover;
+	WzHandle clip_widget;
+	bool disable_input;
+	bool is_draggable, is_slot;
+	bool free;
+	int content_w, content_h;
+
+	unsigned int children[MAX_NUM_CHILDREN];
+	unsigned char children_count;
+
+	unsigned int free_children[MAX_NUM_CHILDREN];
+	unsigned char free_children_count;
+
+	Item items[MAX_NUM_ITEMS];
+	unsigned int items_count;
+	unsigned int layer;
+	bool bring_to_front;
+	unsigned int index;
+	bool is_selected;
+	
+	//wzrd_space space;
+	int x, y, w, h;
+	float percentage_w, percentage_h;
+	//bool w_strech, h_strech;
+	unsigned int strech_factor;
+
+	//wzrd_structure structure;
+	unsigned int pad_right, pad_bottom, pad_left, pad_top;
+
+	int child_gap;
+	WzLayout layout_type;
+	bool fit_h, fit_w;
+	WzAlignment alignment;
+	bool best_fit;
+
+	//wzrd_skin skin;
+	wzrd_color font_color;
+	wzrd_color color;
+	wzrd_color b0, b1, b2, b3;
+	WzBorderType border_type;
+	WzBorderType window_border_type;
+
+	const char* tag;
+	const char* secondary_tag;
+
+} WzWidget;
+
+typedef struct CachedBox
+{
+	const char* tag;
+	WzWidget box;
+} CachedBox;
 
 typedef struct wzrd_keyboard_key {
 	char val;
@@ -305,21 +301,27 @@ typedef enum wzrd_cursor { wzrd_cursor_default, wzrd_cursor_hand, wzrd_cursor_ve
 
 #define MAX_NUM_HOVERED_ITEMS 32
 
+typedef struct wzrd_stylesheet
+{
+	wzrd_color label_color;
+	wzrd_color label_item_selected_color;
+} wzrd_stylesheet;
+
 typedef struct wzrd_canvas {
 
 	// Persistent
-	wzrd_handle hovered_item, hot_item_previous, active_item, clicked_item, activating_item, deactivating_item, dragged_item;
-	wzrd_handle right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
-	wzrd_handle active_input_box;
-	wzrd_handle hovered_items_list[MAX_NUM_HOVERED_ITEMS];
+	WzHandle hovered_item, hot_item_previous, active_item, clicked_item, activating_item, deactivating_item, dragged_item;
+	WzHandle right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
+	WzHandle active_input_box;
+	WzHandle hovered_items_list[MAX_NUM_HOVERED_ITEMS];
 	int hovered_items_list_count;
-	wzrd_box hovered_boxes[MAX_NUM_HOVERED_ITEMS];
+	WzWidget hovered_boxes[MAX_NUM_HOVERED_ITEMS];
 	int hovered_boxes_count;
 
-	wzrd_rect_struct window;
+	WzRect window;
 	float input_box_timer;
 	double tooltip_time;
-	wzrd_box dragged_box;
+	WzWidget dragged_box;
 	bool clean;
 	void (*get_string_size)(char*, int*, int*);
 
@@ -328,7 +330,7 @@ typedef struct wzrd_canvas {
 	wzrd_state mouse_left, mouse_right;
 
 	// Frame ?
-	wzrd_box boxes[MAX_NUM_BOXES];
+	WzWidget boxes[MAX_NUM_BOXES];
 	int boxes_count;
 
 	int boxes_in_stack_count, total_num_windows;
@@ -342,10 +344,20 @@ typedef struct wzrd_canvas {
 	wzrd_cursor cursor;
 	wzrd_draw_commands_buffer command_buffer;
 
-	wzrd_skin panel_skin, panel_border_skin, panel_border_click_skin, command_button_skin, label_item_skin, label_item_selected_skin, label_skin, input_box_skin, command_button_on_skin, list_skin;
-	wzrd_structure panel_structure, command_button_structure, label_structure, input_box_structure;
-	wzrd_layout v_panel_layout, h_panel_layout, command_button_layout, input_box_layout, top_label_panel_layout;
-	wzrd_space command_button_space, toggle_icon_space, input_box_space;
+	//wzrd_skin panel_skin, panel_border_skin, panel_border_click_skin, command_button_skin, label_item_skin, label_item_selected_skin, label_skin, input_box_skin, command_button_on_skin, list_skin;
+	//wzrd_structure panel_structure, command_button_structure, label_structure, input_box_structure;
+	//wzrd_layout v_panel_layout, h_panel_layout, command_button_layout, input_box_layout, top_label_panel_layout;
+	//wzrd_space command_button_space, toggle_icon_space, input_box_space;
+
+#define MAX_NUM_CACHED_BOXES 128
+	WzWidget cached_boxes[MAX_NUM_CACHED_BOXES];
+	int cached_boxes_count;
+
+#define MAX_NUM_CLIP_BOXES 128
+	WzRect clip_boxes[MAX_NUM_CLIP_BOXES];
+	int clip_boxes_count;
+
+	wzrd_stylesheet stylesheet;
 
 } wzrd_canvas;
 
@@ -385,88 +397,88 @@ typedef struct wzrd_polygon {
 	int count;
 } wzrd_polygon;
 
-typedef struct wzrd_style
-{
-	wzrd_skin skin;
-	wzrd_layout layout;
-	wzrd_structure structure;
-	wzrd_space space;
-} wzrd_style;
-
-typedef struct wzrd_style2
-{
-	const char* name;
-
-	// Skin
-	wzrd_color font_color;
-	wzrd_color color;
-	wzrd_color b0, b1, b2, b3;
-	wzrd_border_type border_type;
-	wzrd_border_type window_border_type;
-
-	// Structure
-	int pad_right, pad_bottom, pad_left, pad_top;
-
-	// Space
-	int x, y, w, h;
-
-	// Layout 
-	int child_gap;
-	bool row_mode;
-	bool fit_h, fit_w;
-	bool center_x, center_y;
-	bool best_fit;
-
-} wzrd_style2;
+#define WZ_STRINGIFY1(x) #x
+#define WZ_STRINGIFY(x) WZ_STRINGIFY1(x)
 
 // GENERAL
-wzrd_handle wzrd_begin(wzrd_canvas* gui, wzrd_rect_struct window,
+WzHandle wz_begin(wzrd_canvas* gui, WzRect window,
 	void (*get_string_size)(char*, int*, int*),
 	wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
 void wzrd_end(wzrd_str* debug_str);
 
 // WIDGETS
-wzrd_handle wzrd_label_button(wzrd_str str, bool* result, wzrd_handle parent);
-wzrd_handle wzrd_button_icon(wzrd_texture texture, bool* released, wzrd_handle parent);
-wzrd_handle wzrd_command_button(wzrd_str str, bool* b, wzrd_handle parent);
-void wzrd_dropdown(int* selected_text, const wzrd_str* str, int str_count, int w, bool* active);
-wzrd_handle wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, int layer, wzrd_handle parent);
+WzHandle wzrd_label_button_raw(wzrd_str str, bool* result, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_button_icon_raw(wzrd_texture texture, bool* released, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_command_button_raw(wzrd_str str, bool* b, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, int layer, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_command_toggle_raw(wzrd_str str, bool* active, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_toggle_icon_raw(wzrd_texture texture, bool* active, WzHandle parent, const char *file, unsigned int line);
+void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* items, wzrd_v2 size, unsigned int* selected, bool* is_selected, WzHandle parent, const char *file, unsigned int line);
+void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count, wzrd_v2 size, WzHandle* handles, unsigned int* selected, bool* is_selected, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_handle_button_raw(bool* active, WzRect rect, wzrd_color color, wzrd_str name, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_label_raw(wzrd_str str, WzHandle parent, const char *file, unsigned int line);
+WzHandle wzrd_vbox_border_raw(wzrd_v2 size, WzHandle parent, const char *file, unsigned int line);
+WzHandle wz_hbox_raw(WzHandle parent, const char *file, unsigned int line);
+
+#define FUSE(x, y) x##y
+
+#define wzrd_label_button(str, result, parent) wzrd_label_button_raw(str, result, parent, __FILE__, __LINE__)
+#define wzrd_button_icon(texture, released, parent) wzrd_button_icon_raw(texture, released, parent, __FILE__, __LINE__)
+#define wzrd_command_button(str, b, parent) wzrd_command_button_raw(str, b, parent, __FILE__, __LINE__)
+#define wzrd_dropdown(selected_text, texts, texts_count, w, active, parent) wzrd_dropdown_raw(selected_text, texts, texts_count, w, active, parent, __FILE__, __LINE__)
+#define wzrd_dialog_begin(pos, size, active, name, layer, parent) wzrd_dialog_begin_raw(pos, size, active, name, layer, parent, __FILE__, __LINE__)
+#define wzrd_command_toggle(str, active, parent) wzrd_command_toggle_raw(str, active, parent, __FILE__, __LINE__)
+#define wzrd_toggle_icon(texture, active, parent) wzrd_toggle_icon_raw(texture, active, parent, __FILE__, __LINE__)
+#define wzrd_label_list_sorted(item_names, count, items, size, selected, is_selected, parent) wzrd_label_list_sorted_raw(item_names, count, items, size, selected, is_selected, parent, __FILE__, __LINE__)
+#define wzrd_label_list(item_names, count, size, handles, selected, is_selected, parent) wzrd_label_list_raw(item_names, count, size, handles, selected, is_selected, parent, __FILE__, __LINE__)
+#define wzrd_input_box(str, len, max_num_keys, parent) wzrd_input_box_raw(str, len, max_num_keys, parent, __FILE__, __LINE__)
+#define wzrd_handle_button(active, rect, color, name, parent) wzrd_handle_button_raw(active, rect, color, name, parent, __FILE__, __LINE__)
+#define wzrd_label(str, parent) wzrd_label_raw(str, parent, __FILE__, __LINE__)
+#define wzrd_vbox_border(size, parent) wzrd_vbox_border_raw(size, parent, __FILE__, __LINE__)
+#define wz_hbox(parent) wz_hbox_raw(parent,  __FILE__, __LINE__)
+#define wz_vbox(parent) wz_vbox_raw(parent,  __FILE__, __LINE__)
+
 void wzrd_dialog_end(bool active);
-wzrd_handle wzrd_command_toggle(wzrd_str str, bool* active, wzrd_handle parent);
-wzrd_handle wzrd_toggle_icon(wzrd_texture texture, bool* active, wzrd_handle parent);
-void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items, wzrd_v2 size, unsigned int* selected, bool* is_selected, wzrd_handle parent);
-void wzrd_label_list(wzrd_str* item_names, unsigned int count, wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected, wzrd_handle parent);
-wzrd_handle wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle parent);
-wzrd_handle wzrd_handle_button(bool* active, wzrd_rect_struct rect, wzrd_color color, wzrd_str name, wzrd_handle parent);
-void wzrd_box_end();
-wzrd_handle wzrd_vbox(wzrd_v2 size, wzrd_handle parent);
-wzrd_handle wzrd_widget(wzrd_style style, wzrd_handle parent);
-wzrd_handle wzrd_label(wzrd_str str, wzrd_handle parent);
-wzrd_handle wzrd_widget_free(wzrd_style box_data, wzrd_handle parent);
-wzrd_handle wzrd_vbox_border(wzrd_v2 size, wzrd_handle parent);
 
 // UTILS
-void wzrd_box_add_child(wzrd_handle parent, wzrd_handle child);
-wzrd_handle wzrd_box_set_unique_handle(wzrd_handle handle, wzrd_str str);
-wzrd_box* wzrd_box_get_by_handle(wzrd_handle handle);
+void wz_widget_set_layout(WzHandle handle, WzLayout layout_type);
+void wz_widget_set_strech_factor(WzHandle handle, unsigned int strech_factor);
+WzHandle wz_widget(WzHandle parent);
+WzHandle wzrd_widget_free(WzHandle parent);
+void wzrd_box_add_child(WzHandle parent, WzHandle child);
+WzWidget* wz_widget_get(WzHandle handle);
 wzrd_str wzrd_str_create(char* str);
-wzrd_box* wzrd_box_get_last();
-wzrd_box* wzrd_box_find(wzrd_canvas* c, wzrd_str name);
+WzWidget* wzrd_box_get_last();
+WzWidget* wzrd_box_find(wzrd_canvas* c, wzrd_str name);
 int wzrd_box_get_current_index();
-bool wzrd_box_is_active(wzrd_box* box);
+bool wzrd_box_is_active(WzWidget* box);
 bool wzrd_is_releasing();
-wzrd_handle wzrd_unique_handle_create(wzrd_str str);
-bool wzrd_box_is_dragged(wzrd_box* box);
+bool wzrd_box_is_dragged(WzWidget* box);
 void wzrd_box_resize(wzrd_v2* size);
-void wzrd_item_add(Item item, wzrd_handle box);
-bool wzrd_box_is_hot(wzrd_box* box);
-bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, wzrd_box* box);
-bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
-wzrd_handle wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name, wzrd_handle parent);
-void wzrd_handle_set_layer(wzrd_handle handle, unsigned int layer);
+void wzrd_item_add(Item item, WzHandle box);
+bool wzrd_box_is_hot(WzWidget* box);
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidget* box);
+bool wzrd_handle_is_equal(WzHandle a, WzHandle b);
+void wzrd_handle_set_layer(WzHandle handle, unsigned int layer);
 wzrd_canvas* wzrd_canvas_get();
+WzWidget wzrd_widget_get_cached_box(const char *tag);
+void wzrd_widget_tag(WzHandle widget, const char* str);
+void wzrd_widget_clip(WzHandle handle);
+bool wzrd_widget_is_deactivating(WzHandle handle);
+bool wzrd_widget_is_active(WzHandle handle);
+WzWidget wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag);
+void wzrd_widget_set_color(WzHandle widget, wzrd_color color);
+void wz_widget_set_w(WzHandle w, int width);
+void wz_widget_set_h(WzHandle h, int height);
+void wz_widget_set_x(WzHandle w, int width);
+void wz_widget_set_y(WzHandle h, int height);
+void wz_widget_set_pos(WzHandle handle, int x, int y);
+bool wzrd_handle_is_valid(WzHandle handle);
+void wz_widget_set_size(WzHandle handle, int w, int h);
+void wz_widget_set_border(WzHandle w, WzBorderType border_type);
 
 #define wzrd_widget_set_style2(widget, style) wzrd_widget_set_style2_explicit(__LINE__, widget, style)
-
 
 #endif

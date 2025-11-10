@@ -10,29 +10,26 @@
 
 static wzrd_canvas* canvas;
 
-bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b);
-bool wzrd_handle_is_valid(wzrd_handle handle);
-wzrd_handle wzrd_handle_create();
-void wzrd_box_end();
-wzrd_box* wzrd_box_get_parent();
-wzrd_box* wzrd_box_get_previous();
-void wzrd_crate_begin(int window_id, wzrd_box box);
-void wzrd_crate(int window_id, wzrd_box box);
-void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, wzrd_handle box);
-void wzrd_text_add(wzrd_str str, wzrd_handle box);
-void wzrd_box_resize(wzrd_v2* size);
+WzHandle wz_widget(WzHandle parent);
+bool wzrd_handle_is_equal(WzHandle a, WzHandle b);
+bool wzrd_handle_is_valid(WzHandle handle);
+WzHandle wzrd_handle_create();
+WzWidget* wzrd_box_get_parent();
+WzWidget* wzrd_box_get_previous();
+void wzrd_crate_begin(int window_id, WzWidget box);
+void wzrd_crate(int window_id, WzWidget box);
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzHandle box);
+void wzrd_text_add(wzrd_str str, WzHandle box);
+//void wzrd_box_resize(wzrd_v2* size);
 void wzrd_crate_end();
-wzrd_box* wzrd_box_get_by_handle(wzrd_handle str);
+WzWidget* wz_widget_get(WzHandle str);
 void wzrd_drag(bool* drag);
-wzrd_box* wzrd_box_get_last();
-bool wzrd_box_is_dragged(wzrd_box* box);
-bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, wzrd_box* box);
-wzrd_box* wzrd_box_get_released();
-wzrd_box* wzrd_box_find(wzrd_canvas* canvas, wzrd_str name);
-bool wzrd_is_releasing();
+WzWidget* wzrd_box_get_last();
+bool wzrd_box_is_dragged(WzWidget* box);
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidget* box);
+WzWidget* wzrd_box_get_released();
+WzWidget* wzrd_box_find(wzrd_canvas* canvas, wzrd_str name);
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
-wzrd_handle wzrd_unique_handle_create(wzrd_str str);
-bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle);
 
 typedef struct stylesheet
 {
@@ -40,9 +37,15 @@ typedef struct stylesheet
 	int button_color_clicked;
 } stylesheet;
 
+void wz_widget_add_source(WzHandle handle, const char* file, unsigned int line)
+{
+	wz_widget_get(handle)->file = file;
+	wz_widget_get(handle)->line_number = line;
+}
+
 void wzrd_style_init()
 {
-#if 1
+#if 0
 
 	// Panels
 	canvas->panel_skin = (wzrd_skin)
@@ -76,7 +79,7 @@ void wzrd_style_init()
 	{
 		//.center_y = true,
 		.child_gap = 10,
-			.type = LayoutType_Row,
+			.type = WzLayoutRow,
 	});
 
 	// List
@@ -163,56 +166,62 @@ void wzrd_style_init()
 #endif
 }
 
-wzrd_handle wzrd_box_set_unique_handle(wzrd_handle handle, wzrd_str str)
-{
-	wzrd_handle new_handle = wzrd_unique_handle_create(str);
-	wzrd_box_get_by_handle(handle)->handle = new_handle;
-	return new_handle;
-}
 
-wzrd_handle wzrd_vbox_border(wzrd_v2 size, wzrd_handle parent)
+WzHandle wzrd_vbox_border_raw(wzrd_v2 size, WzHandle parent, const char* file_name, unsigned int line)
 {
-	wzrd_handle handle = wzrd_widget(((wzrd_style) {
-		.space = (wzrd_space)
-		{
-			.h = size.y,
-				.w = size.x
-		},
-			.layout = canvas->v_panel_layout,
-			.structure = canvas->panel_structure,
-			.skin = canvas->panel_border_skin
-	}),
-		parent);
+	WzHandle handle = wz_widget(parent);
+	wz_widget_add_source(handle, file_name, line);
+	wz_widget_set_size(handle, size.x, size.y);
 
 	return handle;
 }
 
-wzrd_handle wzrd_vbox_border_click(wzrd_v2 size, wzrd_handle parent)
+WzHandle wzrd_vbox_border_click(wzrd_v2 size, WzHandle parent)
 {
-	wzrd_handle handle = wzrd_widget(((wzrd_style) {
-		.space = (wzrd_space)
-		{
-			.h = size.y,
-				.w = size.x
-		},
-			.layout = canvas->v_panel_layout,
-			.structure = canvas->panel_structure,
-			.skin = canvas->panel_border_click_skin
-	}),
-		parent);
+	WzHandle handle = wz_hbox(parent);
+	wz_widget_set_size(handle, size.x, size.y);
 
 	return handle;
 }
 
-bool wzrd_handle_is_valid(wzrd_handle handle)
+bool wzrd_handle_is_valid(WzHandle handle)
 {
 	return (bool)handle.handle;
 }
 
-wzrd_handle wzrd_handle_create()
+WzWidget* wz_widget_get(WzHandle handle) {
+	if (!wzrd_handle_is_valid(handle))
+	{
+		return canvas->boxes;
+	}
+
+	WzWidget* result = 0;
+	for (int i = 0; i < canvas->boxes_count; ++i)
+	{
+		if (canvas->boxes[i].handle.handle == handle.handle)
+		{
+			result = canvas->boxes + i;
+			break;
+		}
+	}
+
+	assert(result);
+
+	return result;
+}
+
+void wz_widget_set_size(WzHandle handle, int w, int h)
+{
+	WzWidget* b = wz_widget_get(handle);
+	b->w = w;
+	b->h = h;
+}
+
+
+WzHandle wzrd_handle_create()
 {
 	assert(canvas);
-	wzrd_handle handle = { canvas->boxes_count };
+	WzHandle handle = { canvas->boxes_count };
 
 	return handle;
 }
@@ -232,20 +241,7 @@ unsigned int wzrd_hash(wzrd_str str)
 	return hash;
 }
 
-wzrd_handle wzrd_unique_handle_create(wzrd_str str)
-{
-	unsigned int hash = wzrd_hash(str);
-	wzrd_handle result = { hash };
-
-	for (int i = 0; i < canvas->boxes_count; ++i)
-	{
-		assert(canvas->boxes[i].handle.handle != result.handle);
-	}
-
-	return result;
-}
-
-bool wzrd_is_rect_inside_rect(wzrd_rect_struct a, wzrd_rect_struct b) {
+bool wzrd_is_rect_inside_rect(WzRect a, WzRect b) {
 	bool res = a.x >= b.x;
 	res &= a.x >= b.x;
 	res &= a.x + a.w <= b.x + b.w;
@@ -254,7 +250,46 @@ bool wzrd_is_rect_inside_rect(wzrd_rect_struct a, wzrd_rect_struct b) {
 	return res;
 }
 
-int wzrd_v2_is_inside_rect(wzrd_v2 v, wzrd_rect_struct rect) {
+void wz_widget_set_h(WzHandle w, int height)
+{
+	wz_widget_get(w)->h = height;
+}
+
+void wz_widget_set_w(WzHandle w, int width)
+{
+	wz_widget_get(w)->w = width;
+}
+
+void wz_widget_set_x(WzHandle w, int x)
+{
+	WzWidget* widget = wz_widget_get(w);
+	widget->x = x;
+}
+
+void wz_widget_set_y(WzHandle w, int y)
+{
+	WzWidget* widget = wz_widget_get(w);
+	widget->y = y;
+}
+
+void wz_widget_set_border(WzHandle w, WzBorderType border_type)
+{
+	wz_widget_get(w)->border_type = border_type;
+}
+
+void wz_widget_set_pos(WzHandle handle, int x, int y)
+{
+	wz_widget_set_x(handle, x);
+	wz_widget_set_y(handle, y);
+}
+
+
+void wzrd_widget_set_color(WzHandle widget, wzrd_color color)
+{
+	wz_widget_get(widget)->color = color;
+}
+
+int wzrd_v2_is_inside_rect(wzrd_v2 v, WzRect rect) {
 	bool result = false;
 	if (v.x >= rect.x &&
 		v.y >= rect.y &&
@@ -280,29 +315,29 @@ Crate* EguiGetPreviousWindow() {
 	return result;
 }
 
-wzrd_box* wzrd_box_get_parent() {
+WzWidget* wzrd_box_get_parent() {
 	if (canvas->crates_stack[canvas->current_crate_index].box_stack_count < 2)
 	{
 		return &canvas->boxes[0];
 	}
 	int current_box_index = canvas->crates_stack[canvas->current_crate_index].box_stack_count - 2;
 	int final_index = canvas->crates_stack[canvas->current_crate_index].box_stack[current_box_index];
-	wzrd_box* result = &canvas->boxes[final_index];
+	WzWidget* result = &canvas->boxes[final_index];
 
 	return result;
 }
 
-bool wzrd_handle_is_child_of_handle(wzrd_handle a, wzrd_handle b)
+bool wzrd_handle_is_child_of_handle(WzHandle a, WzHandle b)
 {
 	int stack[MAX_NUM_BOXES];
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wzrd_box_get_by_handle(a)->index;
+	stack[count++] = wz_widget_get(a)->index;
 
 	while (ptr != count)
 	{
-		wzrd_box* box = &canvas->boxes[stack[ptr]];
+		WzWidget* box = &canvas->boxes[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -329,25 +364,25 @@ int wzrd_box_get_current_index() {
 	return result;
 }
 
-wzrd_box* wzrd_box_get_last() {
-	wzrd_box* result = canvas->boxes + (canvas->boxes_count - 1);
+WzWidget* wzrd_box_get_last() {
+	WzWidget* result = canvas->boxes + (canvas->boxes_count - 1);
 
 	return result;
 }
 
-void wzrd_text_add(wzrd_str str, wzrd_handle parent)
+void wzrd_text_add(wzrd_str str, WzHandle parent)
 {
 	wzrd_item_add((Item) { .type = wzrd_item_type_str, .val = { .str = str }, .color = EGUI_BLACK }, parent);
 }
 
-void goo(wzrd_box* box, void* data)
+void goo(WzWidget* box, void* data)
 {
 	(void)data;
 	(void)box;
 	//box->color = EGUI_BEIGE;
 }
 
-void wzrd_box_tree_apply(int index, void* data, void (*goo)(wzrd_box* box, void* data))
+void wzrd_box_tree_apply(int index, void* data, void (*goo)(WzWidget* box, void* data))
 {
 	int stack[1024];
 	int count = 0;
@@ -357,7 +392,7 @@ void wzrd_box_tree_apply(int index, void* data, void (*goo)(wzrd_box* box, void*
 
 	while (ptr != count)
 	{
-		wzrd_box* box = &canvas->boxes[stack[ptr]];
+		WzWidget* box = &canvas->boxes[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -369,17 +404,17 @@ void wzrd_box_tree_apply(int index, void* data, void (*goo)(wzrd_box* box, void*
 	}
 }
 
-bool wzrd_handle_is_active_tree(wzrd_handle handle)
+bool wzrd_handle_is_active_tree(WzHandle handle)
 {
 	int stack[1024];
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wzrd_box_get_by_handle(handle)->index;
+	stack[count++] = wz_widget_get(handle)->index;
 
 	while (ptr != count)
 	{
-		wzrd_box* box = &canvas->boxes[stack[ptr]];
+		WzWidget* box = &canvas->boxes[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -397,7 +432,17 @@ bool wzrd_handle_is_active_tree(wzrd_handle handle)
 	return false;
 }
 
-bool wzrd_box_is_released(wzrd_box* box) {
+bool wzrd_widget_is_deactivating(WzHandle handle)
+{
+	if (wzrd_handle_is_equal(handle, canvas->deactivating_item))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool wzrd_box_is_released(WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->deactivating_item)) {
 		return true;
 	}
@@ -405,17 +450,17 @@ bool wzrd_box_is_released(wzrd_box* box) {
 	return false;
 }
 
-bool wzrd_handle_is_released_tree(wzrd_handle handle)
+bool wzrd_handle_is_released_tree(WzHandle handle)
 {
 	int stack[1024];
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wzrd_box_get_by_handle(handle)->index;
+	stack[count++] = wz_widget_get(handle)->index;
 
 	while (ptr != count)
 	{
-		wzrd_box* box = &canvas->boxes[stack[ptr]];
+		WzWidget* box = &canvas->boxes[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -437,8 +482,8 @@ bool wzrd_handle_is_released_tree(wzrd_handle handle)
 int wzrd_compare_boxes(const void* element1, const void* element2) {
 	int index1 = *(int*)element1;
 	int index2 = *(int*)element2;
-	wzrd_box* c1 = canvas->boxes + index1;
-	wzrd_box* c2 = canvas->boxes + index2;
+	WzWidget* c1 = canvas->boxes + index1;
+	WzWidget* c2 = canvas->boxes + index2;
 
 	if (c1->layer > c2->layer)
 	{
@@ -477,50 +522,9 @@ int wzrd_compare_boxes(const void* element1, const void* element2) {
 	return 0;
 }
 
-bool wzrd_handle_is_equal(wzrd_handle a, wzrd_handle b)
+bool wzrd_handle_is_equal(WzHandle a, WzHandle b)
 {
 	return a.handle == b.handle;
-}
-
-
-void wzrd_box_resize(wzrd_v2* size) {
-#if 0
-	wzrd_box* box = 0;
-	//wzrd_box_get_from_top_of_stack();
-	wzrd_box* previous_box = wzrd_box_get_parent();
-
-	box->type = wzrd_box_type_resizable;
-
-	int mouse_delta_x = canvas->mouse_pos.x - canvas->previous_mouse_pos.x;
-	int mouse_delta_y = canvas->mouse_pos.y - canvas->previous_mouse_pos.y;
-
-	wzrd_style_template previous_box_style = wzrd_style_get(previous_box->style);
-
-	if (previous_box_style.row_mode) {
-		if (wzrd_handle_is_equal(box->handle, canvas->left_resized_item)) {
-			if (size->x - mouse_delta_x >= 0)
-				size->x -= mouse_delta_x;
-		}
-
-		else if (wzrd_handle_is_equal(box->handle, canvas->right_resized_item)) {
-			if (size->x + mouse_delta_x >= 0)
-				size->x += mouse_delta_x;
-		}
-	}
-	else {
-		if (wzrd_handle_is_equal(box->handle, canvas->top_resized_item)) {
-			if (size->y - mouse_delta_y <= 0)
-				size->y -= mouse_delta_y;
-		}
-		else if (wzrd_handle_is_equal(box->handle, canvas->bottom_resized_item)) {
-			if (size->y + mouse_delta_y >= 0)
-				size->y += mouse_delta_y;
-		}
-	}
-
-	//wzrd_box_get_from_top_of_stack()->w_internal += size->x;
-	//wzrd_box_get_from_top_of_stack()->h_internal += size->y;
-#endif
 }
 
 int wzrd_float_compare(float a, float b)
@@ -541,54 +545,68 @@ int wzrd_float_compare(float a, float b)
 	return 0;
 }
 
-void wzrd_box_add_free_child(wzrd_handle parent, wzrd_handle child)
+void wzrd_box_add_free_child(WzHandle parent, WzHandle child)
 {
-	wzrd_box* p = wzrd_box_get_by_handle(parent);
-	wzrd_box* c = wzrd_box_get_by_handle(child);
+	WzWidget* p = wz_widget_get(parent);
+	WzWidget* c = wz_widget_get(child);
 	WZRD_ASSERT(p->free_children_count < MAX_NUM_CHILDREN - 1);
 	p->free_children[p->free_children_count++] = c->index;
 
 	c->layer = p->layer;
+	c->clip_widget = p->clip_widget;
+
 }
 
-void wzrd_box_add_child(wzrd_handle parent, wzrd_handle child)
+void wzrd_box_add_child(WzHandle parent, WzHandle child)
 {
-	wzrd_box* p = wzrd_box_get_by_handle(parent);
-	wzrd_box* c = wzrd_box_get_by_handle(child);
+
+
+	WzWidget* p = wz_widget_get(parent);
+	WzWidget* c = wz_widget_get(child);
 	WZRD_ASSERT(p->children_count < MAX_NUM_CHILDREN - 1);
 	p->children[p->children_count++] = c->index;
 
 	c->layer = p->layer;
+	c->clip_widget = p->clip_widget;
 
 }
 
-void wzrd_box_add_child_using_pointer(wzrd_box* parent, wzrd_box* child)
+void wzrd_box_add_child_using_pointer(WzWidget* parent, WzWidget* child)
 {
 	WZRD_ASSERT(parent->children_count < MAX_NUM_CHILDREN - 1);
 	parent->children[parent->children_count++] = child->index;
 }
 
-wzrd_box* wzrd_box_create(wzrd_box box) {
+WzWidget* wz_widget_create()
+{
+	WzWidget box;
+	box.children_count = 0;
+	box.free_children_count = 0;
+	box.items_count = 0;
+	box.color = EGUI_LIGHTGRAY;
+	box.font_color = EGUI_BLACK;
+	box.percentage_h = 0;
+	box.percentage_w = 0;
+	box.alignment = 0;
+	box.best_fit = false;
+	box.border_type = BorderType_None;
+	box.bring_to_front = false;
+	box.child_gap = 0;
+	box.content_h = 0;
+	box.content_w = 0;
+	box.fit_h = false;
+	box.fit_w = false;
+	box.pad_left = box.pad_right = box.pad_top = box.pad_bottom = 0;
+	box.x = box.y = box.h = box.w = 0;
+	box.file = 0;
+	box.line_number = 0;
+	box.clip_widget.handle = 0;
 
-	if (box.handle.handle == 0)
-		box.handle = wzrd_handle_create();
+	box.handle = wzrd_handle_create();
 
 	WZRD_ASSERT(canvas->boxes_count < MAX_NUM_BOXES - 1);
 
 	box.layer = EguiGetCurrentWindow()->layer;
-
-	/*if (box_style.fit_w) {
-		box.w_internal += 4 * WZRD_BORDER_SIZE;
-	}
-	if (box_style.fit_h) {
-		box.h_internal += 4 * WZRD_BORDER_SIZE;
-	}*/
-
-	// Add box
-	if (!memcmp(&canvas->boxes[canvas->boxes_count], &box, sizeof(wzrd_box)))
-	{
-		canvas->clean = false;
-	}
 
 	WZRD_ASSERT(canvas->boxes_count < 256);
 
@@ -598,89 +616,45 @@ wzrd_box* wzrd_box_create(wzrd_box box) {
 	return &canvas->boxes[canvas->boxes_count - 1];
 }
 
-wzrd_handle wzrd_widget_free(wzrd_style style, wzrd_handle parent)
+WzHandle wzrd_widget_free(WzHandle parent)
 {
-	wzrd_box box_data = { .skin = style.skin, .layout = style.layout, .structure = style.structure, .space = style.space };
+	WzWidget* box = wz_widget_create();
+	box->layer = wz_widget_get(parent)->layer;
 
-	wzrd_box* box = wzrd_box_create(box_data);
-	box->layer = wzrd_box_get_by_handle(parent)->layer;
-
-	wzrd_box_add_free_child(parent, box->handle);
-	/*{
-		wzrd_space style = box->space;
-		box->x_internal = style.x;
-		box->y_internal = style.y;
-		box->w_internal = style.w;
-		box->h_internal = style.h;
-	}*/
 
 	return box->handle;
 }
 
-wzrd_handle wzrd_widget(wzrd_style style, wzrd_handle parent)
+WzHandle wz_widget(WzHandle parent)
 {
-	wzrd_box box_data = { .skin = style.skin, .layout = style.layout, .structure = style.structure, .space = style.space };
+	WzWidget* widget = wz_widget_create();
 
-	wzrd_box* box = wzrd_box_create(box_data);
+	wzrd_box_add_child(parent, widget->handle);
 
-	wzrd_box_add_child(parent, box->handle);
-
-	return box->handle;
+	return widget->handle;
 }
 
-void wzrd_box_close()
+WzHandle wz_vbox_raw(WzHandle parent, const char* file, unsigned int line)
 {
+	WzHandle p = wz_widget(parent);
+	wz_widget_set_layout(p, WzLayoutVertical);
+	wz_widget_add_source(p, file, line);
+	wz_widget_set_strech_factor(p, 1);
 
+	return p;
 }
 
-void wzrd_box_end() {
-#if 0
-	canvas->boxes_in_stack_count--;
-	//WZRD_ASSERT(canvas->boxes_in_stack_count >= 0);
+WzHandle wz_hbox_raw(WzHandle parent, const char* file, unsigned int line)
+{
+	WzHandle p = wz_widget(parent);
+	wz_widget_set_layout(p, WzLayoutHorizontal);
+	wz_widget_add_source(p, file, line);
+	wz_widget_set_strech_factor(p, 1);
 
-	wzrd_box* current_box = wzrd_box_get_from_top_of_stack();
-	Crate* current_crate = EguiGetCurrentWindow();
-
-	//set to previous panel
-	wzrd_box* previous_box = wzrd_box_get_parent();
-	wzrd_style previous_box_style = wzrd_style_get(previous_box->style);
-	if (previous_box) {
-
-		// Handle fitting
-		if (previous_box_style.fit_h) {
-			WZRD_ASSERT(current_box->h_internal);
-			WZRD_ASSERT(current_box->w_internal);
-
-			if (!previous_box_style.row_mode) {
-				previous_box->h_internal += current_box->h_internal;
-			}
-			else {
-				if (current_box->h_internal > previous_box->h_internal) {
-					previous_box->h_internal += current_box->h_internal;
-				}
-			}
-		}
-		if (previous_box_style.fit_w) {
-			WZRD_ASSERT(current_box->h_internal);
-			WZRD_ASSERT(current_box->w_internal);
-
-			if (previous_box_style.row_mode) {
-				previous_box->w_internal += current_box->w_internal;
-			}
-			else {
-				if (current_box->w_internal > previous_box->w_internal) {
-					previous_box->w_internal += current_box->w_internal;
-				}
-			}
-		}
-	}
-
-	current_crate->box_stack_count--;
-	WZRD_ASSERT(current_crate->box_stack_count >= 0);
-#endif
+	return p;
 }
 
-void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, wzrd_handle parent) {
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzHandle parent) {
 	wzrd_item_add((Item) {
 		.type = ItemType_Texture,
 			.size = size,
@@ -688,9 +662,8 @@ void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, wzrd_handle parent) {
 	}, parent);
 }
 
-void wzrd_crate_begin(int layer, wzrd_box box) {
+void wzrd_crate_begin(int layer, WzWidget box) {
 
-	box.type = wzrd_box_type_crate;
 	canvas->total_num_windows++;
 	canvas->current_crate_index++;
 
@@ -722,13 +695,13 @@ void wzrd_crate_end() {
 #endif
 }
 
-void wzrd_crate(int window_id, wzrd_box box) {
+void wzrd_crate(int window_id, WzWidget box) {
 	wzrd_crate_begin(window_id, box);
 	wzrd_crate_end();
 }
 
-wzrd_handle wzrd_begin(wzrd_canvas* gui,
-	wzrd_rect_struct window,
+WzHandle wz_begin(wzrd_canvas* gui,
+	WzRect window,
 	void (*get_string_size)(char*, int*, int*),
 	wzrd_v2 mouse_pos,
 	wzrd_state mouse_left,
@@ -754,33 +727,33 @@ wzrd_handle wzrd_begin(wzrd_canvas* gui,
 	canvas->boxes_count = 0;
 	canvas->input_box_timer += 16.7f;
 
+	canvas->clip_boxes_count = 1;
+
 	// Empty box
-	canvas->boxes[canvas->boxes_count++] = (wzrd_box){ 0 };
+	canvas->boxes[canvas->boxes_count++] = (WzWidget){ 0 };
 
 	// Zero-out boxes
 	for (int i = 0; i < MAX_NUM_BOXES; ++i)
 	{
-		canvas->boxes[i] = (wzrd_box){ 0 };
+		//canvas->boxes[i] = (wzrd_box){ 0 };
 	}
 
 	// Window
-	wzrd_handle h = wzrd_widget((wzrd_style) {
-		.space = (wzrd_space){
-			.x = window.x,
-				.y = window.y,
-				.w = window.w,
-				.h = window.h,
-		},
-		.layout = canvas->v_panel_layout,
-		//.skin = canvas->panel_skin,
-			.structure = canvas->panel_structure
-	}, (wzrd_handle) { 0 });
+	WzHandle h = wz_vbox((WzHandle) { 0 });
+
+	wz_widget_set_size(h, window.w, window.h);
+	wz_widget_set_pos(h, window.x, window.y);
+
+	// Stylesheet
+	canvas->stylesheet.label_color = EGUI_LIGHTGRAY;
+	canvas->stylesheet.label_item_selected_color = EGUI_LIGHTGRAY;
+
 
 	return h;
 }
 
 
-void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect_struct rect, wzrd_color color, int z) {
+void EguiRectDraw(wzrd_draw_commands_buffer* buffer, WzRect rect, wzrd_color color, int z, int box_index) {
 
 	WZRD_ASSERT(rect.w > 0);
 	WZRD_ASSERT(rect.h > 0);
@@ -795,9 +768,11 @@ void EguiRectDraw(wzrd_draw_commands_buffer* buffer, wzrd_rect_struct rect, wzrd
 	WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 	buffer->commands[buffer->count++] = command;
 
+	buffer->commands[buffer->count - 1].box_index = box_index;
+
 }
 
-wzrd_box* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
+WzWidget* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
 {
 	// TODO: optimize	
 	unsigned int hash = wzrd_hash(name);
@@ -814,18 +789,19 @@ wzrd_box* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
 }
 
 
-wzrd_box* wzrd_box_get_previous() {
-	wzrd_box* result = &canvas->boxes[canvas->boxes_count - 1];
+WzWidget* wzrd_box_get_previous() {
+	WzWidget* result = &canvas->boxes[canvas->boxes_count - 1];
 
 	return result;
 }
 
 void wzrd_handle_cursor()
 {
+#if 0
 	canvas->cursor = wzrd_cursor_default;
 
-	wzrd_box* hot_box = wzrd_box_get_by_handle(canvas->hovered_item);
-	wzrd_box* active_box = wzrd_box_get_by_handle(canvas->active_item);
+	WzWidget* hot_box = wz_widget_get(canvas->hovered_item);
+	WzWidget* active_box = wz_widget_get(canvas->active_item);
 
 	if (canvas->hovered_item.handle) {
 		if (hot_box->type == wzrd_box_type_button) {
@@ -837,10 +813,14 @@ void wzrd_handle_cursor()
 			canvas->cursor = wzrd_cursor_hand;
 		}
 	}
+#endif
 }
 
-void wzrd_handle_border_resize(wzrd_cursor* cursor)
+void wzrd_handle_border_resize()
 {
+#if 0
+	wzrd_cursor* cursor = 0;
+
 	canvas->left_resized_item = (wzrd_handle){ 0 };
 	canvas->right_resized_item = (wzrd_handle){ 0 };
 	canvas->top_resized_item = (wzrd_handle){ 0 };
@@ -909,9 +889,10 @@ void wzrd_handle_border_resize(wzrd_cursor* cursor)
 			}
 		}
 	}
+#endif
 }
 
-bool wzrd_handle_is_active(wzrd_handle handle) {
+bool wzrd_handle_is_active(WzHandle handle) {
 	if (wzrd_handle_is_equal(handle, canvas->active_item)) {
 		return true;
 	}
@@ -919,7 +900,7 @@ bool wzrd_handle_is_active(wzrd_handle handle) {
 	return false;
 }
 
-bool wzrd_handle_is_released(wzrd_handle handle) {
+bool wzrd_handle_is_released(WzHandle handle) {
 	if (wzrd_handle_is_equal(handle, canvas->deactivating_item)) {
 		return true;
 	}
@@ -927,7 +908,7 @@ bool wzrd_handle_is_released(wzrd_handle handle) {
 	return false;
 }
 
-bool wzrd_handle_is_hovered(wzrd_handle handle) {
+bool wzrd_handle_is_hovered(WzHandle handle) {
 	if (wzrd_handle_is_equal(handle, canvas->hovered_item)) {
 		return true;
 	}
@@ -935,7 +916,7 @@ bool wzrd_handle_is_hovered(wzrd_handle handle) {
 	return false;
 }
 
-bool wzrd_handle_is_hovered_from_list(wzrd_handle handle)
+bool wzrd_handle_is_hovered_from_list(WzHandle handle)
 {
 
 	for (int i = 0; i < canvas->hovered_items_list_count; ++i)
@@ -949,7 +930,7 @@ bool wzrd_handle_is_hovered_from_list(wzrd_handle handle)
 	return false;
 }
 
-bool wzrd_handle_is_interacting(wzrd_handle handle) {
+bool wzrd_handle_is_interacting(WzHandle handle) {
 	if (wzrd_handle_is_equal(handle, canvas->activating_item) ||
 		wzrd_handle_is_equal(handle, canvas->active_item) ||
 		wzrd_handle_is_equal(handle, canvas->deactivating_item))
@@ -960,17 +941,42 @@ bool wzrd_handle_is_interacting(wzrd_handle handle) {
 	return false;
 }
 
-
 void wzrd_handle_input(int* indices, int count)
 {
-	wzrd_box* hovered_box = canvas->boxes;
+	WzWidget* hovered_box = canvas->boxes;
 	unsigned int max_layer = 0;
 	canvas->hovered_items_list_count = 0;
 	canvas->hovered_boxes_count = 0;
 	for (int i = 0; i < count; ++i) {
-		wzrd_box* box = canvas->boxes + indices[i];
+		WzWidget* box = canvas->boxes + indices[i];
 
-		wzrd_rect_struct scaled_rect = { box->x_internal, box->y_internal, box->w_internal, box->h_internal };
+		WzRect scaled_rect = { box->x_internal, box->y_internal, box->w_internal, box->h_internal };
+
+		// Input Clipping: Block mouse from reaching clipped widgets
+		if (wzrd_handle_is_valid(box->clip_widget))
+		{
+			WzWidget* clip_widget = wz_widget_get(box->clip_widget);
+
+			if (box->x_internal < clip_widget->x_internal)
+			{
+				scaled_rect.x = clip_widget->x_internal;
+			}
+
+			if (box->y_internal < clip_widget->y_internal)
+			{
+				scaled_rect.y = clip_widget->y_internal;
+			}
+
+			if (box->x_internal + box->w_internal > clip_widget->x_internal + clip_widget->w_internal)
+			{
+				scaled_rect.w = clip_widget->w_internal;
+			}
+
+			if (box->y_internal + box->h_internal > clip_widget->y_internal + clip_widget->h_internal)
+			{
+				scaled_rect.y = clip_widget->h_internal;
+			}
+		}
 
 		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { canvas->mouse_pos.x, canvas->mouse_pos.y },
 			scaled_rect);
@@ -997,24 +1003,24 @@ void wzrd_handle_input(int* indices, int count)
 	}
 
 	// ...
-	wzrd_box* half_clicked_box = wzrd_box_get_by_handle(canvas->activating_item);
+	WzWidget* half_clicked_box = wz_widget_get(canvas->activating_item);
 	if (half_clicked_box && canvas->mouse_left == WZRD_ACTIVE)
 	{
-		canvas->activating_item = (wzrd_handle){ 0 };
+		canvas->activating_item = (WzHandle){ 0 };
 	}
 
 	if (canvas->mouse_left == WZRD_DEACTIVATING)
 	{
 		//canvas->released_item = canvas->dragged_item;
-		canvas->dragged_box = (wzrd_box){ 0 };
-		canvas->dragged_item = (wzrd_handle){ 0 };
+		canvas->dragged_box = (WzWidget){ 0 };
+		canvas->dragged_item = (WzHandle){ 0 };
 
 		canvas->clean = false;
 	}
 
 	if (canvas->mouse_left == WZRD_INACTIVE)
 	{
-		canvas->deactivating_item = (wzrd_handle){ 0 };
+		canvas->deactivating_item = (WzHandle){ 0 };
 	}
 
 	if (wzrd_handle_is_valid(hovered_box->handle)) {
@@ -1026,11 +1032,11 @@ void wzrd_handle_input(int* indices, int count)
 		canvas->hovered_item = hovered_box->handle;
 	}
 	else {
-		canvas->hovered_item = (wzrd_handle){ 0 };
+		canvas->hovered_item = (WzHandle){ 0 };
 	}
 
-	wzrd_box* hot_box = wzrd_box_get_by_handle(canvas->hovered_item);
-	wzrd_box* active_box = wzrd_box_get_by_handle(canvas->active_item);
+	WzWidget* hot_box = wz_widget_get(canvas->hovered_item);
+	WzWidget* active_box = wz_widget_get(canvas->active_item);
 
 	if (wzrd_handle_is_valid(active_box->handle)) {
 
@@ -1044,7 +1050,8 @@ void wzrd_handle_input(int* indices, int count)
 				}
 
 				canvas->deactivating_item = canvas->active_item;
-				canvas->active_item = (wzrd_handle){ 0 };
+				wz_widget_get(canvas->deactivating_item)->color = EGUI_PURPLE;
+				canvas->active_item = (WzHandle){ 0 };
 			}
 		}
 
@@ -1081,14 +1088,14 @@ void wzrd_handle_input(int* indices, int count)
 
 	// Clicked item
 	if (wzrd_handle_is_valid(canvas->clicked_item) && canvas->mouse_left == WZRD_INACTIVE) {
-		canvas->clicked_item = (wzrd_handle){ 0 };
+		canvas->clicked_item = (WzHandle){ 0 };
 
 		canvas->clean = false;
 	}
 
 	// Input box
 	if (wzrd_handle_is_valid(canvas->clicked_item)) {
-		wzrd_box* clicked_box = wzrd_box_get_by_handle(canvas->clicked_item);
+		WzWidget* clicked_box = wz_widget_get(canvas->clicked_item);
 		WZRD_ASSERT(clicked_box);
 		/*	if (clicked_box->type == wzrd_box_type_input_box) {
 				canvas->active_input_box = clicked_box->handle;
@@ -1099,7 +1106,23 @@ void wzrd_handle_input(int* indices, int count)
 	}
 }
 
-bool wzrd_box_is_activating(wzrd_box* box) {
+bool wzrd_widget_is_activating(WzHandle handle) {
+	if (wzrd_handle_is_equal(handle, canvas->activating_item)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool wzrd_widget_is_active(WzHandle handle) {
+	if (wzrd_handle_is_equal(handle, canvas->active_item)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool wzrd_box_is_activating(WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->activating_item)) {
 		return true;
 	}
@@ -1107,10 +1130,20 @@ bool wzrd_box_is_activating(wzrd_box* box) {
 	return false;
 }
 
-void wzrd_box_bring_to_front(wzrd_box* box, void* data)
+void wzrd_box_bring_to_front(WzWidget* box, void* data)
 {
 	(void)data;
 	box->bring_to_front = true;
+}
+
+void wz_widget_set_strech_factor(WzHandle handle, unsigned int strech_factor)
+{
+	wz_widget_get(handle)->strech_factor = strech_factor;
+}
+
+void wz_widget_set_layout(WzHandle handle, WzLayout layout_type)
+{
+	wz_widget_get(handle)->layout_type = layout_type;
 }
 
 void wzrd_do_layout()
@@ -1127,100 +1160,151 @@ void wzrd_do_layout()
 	// Calculate size
 	for (int i = 1; i < canvas->boxes_count; ++i)
 	{
-		wzrd_box* parent = &canvas->boxes[i];
-		wzrd_space parent_space = parent->space;
-		wzrd_structure parent_structure = parent->structure;
-		wzrd_layout parent_layout = parent->layout;
-
-		//if (!parent->layout.type)
-			//continue;
+		WzWidget* parent = &canvas->boxes[i];
 
 		WZRD_ASSERT(parent->w_internal > 0);
 		WZRD_ASSERT(parent->h_internal > 0);
 
 		// Calculate the total size of the children
-		int available_w = 0, available_h = 0, children_w = 0, children_h = 0;
+		unsigned int available_w = 0, available_h = 0, children_w = 0, children_h = 0, children_strech_factor = 0;
 		{
 			for (int j = 0; j < parent->children_count; ++j)
 			{
-				wzrd_box* child = &canvas->boxes[parent->children[j]];
+				WzWidget* child = &canvas->boxes[parent->children[j]];
 				children_w += child->w_internal;
 				children_h += child->h_internal;
+
+				children_strech_factor += child->strech_factor;
 			}
 
-			available_w = parent->w_internal - parent_structure.pad_left - parent_structure.pad_right - 4 * WZRD_BORDER_SIZE;
-			available_h = parent->h_internal - parent_structure.pad_top - parent_structure.pad_bottom - 4 * WZRD_BORDER_SIZE;
+			WZRD_ASSERT(parent->w_internal);
+			WZRD_ASSERT(parent->h_internal);
+
+			available_w = parent->w_internal - parent->pad_left - parent->pad_right - 4 * WZRD_BORDER_SIZE;
+			available_h = parent->h_internal - parent->pad_top - parent->pad_bottom - 4 * WZRD_BORDER_SIZE;
 
 			if (parent->children_count)
 			{
-				if (parent_layout.type == LayoutType_Row)
-					available_w -= parent_layout.child_gap * (parent->children_count - 1);
+				if (parent->layout_type == WzLayoutHorizontal)
+					available_w -= parent->child_gap * (parent->children_count - 1);
 				else
-					available_h -= parent_layout.child_gap * (parent->children_count - 1);
+					available_h -= parent->child_gap * (parent->children_count - 1);
 			}
 		}
 
 		// Handle growing
-		for (int j = 0; j < parent->children_count; ++j)
 		{
-			wzrd_box* child = &canvas->boxes[parent->children[j]];
-			wzrd_layout child_layout = child->layout;
-
-			if (child->w_internal == 0 && !child_layout.fit_w)
+			unsigned int strech_w = 0;
+			unsigned int strech_h = 0;
+			if (children_strech_factor)
 			{
-				if (parent_layout.type == LayoutType_Row) {
-					child->w_internal = available_w - children_w;
+				strech_w = available_w / children_strech_factor;
+				strech_h = available_h / children_strech_factor;
+			}
+
+			for (int j = 0; j < parent->children_count; ++j)
+			{
+				WzWidget* child = &canvas->boxes[parent->children[j]];
+
+				if (1)
+				{
+					if (child->strech_factor)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZRD_ASSERT(strech_w);
+							child->w_internal = strech_w * child->strech_factor;
+
+							if (!child->h)
+							{
+								child->h_internal = available_h;
+							}
+
+						}
+						else if (parent->layout_type == WzLayoutVertical)
+						{
+							WZRD_ASSERT(strech_h);
+							child->h_internal = strech_h * child->strech_factor;
+
+							if (!child->w)
+							{
+								child->w_internal = available_w;
+							}
+
+						}
+					}
 				}
-				else {
-					child->w_internal = available_w;
+				else
+				{
+					// OLD CODE
+					if (child->strech_factor && !child->fit_w && !child->percentage_w)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZRD_ASSERT(available_w >= children_w);
+							child->w_internal = available_w - children_w;
+						}
+						else
+						{
+							child->w_internal = available_w;
+						}
+
+					}
+
+					if (child->strech_factor && !child->fit_h && !child->percentage_h)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZRD_ASSERT(available_h >= children_h);
+							child->h_internal = available_h - children_h;
+						}
+						else
+						{
+							child->h_internal = available_h;
+						}
+
+					}
+				}
+
+				if (child->best_fit && parent->h_internal && child->h_internal)
+				{
+					float ratio_a = parent->w_internal / parent->h_internal;
+					float ratio_b = child->w_internal / child->h_internal;
+					float ratio = 0;
+
+					if (wzrd_float_compare(ratio_b, ratio_a) >= 0)
+					{
+						WZRD_ASSERT(child->w_internal);
+						ratio = (parent->w_internal / child->w_internal);
+					}
+					else
+					{
+						WZRD_ASSERT(child->h_internal);
+						ratio = (parent->h_internal / child->h_internal);
+					}
+
+					child->w_internal = child->w_internal * ratio;
+					child->h_internal = child->h_internal * ratio;
+				}
+
+				if (child->percentage_w)
+				{
+					child->w_internal = parent->w_internal * child->percentage_w;
+				}
+				if (child->percentage_h)
+				{
+					child->h_internal = parent->h_internal * child->percentage_h;
 				}
 
 				WZRD_ASSERT(child->w_internal > 0);
-			}
-
-			if (child->h_internal == 0 && !child_layout.fit_h)
-			{
-				if (!parent_layout.type == LayoutType_Row)
-				{
-					child->h_internal = available_h - children_h;
-				}
-				else
-				{
-					child->h_internal = available_h;
-				}
-
 				WZRD_ASSERT(child->h_internal > 0);
 			}
-
-			if (child_layout.best_fit && parent->h_internal && child->h_internal)
-			{
-				float ratio_a = parent->w_internal / parent->h_internal;
-				float ratio_b = child->w_internal / child->h_internal;
-				float ratio = 0;
-
-				//if (ratio_b >= ratio_a)
-				if (wzrd_float_compare(ratio_b, ratio_a) >= 0)
-				{
-					ratio = (parent->w_internal / child->w_internal);
-				}
-				else
-				{
-					ratio = (parent->h_internal / child->h_internal);
-				}
-
-				child->w_internal = child->w_internal * ratio;
-				child->h_internal = child->h_internal * ratio;
-
-			}
-
-			WZRD_ASSERT(child->w_internal > 0);
-			WZRD_ASSERT(child->h_internal > 0);
 		}
 
 		// Calcuate size for free children
 		for (int j = 0; j < parent->free_children_count; ++j)
 		{
-			wzrd_box* child = &canvas->boxes[parent->free_children[j]];
+			WzWidget* child = &canvas->boxes[parent->free_children[j]];
 
 			if (!child->w_internal)
 			{
@@ -1239,30 +1323,26 @@ void wzrd_do_layout()
 	// Calculate content size
 	for (int i = 1; i < canvas->boxes_count; ++i)
 	{
-		wzrd_box* parent = canvas->boxes + i;
-		wzrd_layout parent_layout = parent->layout;
+		WzWidget* parent = canvas->boxes + i;
 
-		if (!parent->clip)
-			continue;
+		parent->content_w = 2 * WZRD_BORDER_SIZE;
+		parent->content_h = 2 * WZRD_BORDER_SIZE;
 
-		parent->content_size.x = 2 * WZRD_BORDER_SIZE;
-		parent->content_size.y = 2 * WZRD_BORDER_SIZE;
-
-		if (parent_layout.type == LayoutType_Row)
+		if (parent->layout_type == WzLayoutHorizontal)
 		{
-			parent->content_size.x += (parent->children_count + 1) * parent_layout.child_gap;
-			parent->content_size.y += parent_layout.child_gap;
+			parent->content_w += (parent->children_count + 1) * parent->child_gap;
+			parent->content_h += parent->child_gap;
 		}
 		else
 		{
-			parent->content_size.y += (parent->children_count + 1) * parent_layout.child_gap;
-			parent->content_size.x += parent_layout.child_gap;
+			parent->content_h += (parent->children_count + 1) * parent->child_gap;
+			parent->content_w += parent->child_gap;
 		}
 
 		int max_child_w = 0, max_child_h = 0;
 		for (int j = 0; j < parent->children_count; ++j)
 		{
-			wzrd_box child = canvas->boxes[parent->children[j]];
+			WzWidget child = canvas->boxes[parent->children[j]];
 
 			if (parent->h_internal > max_child_h)
 			{
@@ -1274,34 +1354,31 @@ void wzrd_do_layout()
 				max_child_w = child.w_internal;
 			}
 
-			if (parent_layout.type == LayoutType_Row)
+			if (parent->layout_type == WzLayoutHorizontal)
 			{
-				parent->content_size.x += child.w_internal;
+				parent->content_w += child.w_internal;
 			}
 			else
 			{
-				parent->content_size.y += child.h_internal;
+				parent->content_h += child.h_internal;
 			}
 		}
 
-		if (parent_layout.type == LayoutType_Row)
+		if (parent->layout_type == WzLayoutHorizontal)
 		{
-			parent->content_size.y += max_child_h;
+			parent->content_h += max_child_h;
 		}
 		else
 		{
-			parent->content_size.x += max_child_w;
+			parent->content_w += max_child_w;
 		}
-
 	}
 
 	// Calculate positions
 	for (int i = 1; i < canvas->boxes_count; ++i) {
-		wzrd_box* parent = &canvas->boxes[i];
-		wzrd_structure parent_structure = parent->structure;
-		wzrd_layout parent_layout = (parent->layout);
+		WzWidget* parent = &canvas->boxes[i];
 
-		int x = parent->x_internal + parent_structure.pad_left, y = parent->y_internal + parent_structure.pad_top;
+		int x = parent->x_internal + parent->pad_left, y = parent->y_internal + parent->pad_top;
 
 		x += 2 * WZRD_BORDER_SIZE;
 		y += 2 * WZRD_BORDER_SIZE;
@@ -1309,7 +1386,7 @@ void wzrd_do_layout()
 		// Center
 		int w = 0, h = 0, max_w = 0, max_h = 0;
 		for (int j = 0; j < parent->children_count; ++j) {
-			wzrd_box* child = &canvas->boxes[parent->children[j]];
+			WzWidget* child = &canvas->boxes[parent->children[j]];
 
 			if (child->w_internal > max_w)
 				max_w = child->w_internal;
@@ -1317,54 +1394,57 @@ void wzrd_do_layout()
 			if (child->h_internal > max_h)
 				max_h = child->h_internal;
 
-			if (parent_layout.type == LayoutType_Row)
+			if (parent->layout_type == WzLayoutHorizontal)
 				w += child->w_internal;
 			else
 				h += child->h_internal;
 		}
 
-		if (parent_layout.type == LayoutType_Row)
-			w += parent_layout.child_gap * (parent->children_count - 1);
+		if (parent->layout_type == WzLayoutHorizontal)
+			w += parent->child_gap * (parent->children_count - 1);
 		else
-			h += parent_layout.child_gap * (parent->children_count - 1);
+			h += parent->child_gap * (parent->children_count - 1);
 
-		if (parent_layout.center_x && parent_layout.type == LayoutType_Row) {
-			x += (parent->w_internal - 4 * WZRD_BORDER_SIZE - parent_structure.pad_left - parent_structure.pad_right) / 2 - w / 2;
+		if ((parent->alignment & WzAlignVCenter) && parent->layout_type == WzLayoutHorizontal)
+		{
+			x += (parent->w_internal - 4 * WZRD_BORDER_SIZE - parent->pad_left - parent->pad_right) / 2 - w / 2;
 		}
-		if (parent_layout.center_y && !parent_layout.type == LayoutType_Row) {
-			y += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent_structure.pad_top - parent_structure.pad_bottom) / 2 - h / 2;
+
+		if ((parent->alignment & WzAlignHCenter) && parent->layout_type == WzLayoutHorizontal)
+		{
+			y += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent->pad_top - parent->pad_bottom) / 2 - h / 2;
 		}
 
 		// Calc positions
 		for (int j = 0; j < parent->children_count; ++j) {
-			wzrd_box* child = &canvas->boxes[parent->children[j]];
+			WzWidget* child = &canvas->boxes[parent->children[j]];
 
 			child->x_internal += x;
 			child->y_internal += y;
 
-			if (parent_layout.center_y && parent_layout.type == LayoutType_Row) {
-				child->y_internal += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent_structure.pad_top
-					- parent_structure.pad_bottom) / 2 - child->h_internal / 2;
+			if ((parent->alignment & WzAlignHCenter) && parent->layout_type == WzLayoutHorizontal) {
+				child->y_internal += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent->pad_top
+					- parent->pad_bottom) / 2 - child->h_internal / 2;
 			}
 
-			if (parent_layout.center_x && !parent_layout.type == LayoutType_Row) {
+			if ((parent->alignment & WzAlignVCenter) && parent->layout_type == WzLayoutHorizontal) {
 				child->x_internal += (parent->w_internal - 4 * WZRD_BORDER_SIZE -
-					parent_structure.pad_top - parent_structure.pad_bottom) / 2 - child->w_internal / 2;
+					parent->pad_top - parent->pad_bottom) / 2 - child->w_internal / 2;
 			}
 
-			if (parent_layout.type == LayoutType_Row) {
+			if (parent->layout_type == WzLayoutHorizontal) {
 				x += child->w_internal;
-				x += parent_layout.child_gap;
+				x += parent->child_gap;
 			}
 			else {
 				y += child->h_internal;
-				y += parent_layout.child_gap;
+				y += parent->child_gap;
 			}
 		}
 
 		// Calculate positions for free children
 		for (int j = 0; j < parent->free_children_count; ++j) {
-			wzrd_box* child = &canvas->boxes[parent->free_children[j]];
+			WzWidget* child = &canvas->boxes[parent->free_children[j]];
 
 			child->x_internal += parent->x_internal;
 			child->y_internal += parent->y_internal;
@@ -1374,9 +1454,9 @@ void wzrd_do_layout()
 	// Test child doesn't exceed parent's size
 	for (int i = 0; i < canvas->boxes_count; ++i) {
 		for (int j = 0; j < canvas->boxes[i].children_count; ++j) {
-			wzrd_box* owner = canvas->boxes + i;
-			wzrd_box* child = canvas->boxes + canvas->boxes[i].children[j];
-			if (!wzrd_is_rect_inside_rect((wzrd_rect_struct) { child->x_internal, child->y_internal, child->w_internal, child->h_internal }, (wzrd_rect_struct) { owner->x_internal, owner->y_internal, owner->w_internal, owner->h_internal })) {
+			WzWidget* owner = canvas->boxes + i;
+			WzWidget* child = canvas->boxes + canvas->boxes[i].children[j];
+			if (!wzrd_is_rect_inside_rect((WzRect) { child->x_internal, child->y_internal, child->w_internal, child->h_internal }, (WzRect) { owner->x_internal, owner->y_internal, owner->w_internal, owner->h_internal })) {
 				//owner->color = EGUI_ORANGE;
 				//child->color = EGUI_RED;
 			}
@@ -1392,338 +1472,368 @@ void wzrd_do_layout()
 
 void wzrd_draw(int* boxes_indices)
 {
-	// Draw
+	wzrd_draw_commands_buffer* buffer = &canvas->command_buffer;
+	buffer->count = 0;
+	for (int i = 1; i < canvas->boxes_count; ++i)
 	{
-		wzrd_draw_commands_buffer* buffer = &canvas->command_buffer;
-		buffer->count = 0;
-		for (int i = 1; i < canvas->boxes_count; ++i) {
+		WzWidget box = canvas->boxes[boxes_indices[i]];
 
-			wzrd_box box = canvas->boxes[boxes_indices[i]];
-			wzrd_skin box_skin = box.skin;
+		// Draw clip area
+		{
+			static WzHandle current_clip_widget;
 
-			if (box.type == wzrd_box_type_crate)
+			if (wzrd_handle_is_valid(box.clip_widget))
 			{
-				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
-				buffer->commands[buffer->count++] = (wzrd_draw_command){
-					.type = DrawCommandType_Clip,
-					.dest_rect = canvas->window,
-					.z = box.layer
-				};
+				if (!wzrd_handle_is_equal(current_clip_widget, box.clip_widget))
+				{
+					WzWidget* clip_box = wz_widget_get(box.clip_widget);
+					WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+					buffer->commands[buffer->count++] = (wzrd_draw_command){
+						.type = DrawCommandType_Clip,
+						.dest_rect = (WzRect) {clip_box->x_internal + 2 * WZRD_BORDER_SIZE, clip_box->y_internal + 2 * WZRD_BORDER_SIZE, clip_box->w_internal - 4 * WZRD_BORDER_SIZE, clip_box->h_internal - 4 * WZRD_BORDER_SIZE},
+						.color = EGUI_BLUE
+					};
+				}
+			}
+			else {
+				if (wzrd_handle_is_valid(current_clip_widget))
+				{
+					WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+					buffer->commands[buffer->count++] = (wzrd_draw_command){
+						.type = DrawCommandType_StopClip,
+					};
+				}
 			}
 
-			wzrd_color color = { 0 };
-			color = box_skin.color;
+			buffer->commands[buffer->count - 1].box_index = i;
 
-			EguiRectDraw(buffer, (wzrd_rect_struct) {
-				.x = box.x_internal,
-					.y = box.y_internal,
-					.h = box.h_internal,
-					.w = box.w_internal
-			},
-				color,
-				box.layer);
-
-			// Borders (1215 x 810)
-			int line_size = WZRD_BORDER_SIZE;
-
-			wzrd_rect_struct top0 = (wzrd_rect_struct){ box.x_internal, box.y_internal, box.w_internal - line_size, line_size };
-			wzrd_rect_struct left0 = (wzrd_rect_struct){ box.x_internal, box.y_internal, line_size, box.h_internal };
-
-			wzrd_rect_struct top1 = (wzrd_rect_struct){ box.x_internal + line_size, box.y_internal + line_size, box.w_internal - 3 * line_size, line_size };
-			wzrd_rect_struct left1 = (wzrd_rect_struct){ box.x_internal + line_size, box.y_internal + line_size, line_size, box.h_internal - line_size };
-
-			wzrd_rect_struct bottom0 = (wzrd_rect_struct){ box.x_internal, box.y_internal + box.h_internal - line_size, box.w_internal, line_size };
-			wzrd_rect_struct right0 = (wzrd_rect_struct){ box.x_internal + box.w_internal - line_size, box.y_internal, line_size, box.h_internal };
-
-			wzrd_rect_struct bottom1 = (wzrd_rect_struct){ box.x_internal + 1 * line_size, box.y_internal + box.h_internal - 2 * line_size, box.w_internal - 3 * line_size, line_size };
-			wzrd_rect_struct right1 = (wzrd_rect_struct){ box.x_internal + box.w_internal - 2 * line_size, box.y_internal + 1 * line_size, line_size, box.h_internal - 2 * line_size };
-
-			wzrd_is_rect_inside_rect(top0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(left0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(top1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(left1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(bottom0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(right0, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(bottom1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-			wzrd_is_rect_inside_rect(right1, (wzrd_rect_struct) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
-
-			if (box_skin.border_type == BorderType_Custom) {
-				//// Draw top and left lines
-				//EguiRectDraw(buffer, top0, canvas->style.b0, box.layer);
-				//EguiRectDraw(buffer, left0, canvas->style.b0, box.layer);
-				//EguiRectDraw(buffer, top1, canvas->style.b1, box.layer);
-				//EguiRectDraw(buffer, left1, canvas->style.b1, box.layer);
-
-				//// Draw bottom and right lines
-				//EguiRectDraw(buffer, bottom0, canvas->style.b2, box.layer);
-				//EguiRectDraw(buffer, right0, canvas->style.b2, box.layer);
-				//EguiRectDraw(buffer, bottom1, canvas->style.b3, box.layer);
-				//EguiRectDraw(buffer, right1, canvas->style.b3, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_Default) {
-				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, left0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, top1, EGUI_LIGHTGRAY, box.layer);
-				EguiRectDraw(buffer, left1, EGUI_LIGHTGRAY, box.layer);
-
-				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, right0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, bottom1, EGUI_GRAY, box.layer);
-				EguiRectDraw(buffer, right1, EGUI_GRAY, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_Clicked) {
-				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, left0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, top1, EGUI_GRAY, box.layer);
-				EguiRectDraw(buffer, left1, EGUI_GRAY, box.layer);
-
-				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, right0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, box.layer);
-				EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_InputBox) {
-				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_GRAY, box.layer);
-				EguiRectDraw(buffer, left0, EGUI_GRAY, box.layer);
-				EguiRectDraw(buffer, top1, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, left1, EGUI_BLACK, box.layer);
-
-				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, right0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, box.layer);
-				EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_Black) {
-				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, left0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, top1, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, left1, EGUI_WHITE2, box.layer);
-
-				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, right0, EGUI_BLACK, box.layer);
-				EguiRectDraw(buffer, bottom1, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, right1, EGUI_WHITE2, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_BottomLine) {
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer);
-				EguiRectDraw(buffer, bottom1, EGUI_GRAY, box.layer);
-			}
-			else if (box_skin.border_type == BorderType_LeftLine) {
-				EguiRectDraw(buffer, left0, EGUI_GRAY, box.layer);
-				EguiRectDraw(buffer, left1, EGUI_WHITE2, box.layer);
-			}
-
-			// Draw content
-			for (int j = 0; j < box.items_count; ++j) {
-				Item item = box.items[j];
-				wzrd_draw_command command = { 0 };
-
-				if (item.size.x == 0)
-					item.size.x = box.w_internal;
-				if (item.size.y == 0)
-					item.size.y = box.h_internal;
-
-				// Apply box style to item
-				//wzrd_style_template style = wzrd_style_get(box.style);
-				wzrd_layout layout = box.layout;
-				wzrd_structure structure = box.structure;
-
-				wzrd_rect_struct dest = (wzrd_rect_struct){
-					box.x_internal,
-					box.y_internal,
-						box.w_internal,
-						box.h_internal
-				};
-
-				// String item
-				if (item.type == wzrd_item_type_str) {
-
-					int w, h;
-					canvas->get_string_size(item.val.str.str, &w, &h);
-
-					if (layout.center_x)
-					{
-						dest.x += dest.w / 2 - w / 2;
-					}
-
-					if (layout.center_y)
-					{
-						dest.y += dest.h / 2 - h / 2;
-					}
-
-					dest.x += structure.pad_left;
-					dest.y += structure.pad_top;
-					dest.x -= structure.pad_right;
-					dest.y -= structure.pad_bottom;
-
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_String,
-							.str = item.val.str,
-							.dest_rect = dest,
-							.color = item.color,
-							.z = box.layer
-					};
-				}
-
-				// Texture item
-				if (item.type == ItemType_Texture) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_Texture,
-						.dest_rect = (wzrd_rect_struct){box.x_internal, box.y_internal, box.w_internal, box.h_internal},
-						.src_rect = (wzrd_rect_struct) {0, 0, (int)item.val.texture.w, (int)item.val.texture.h},
-						.texture = item.val.texture,
-						.z = box.layer
-					};
-
-					if (item.scissor) {
-						command.src_rect = (wzrd_rect_struct){ 0, 0, command.dest_rect.w, command.dest_rect.h };
-					}
-				}
-
-				// Rect item
-				if (item.type == ItemType_Rect) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_Rect,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + item.val.rect.x,
-								box.y_internal + item.val.rect.y,
-								item.val.rect.w,
-								item.val.rect.h
-						},
-							.color = item.color,
-						.z = box.layer
-					};
-
-					WZRD_ASSERT(command.dest_rect.w > 0);
-					WZRD_ASSERT(command.dest_rect.h > 0);
-				}
-
-				// Line items
-				if (item.type == ItemType_Line) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_Line,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + item.val.rect.x,
-								box.y_internal + item.val.rect.y,
-								box.x_internal + item.val.rect.w,
-								box.y_internal + item.val.rect.h
-						},
-							.color = item.color,
-						.z = box.layer
-
-					};
-				}
-				else if (item.type == ItemType_HorizontalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal,
-								box.y_internal + box.h_internal / 2,
-								box.x_internal + box.w_internal,
-								box.y_internal + box.h_internal / 2
-						},
-						.z = box.layer
-
-					};
-				}
-				else if (item.type == ItemType_LeftHorizontalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal,
-								box.y_internal + box.h_internal / 2,
-								box.x_internal + box.w_internal / 2,
-								box.y_internal + box.h_internal / 2
-						},
-						.z = box.layer
-
-					};
-				}
-				else if (item.type == ItemType_RightHorizontalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_HorizontalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + box.w_internal / 2,
-								box.y_internal + box.h_internal / 2,
-								box.x_internal + box.w_internal,
-								box.y_internal + box.h_internal / 2
-						},
-						.z = box.layer
-
-					};
-				}
-				else if (item.type == ItemType_VerticalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + box.w_internal / 2,
-								box.y_internal,
-								box.x_internal + box.w_internal / 2 + box.w_internal,
-								box.y_internal + box.h_internal
-						},
-						.z = box.layer
-
-					};
-				}
-				else if (item.type == ItemType_TopVerticalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + box.w_internal / 2,
-								box.y_internal,
-								box.x_internal + box.w_internal / 2 + box.w_internal,
-								box.y_internal + box.h_internal / 2
-						},
-						.z = box.layer
-					};
-				}
-				else if (item.type == ItemType_BottomVerticalDottedLine) {
-					command = (wzrd_draw_command){
-						.type = DrawCommandType_VerticalLine,
-							.dest_rect = (wzrd_rect_struct){
-								box.x_internal + box.w_internal / 2,
-								box.y_internal + box.h_internal / 2,
-								box.x_internal + box.w_internal / 2,
-								box.y_internal + box.h_internal
-						},
-						.z = box.layer
-
-					};
-				}
-
-
-				command.dest_rect.x += item.pad_left;
-				command.dest_rect.y += item.pad_top;
-
-				WZRD_ASSERT(command.dest_rect.w >= 0);
-				WZRD_ASSERT(command.dest_rect.h >= 0);
-
-				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
-				buffer->commands[buffer->count++] = command;
-			}
-
-			// Draw clip area
-	/*		if (box.type == wzrd_box_type_crate)
-			{
-				WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
-				buffer->commands[buffer->count++] = (wzrd_draw_command){
-					.type = DrawCommandType_Clip,
-					.dest_rect = (wzrd_rect) {box.x_internal + 2 * WZRD_BORDER_SIZE, box.y_internal + 2 * WZRD_BORDER_SIZE, box.w_internal - 4 * WZRD_BORDER_SIZE, box.h_internal - 4 * WZRD_BORDER_SIZE},
-					.z = box.layer
-				};
-			}*/
+			current_clip_widget = box.clip_widget;
 		}
 
-		canvas->clean = true;
+
+		EguiRectDraw(buffer, (WzRect) {
+			.x = box.x_internal,
+				.y = box.y_internal,
+				.h = box.h_internal,
+				.w = box.w_internal
+		},
+			box.color,
+			box.layer, i);
+
+
+		// Borders (1215 x 810)
+		unsigned int line_size = WZRD_BORDER_SIZE;
+
+		WzRect top0 = (WzRect){ box.x_internal, box.y_internal, box.w_internal - line_size, line_size };
+		WzRect left0 = (WzRect){ box.x_internal, box.y_internal, line_size, box.h_internal };
+
+		WzRect top1 = (WzRect){ box.x_internal + line_size, box.y_internal + line_size, box.w_internal - 3 * line_size, line_size };
+		WzRect left1 = (WzRect){ box.x_internal + line_size, box.y_internal + line_size, line_size, box.h_internal - line_size };
+
+		WzRect bottom0 = (WzRect){ box.x_internal, box.y_internal + box.h_internal - line_size, box.w_internal, line_size };
+		WzRect right0 = (WzRect){ box.x_internal + box.w_internal - line_size, box.y_internal, line_size, box.h_internal };
+
+		WzRect bottom1 = (WzRect){ box.x_internal + 1 * line_size, box.y_internal + box.h_internal - 2 * line_size, box.w_internal - 3 * line_size, line_size };
+		WzRect right1 = (WzRect){ box.x_internal + box.w_internal - 2 * line_size, box.y_internal + 1 * line_size, line_size, box.h_internal - 2 * line_size };
+
+		wzrd_is_rect_inside_rect(top0, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(left0, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(top1, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(left1, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(bottom0, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(right0, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(bottom1, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+		wzrd_is_rect_inside_rect(right1, (WzRect) { box.x_internal, box.y_internal, box.w_internal, box.h_internal });
+
+		if (box.border_type == BorderType_Default) {
+			// Draw top and left lines
+			EguiRectDraw(buffer, top0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, left0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, top1, EGUI_LIGHTGRAY, box.layer, i);
+			EguiRectDraw(buffer, left1, EGUI_LIGHTGRAY, box.layer, i);
+
+			// Draw bottom and right lines
+			EguiRectDraw(buffer, bottom0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, right0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, bottom1, EGUI_GRAY, box.layer, i);
+			EguiRectDraw(buffer, right1, EGUI_GRAY, box.layer, i);
+		}
+		else if (box.border_type == BorderType_Clicked) {
+			// Draw top and left lines
+			EguiRectDraw(buffer, top0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, left0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, top1, EGUI_GRAY, box.layer, i);
+			EguiRectDraw(buffer, left1, EGUI_GRAY, box.layer, i);
+
+			// Draw bottom and right lines
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, right0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, box.layer, i);
+			EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, box.layer, i);
+		}
+		else if (box.border_type == BorderType_InputBox) {
+			// Draw top and left lines
+			EguiRectDraw(buffer, top0, EGUI_GRAY, box.layer, i);
+			EguiRectDraw(buffer, left0, EGUI_GRAY, box.layer, i);
+			EguiRectDraw(buffer, top1, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, left1, EGUI_BLACK, box.layer, i);
+
+			// Draw bottom and right lines
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, right0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, box.layer, i);
+			EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, box.layer, i);
+		}
+		else if (box.border_type == BorderType_Black) {
+			// Draw top and left lines
+			EguiRectDraw(buffer, top0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, left0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, top1, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, left1, EGUI_WHITE2, box.layer, i);
+
+			// Draw bottom and right lines
+			EguiRectDraw(buffer, bottom0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, right0, EGUI_BLACK, box.layer, i);
+			EguiRectDraw(buffer, bottom1, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, right1, EGUI_WHITE2, box.layer, i);
+		}
+		else if (box.border_type == BorderType_BottomLine) {
+			EguiRectDraw(buffer, bottom0, EGUI_WHITE2, box.layer, i);
+			EguiRectDraw(buffer, bottom1, EGUI_GRAY, box.layer, i);
+		}
+		else if (box.border_type == BorderType_LeftLine) {
+			EguiRectDraw(buffer, left0, EGUI_GRAY, box.layer, i);
+			EguiRectDraw(buffer, left1, EGUI_WHITE2, box.layer, i);
+		}
+
+		// Draw content
+		for (int j = 0; j < box.items_count; ++j) {
+			Item item = box.items[j];
+			wzrd_draw_command command = { 0 };
+
+			if (item.size.x == 0)
+				item.size.x = box.w_internal;
+			if (item.size.y == 0)
+				item.size.y = box.h_internal;
+
+
+			WzRect dest = (WzRect){
+				box.x_internal,
+				box.y_internal,
+					box.w_internal,
+					box.h_internal
+			};
+
+			// String item
+			if (item.type == wzrd_item_type_str) {
+
+				int w, h;
+				canvas->get_string_size(item.val.str.str, &w, &h);
+
+				if ((box.alignment & WzAlignHCenter))
+				{
+					dest.x += dest.w / 2 - w / 2;
+				}
+
+				if ((box.alignment & WzAlignVCenter))
+				{
+					dest.y += dest.h / 2 - h / 2;
+				}
+
+				dest.x += box.pad_left;
+				dest.y += box.pad_top;
+				dest.x -= box.pad_right;
+				dest.y -= box.pad_bottom;
+
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_String,
+						.str = item.val.str,
+						.dest_rect = dest,
+						.color = item.color,
+						.z = box.layer
+				};
+			}
+
+			// Texture item
+			if (item.type == ItemType_Texture) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_Texture,
+					.dest_rect = (WzRect){box.x_internal, box.y_internal, box.w_internal, box.h_internal},
+					.src_rect = (WzRect) {0, 0, (int)item.val.texture.w, (int)item.val.texture.h},
+					.texture = item.val.texture,
+					.z = box.layer
+				};
+
+				if (item.scissor) {
+					command.src_rect = (WzRect){ 0, 0, command.dest_rect.w, command.dest_rect.h };
+				}
+			}
+
+			// Rect item
+			if (item.type == ItemType_Rect) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_Rect,
+						.dest_rect = (WzRect){
+							box.x_internal + item.val.rect.x,
+							box.y_internal + item.val.rect.y,
+							item.val.rect.w,
+							item.val.rect.h
+					},
+						.color = item.color,
+					.z = box.layer
+				};
+
+				WZRD_ASSERT(command.dest_rect.w > 0);
+				WZRD_ASSERT(command.dest_rect.h > 0);
+			}
+
+			// Line items
+			if (item.type == ItemType_Line) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_Line,
+						.dest_rect = (WzRect){
+							box.x_internal + item.val.rect.x,
+							box.y_internal + item.val.rect.y,
+							box.x_internal + item.val.rect.w,
+							box.y_internal + item.val.rect.h
+					},
+						.color = item.color,
+					.z = box.layer
+
+				};
+			}
+			else if (item.type == ItemType_HorizontalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (WzRect){
+							box.x_internal,
+							box.y_internal + box.h_internal / 2,
+							box.x_internal + box.w_internal,
+							box.y_internal + box.h_internal / 2
+					},
+					.z = box.layer
+
+				};
+			}
+			else if (item.type == ItemType_LeftHorizontalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (WzRect){
+							box.x_internal,
+							box.y_internal + box.h_internal / 2,
+							box.x_internal + box.w_internal / 2,
+							box.y_internal + box.h_internal / 2
+					},
+					.z = box.layer
+
+				};
+			}
+			else if (item.type == ItemType_RightHorizontalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_HorizontalLine,
+						.dest_rect = (WzRect){
+							box.x_internal + box.w_internal / 2,
+							box.y_internal + box.h_internal / 2,
+							box.x_internal + box.w_internal,
+							box.y_internal + box.h_internal / 2
+					},
+					.z = box.layer
+
+				};
+			}
+			else if (item.type == ItemType_VerticalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (WzRect){
+							box.x_internal + box.w_internal / 2,
+							box.y_internal,
+							box.x_internal + box.w_internal / 2 + box.w_internal,
+							box.y_internal + box.h_internal
+					},
+					.z = box.layer
+
+				};
+			}
+			else if (item.type == ItemType_TopVerticalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (WzRect){
+							box.x_internal + box.w_internal / 2,
+							box.y_internal,
+							box.x_internal + box.w_internal / 2 + box.w_internal,
+							box.y_internal + box.h_internal / 2
+					},
+					.z = box.layer
+				};
+			}
+			else if (item.type == ItemType_BottomVerticalDottedLine) {
+				command = (wzrd_draw_command){
+					.type = DrawCommandType_VerticalLine,
+						.dest_rect = (WzRect){
+							box.x_internal + box.w_internal / 2,
+							box.y_internal + box.h_internal / 2,
+							box.x_internal + box.w_internal / 2,
+							box.y_internal + box.h_internal
+					},
+					.z = box.layer
+
+				};
+			}
+
+			command.dest_rect.x += item.pad_left;
+			command.dest_rect.y += item.pad_top;
+
+			WZRD_ASSERT(command.dest_rect.w >= 0);
+			WZRD_ASSERT(command.dest_rect.h >= 0);
+
+			WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+			buffer->commands[buffer->count++] = command;
+
+			buffer->commands[buffer->count - 1].box_index = i;
+		}
+
+
 	}
+
+	canvas->clean = true;
+
+}
+
+void wzrd_widget_clip(WzHandle handle)
+{
+	WzWidget* box = wz_widget_get(handle);
+	box->clip_widget = box->handle;
+}
+
+WzWidget wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag)
+{
+	for (int i = 0; i < canvas->cached_boxes_count; ++i)
+	{
+		if (canvas->cached_boxes[i].tag == tag && canvas->cached_boxes[i].secondary_tag == secondary_tag)
+		{
+			return canvas->cached_boxes[i];
+		}
+	}
+
+	return (WzWidget) { 0 };
+}
+
+WzWidget wzrd_widget_get_cached_box(const char* tag)
+{
+	for (int i = 0; i < canvas->cached_boxes_count; ++i)
+	{
+		if (canvas->cached_boxes[i].tag == tag && !canvas->cached_boxes[i].secondary_tag)
+		{
+			return canvas->cached_boxes[i];
+		}
+	}
+
+	return (WzWidget) { 0 };
+}
+
+void wzrd_widget_tag(WzHandle widget, const char* str)
+{
+	wz_widget_get(widget)->tag = str;
 }
 
 void wzrd_end(wzrd_str* debug_str)
@@ -1731,15 +1841,27 @@ void wzrd_end(wzrd_str* debug_str)
 	// Set internal size
 	for (int i = 1; i < canvas->boxes_count; ++i)
 	{
-		wzrd_box* box = &canvas->boxes[i];
-		wzrd_space style = box->space;
-		box->x_internal = style.x;
-		box->y_internal = style.y;
-		box->w_internal = style.w;
-		box->h_internal = style.h;
+		WzWidget* box = &canvas->boxes[i];
+		box->x_internal = box->x;
+		box->y_internal = box->y;
+		box->w_internal = box->w;
+		box->h_internal = box->h;
 	}
 
+	// box
 	wzrd_do_layout();
+
+	// Cache tagged elements
+	canvas->cached_boxes_count = 0;
+	for (int i = 1; i < canvas->boxes_count; ++i)
+	{
+		assert(canvas->cached_boxes_count < MAX_NUM_CACHED_BOXES - 1);
+		WzWidget* box = &canvas->boxes[i];
+		if (box->tag)
+		{
+			canvas->cached_boxes[canvas->cached_boxes_count++] = *box;
+		}
+	}
 
 	// Sort
 	int boxes_indices[MAX_NUM_BOXES] = { 0 };
@@ -1756,16 +1878,16 @@ void wzrd_end(wzrd_str* debug_str)
 	{
 		wzrd_handle_input(boxes_indices, canvas->boxes_count);
 		wzrd_handle_cursor();
-		/*wzrd_handle_border_resize(cursor);*/
+		wzrd_handle_border_resize();
 	}
 	else {
 		if (canvas->mouse_left == WZRD_DEACTIVATING)
 		{
 			//canvas->released_item = canvas->dragged_item;
 			//canvas->released_item = canvas->dragged_item;
-			canvas->dragged_box = (wzrd_box){ 0 };
-			canvas->dragged_item = (wzrd_handle){ 0 };
-			canvas->active_item = (wzrd_handle){ 0 };
+			canvas->dragged_box = (WzWidget){ 0 };
+			canvas->dragged_item = (WzHandle){ 0 };
+			canvas->active_item = (WzHandle){ 0 };
 		}
 	}
 
@@ -1773,31 +1895,18 @@ void wzrd_end(wzrd_str* debug_str)
 
 	wzrd_draw(boxes_indices);
 
-	if (debug_str)
-	{
-		char buff[1024];
-		sprintf_s(buff, 1024, "hovered: %u\nactive: %u\n hovered items:\n", canvas->hovered_item.handle, canvas->active_item.handle);
-		for (int i = 0; i < canvas->hovered_items_list_count; ++i)
-		{
-			char b[32];
-			sprintf_s(b, 32, "hovered item %d %u %d\n", i, canvas->hovered_items_list[i].handle,
-				wzrd_box_get_by_handle(canvas->hovered_items_list[i])->layer);
-			strcat(debug_str->str, b);
-		}
-		strcat(debug_str->str, buff);
-		debug_str->len = strlen(debug_str->str);
-	}
 	canvas = 0;
 }
 
-void wzrd_box_set_type(wzrd_handle handle, wzrd_box_type type)
+void wzrd_box_set_type(WzHandle handle, wzrd_box_type type)
 {
-	wzrd_box_get_by_handle(handle)->type = type;
+	wz_widget_get(handle)->layout_type = type;
 }
 
-wzrd_handle egui_button_raw_begin(wzrd_style box, bool* released, wzrd_handle parent) {
+WzHandle egui_button_raw_begin(bool* released, WzHandle parent, const char* file_name, unsigned int line) {
 
-	wzrd_handle handle = wzrd_widget(box, parent);
+	WzHandle handle = wz_widget(parent);
+	wz_widget_add_source(handle, file_name, line);
 	wzrd_box_set_type(handle, wzrd_box_type_button);
 
 	if (wzrd_handle_is_equal(handle, canvas->deactivating_item)) {
@@ -1815,42 +1924,15 @@ wzrd_canvas* wzrd_canvas_get()
 	return canvas;
 }
 
-wzrd_handle wzrd_toggle_icon(wzrd_texture texture, bool* active, wzrd_handle parent) {
+WzHandle wzrd_toggle_icon_raw(wzrd_texture texture, bool* active, WzHandle parent, const char* file_name, unsigned int line) {
 	bool b = false;
-	bool b1, b2;
-	wzrd_handle h1, h2;
+	WzHandle widget = egui_button_raw_begin(&b, parent, file_name, line);
+	wz_widget_add_source(widget, file_name, line);
 
-	h1 = egui_button_raw_begin((wzrd_style)
-	{
-		.space = canvas->toggle_icon_space,
-			.structure = canvas->command_button_structure
-	},
-		& b1, parent);
-
-	/*h2 = egui_button_raw_begin((wzrd_box) {
-		.style = wzrd_style_create((wzrd_style_template) { .w = 16, .h = 16, .border_type = BorderType_None, }),
-	}, & b2, h1);
-
-	wzrd_item_add((Item) {
-		.type = ItemType_Texture,
-			.val = { .texture = texture }
-	}, h2);
-
-	b |= b1;
-	b |= b2;
-
-	if (b)
-	{
-		*active = !*active;
-	}
-
-	bool a1 = wzrd_box_is_active(&canvas->boxes[canvas->boxes_count - 1]);
-	bool a2 = wzrd_box_is_active(&canvas->boxes[canvas->boxes_count - 2]);*/
-
-	return h1;
+	return widget;
 }
 
-wzrd_handle wzrd_button_icon(wzrd_texture texture, bool* result, wzrd_handle parent) {
+WzHandle wzrd_button_icon_raw(wzrd_texture texture, bool* result, WzHandle parent, const char* file_name, unsigned int line) {
 #if 0
 	bool active = false;
 	wzrd_handle h1, h2;
@@ -1878,22 +1960,19 @@ wzrd_item_add((Item) {
 
 return h1;
 #else
-	return (wzrd_handle) { 0 };
+
+	WzHandle widget = wz_widget(parent);
+
+	return widget;
 #endif
 }
 
-wzrd_handle wzrd_command_toggle(wzrd_str str, bool* active, wzrd_handle parent) {
+WzHandle wzrd_command_toggle_raw(wzrd_str str, bool* active, WzHandle parent, const char* file_name, unsigned int line) {
 	bool b1 = false, a1 = false;
-	wzrd_handle h1;
-	wzrd_style style = (wzrd_style){
-		.layout = canvas->command_button_layout,
-		.skin = canvas->command_button_skin,
-		.structure = canvas->command_button_structure,
-		.space = canvas->command_button_space,
-	};
-	h1 = egui_button_raw_begin(style, &b1, parent);
 
-	wzrd_text_add(str, h1);
+	WzHandle widget = egui_button_raw_begin(&b1, parent, file_name, line);
+	wz_widget_add_source(widget, file_name, line);
+	wzrd_text_add(str, widget);
 
 	if (b1)
 	{
@@ -1904,14 +1983,14 @@ wzrd_handle wzrd_command_toggle(wzrd_str str, bool* active, wzrd_handle parent) 
 
 	if (*active || a1)
 	{
-		//h1, canvas->command_button_on_skin);
+		wz_widget_get(widget)->border_type = BorderType_Clicked;
 	}
 
-	return h1;
+	return widget;
 }
 
-wzrd_handle egui_button_raw_begin_on_half_click(wzrd_style box, bool* b, wzrd_handle parent) {
-	wzrd_handle h = wzrd_widget(box, parent);
+WzHandle egui_button_raw_begin_on_half_click(bool* b, WzHandle parent) {
+	WzHandle h = wz_widget(parent);
 
 	//if (wzrd_handle_is_valid(h))
 	if (wzrd_handle_is_equal(h, canvas->activating_item)) {
@@ -1925,9 +2004,9 @@ wzrd_handle egui_button_raw_begin_on_half_click(wzrd_style box, bool* b, wzrd_ha
 	return h;
 }
 
-wzrd_handle wzrd_label_button_activating(wzrd_style box, wzrd_str str, bool* active, wzrd_handle parent)
+WzHandle wzrd_label_button_activating(wzrd_str str, bool* active, WzHandle parent)
 {
-	wzrd_handle h = egui_button_raw_begin_on_half_click(box, active, parent);
+	WzHandle h = egui_button_raw_begin_on_half_click(active, parent);
 	wzrd_box_set_type(h, wzrd_box_type_button);
 
 	wzrd_text_add(str, h);
@@ -1972,31 +2051,35 @@ bool EguiButton2(wzrd_box box, wzrd_str str, wzrd_color color) {
 }
 #endif
 
-void wzrd_item_add(Item item, wzrd_handle box) {
-	wzrd_box* b = wzrd_box_get_by_handle(box);
+void wzrd_item_add(Item item, WzHandle box) {
+	WzWidget* b = wz_widget_get(box);
 	WZRD_ASSERT(b->items_count < MAX_NUM_ITEMS - 1);
 	b->items[b->items_count++] = item;
 }
 
-wzrd_handle wzrd_label(wzrd_str str, wzrd_handle parent) {
+WzHandle wzrd_label_raw(wzrd_str str, WzHandle parent, const char* file_name, unsigned int line) {
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	wzrd_handle widget = wzrd_widget((wzrd_style) {
-		.space = (wzrd_space){
-			.w = w,
-			.h = h,
-		}
-	}, parent);
+	WzHandle widget = wz_widget(parent);
+	wz_widget_add_source(widget, file_name, line);
+
+	wz_widget_set_size(widget, w, h);
 
 	wzrd_text_add(str, widget);
 
 	return widget;
 }
 
-wzrd_handle wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle parent) {
-	wzrd_handle p1 = wzrd_widget((wzrd_style) { .space = (wzrd_space){ .w = 50, .h = 30 }, .skin = canvas->input_box_skin },
-		parent);
+WzHandle wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzHandle parent, const char* file_name, unsigned int line) {
+	WzHandle widget = wz_widget(parent);
+	wz_widget_add_source(widget, file_name, line);
+
+	WzWidget* box = wz_widget_get(widget);
+	box->w = 50;
+	box->h = 30;
+	box->color = EGUI_GREEN;
+
 	//wzrd_box_set_type(p1, wzrd_box_type_input_box);
 
 #if 1
@@ -2049,10 +2132,10 @@ wzrd_handle wzrd_input_box(char* str, int* len, int max_num_keys, wzrd_handle pa
 
 	//wzrd_v2 size = { FONT_WIDTH * max_num_keys + 4, WZRD_FONT_HEIGHT + 4 };
 	*len = (int)strlen(str);
-	wzrd_text_add((wzrd_str) { .str = str, .len = *len }, p1);
+	wzrd_text_add((wzrd_str) { .str = str, .len = *len }, widget);
 #endif
 
-	return p1;
+	return widget;
 }
 
 wzrd_str wzrd_str_create(char* str)
@@ -2066,19 +2149,15 @@ wzrd_str wzrd_str_create(char* str)
 	return result;
 }
 
-wzrd_handle wzrd_label_button(wzrd_str str, bool* result, wzrd_handle parent) {
+WzHandle wzrd_label_button_raw(wzrd_str str, bool* result, WzHandle parent, const char* file_name, unsigned  int line) {
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	wzrd_handle widget = wzrd_widget((wzrd_style) {
-		.skin = canvas->label_skin,
-			.structure = canvas->label_structure,
-			.space = (wzrd_space)
-		{
-			.w = w,
-				.h = h
-		}
-	}, parent);
+	WzHandle widget = wz_widget(parent);
+	wz_widget_add_source(widget, file_name, line);
+
+	wz_widget_set_w(widget, w);
+	wz_widget_set_h(widget, h);
 
 	wzrd_box_set_type(widget, wzrd_box_type_button);
 
@@ -2092,35 +2171,34 @@ wzrd_handle wzrd_label_button(wzrd_str str, bool* result, wzrd_handle parent) {
 	return widget;
 }
 
-wzrd_handle wzrd_dialog_begin(wzrd_v2* pos, wzrd_v2 size, bool* active, wzrd_str name, int layer, wzrd_handle parent) {
+WzHandle wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
+	bool* active, wzrd_str name, int layer, WzHandle parent, const char* file_name, unsigned int line) {
 	WZRD_UNUSED(name);
 
-	if (!*active) return (wzrd_handle) { 0 };
+	if (!*active) return (WzHandle) { 0 };
 
-	wzrd_handle window = wzrd_widget_free(
-		(wzrd_style) {
-		.space = (wzrd_space){ .x = pos->x, .y = pos->y, .w = size.x, .h = size.y },
-			.skin = canvas->panel_border_skin,
-	},
+	WzHandle window = wzrd_widget_free(
+		/*	(wzrd_style) {
+			.space = (wzrd_space){ .x = pos->x, .y = pos->y, .w = size.x, .h = size.y },
+				.skin = canvas->panel_border_skin,
+		},*/
 		parent);
+	wz_widget_add_source(window, file_name, line);
 
-	wzrd_box_get_by_handle(window)->layer = layer;
+	wz_widget_get(window)->layer = layer;
 
 	bool close = false;
 
-	wzrd_handle top_panel = wzrd_widget((wzrd_style)
-	{
-		.space = (wzrd_space){ .h = 28 },
-			.layout = canvas->v_panel_layout
-	},
-		window);
+	WzHandle top_panel = wz_widget(window);
 
-	wzrd_handle bar = wzrd_widget((wzrd_style) {
-		.skin = (wzrd_skin){
-			.border_type = BorderType_None,
-				.color = (wzrd_color){ 57, 77, 205, 255 }
-		}
-	}, top_panel);
+	wz_widget_set_h(top_panel, 28);
+
+	wz_widget_get(top_panel)->h = 28;
+	//wzrd_box_get(top_panel)->canvas = v_panel_layout;
+
+	WzHandle bar = wz_widget(top_panel);
+
+	wzrd_widget_set_color(bar, (wzrd_color) { 57, 77, 205, 255 });
 
 	if (wzrd_handle_is_equal(bar, canvas->active_item)) {
 		pos->x += canvas->mouse_pos.x - canvas->previous_mouse_pos.x;
@@ -2182,14 +2260,8 @@ void wzrd_dialog_end(bool active) {
 	}
 }
 
-void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active) {
-
-	(void)selected_text;
-	(void)texts;
-	(void)texts_count;
-	(void)active;
-	(void)w;
-
+WzHandle wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active, WzHandle parent, const char* file_name, unsigned int line)
+{
 #if 0
 	WZRD_ASSERT(texts);
 	WZRD_ASSERT(texts_count);
@@ -2198,100 +2270,70 @@ void wzrd_dropdown(int* selected_text, const wzrd_str* texts, int texts_count, i
 
 	w = 150;
 
-	wzrd_box_begin((wzrd_box) {
-		.style = wzrd_style_create((wzrd_style) {
+	wzrd_handle panel = wzrd_widget(
+		(wzrd_style) {
+		.layout.fit_w = true,
+			.layout.fit_h = true,
+			.skin.color = EGUI_WHITE,
+			.skin.border_type = BorderType_InputBox,
+			.layout.type = WzLayoutRow
+	}, parent);
 
-			.fit_w = true,
-				.fit_h = true,
-				.color = EGUI_WHITE, .border_type = BorderType_InputBox, .row_mode = true
-		})
-	});
-	{
-		wzrd_box box = (wzrd_box){
+	bool released = false;
+	wzrd_command_button(texts[*selected_text], &released, panel);
+	wzrd_command_button(wzrd_str_create("b"), &released, panel);
 
+	if (*active) {
 
-				.style = wzrd_style_create((wzrd_style) {
-						.w = w,
-				.h = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
-			.center_x = true, .center_y = true,
-				.pad_left = 2,
-				.pad_top = 2,
-				.pad_bottom = 2, .pad_right = 2,
-				.border_type = BorderType_None,
-				.color = EGUI_WHITE,
-			})
-		};
+		wzrd_crate_begin(2, (wzrd_box) {
 
-		wzrd_style box_style = wzrd_style_get(box.style);
-
-		int parent = 0;
-		//EguiButton2(box, texts[*selected_text], EGUI_DARKBLUE);
-
-		parent = canvas->boxes_count - 1;
-
-		//box.border_type = BorderType_None;
-
-		//bool* toggle2;
-
-	/*	bool button = wzrd_button_sized((wzrd_box) {
-
+			//.name = wzrd_str_create("%s-dropdown", wzrd_box_get_from_top_of_stack()->name.val),
 			.style = wzrd_style_create((wzrd_style) {
-				.center_x = true, .center_y = true,
-					.w = 20, .h = WZRD_FONT_HEIGHT + 4 * WZRD_BORDER_SIZE,
+				.border_type = BorderType_Black, .y = box_style.h,
+					.w = box_style.w + 4 * WZRD_BORDER_SIZE,
+					.h = box_style.h * texts_count + 4 * WZRD_BORDER_SIZE,
 			})
-		}, (Item) { .type = ItemType_DropdownIcon });
-		if (button)
+		});
 		{
-			*active = !*active;
-		}*/
+			for (int i = 0; i < texts_count; ++i) {
 
-		if (*active) {
-			//char str[256];
-			//sprintf(str, "%s-dropdown", wzrd_box_get_from_top_of_stack()->name.val);
-			//static wzrd_v2i pos;
+				//bool pressed = EguiButton2(box, texts[i], EGUI_DARKBLUE);
 
-			wzrd_crate_begin(2, (wzrd_box) {
-
-				//.name = wzrd_str_create("%s-dropdown", wzrd_box_get_from_top_of_stack()->name.val),
-				.style = wzrd_style_create((wzrd_style) {
-					.border_type = BorderType_Black, .y = box_style.h,
-						.w = box_style.w + 4 * WZRD_BORDER_SIZE,
-						.h = box_style.h * texts_count + 4 * WZRD_BORDER_SIZE,
-				})
-			});
-			{
-				for (int i = 0; i < texts_count; ++i) {
-
-					//bool pressed = EguiButton2(box, texts[i], EGUI_DARKBLUE);
-
-					if (pressed) {
-						*selected_text = i;
-						*active = false;
-					}
+				if (pressed) {
+					*selected_text = i;
+					*active = false;
 				}
 			}
-			wzrd_crate_end();
 		}
+		wzrd_crate_end();
 	}
-	wzrd_box_end();
 #endif
+
+	WzHandle widget = wz_widget(parent);
+
+	return widget;
 }
 
 
-void wzrd_label_list(wzrd_str* item_names, unsigned int count,
-	wzrd_v2 size, wzrd_handle* handles, unsigned int* selected, bool* is_selected, wzrd_handle parent)
+void wz_set_alignment(WzHandle widget, WzAlignment alignment)
 {
-	wzrd_handle panel = wzrd_widget((wzrd_style) {
-		.skin = canvas->list_skin,
-			.space = (wzrd_space){ .w = size.x, .h = size.y }
-	}, parent);
+	wz_widget_get(widget)->alignment |= alignment;
+}
 
-	if (wzrd_box_is_activating(wzrd_box_get_by_handle(panel))) {
+void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
+	wzrd_v2 size, WzHandle* handles, unsigned int* selected, bool* is_selected, WzHandle parent, const char* file_name, unsigned int line)
+{
+	WzHandle panel = wz_widget(parent);
+	wz_widget_add_source(panel, file_name, line);
+
+	wz_widget_set_size(panel, size.x, size.y);
+
+	if (wzrd_box_is_activating(wz_widget_get(panel))) {
 		*selected = 0;
 		*is_selected = false;
 	}
 
-	wzrd_handle selected_label = { 0 };
+	WzHandle selected_label = { 0 };
 
 	for (unsigned int i = 0; i < count; ++i)
 	{
@@ -2299,22 +2341,11 @@ void wzrd_label_list(wzrd_str* item_names, unsigned int count,
 		sprintf_s(str, 32, "%d label list %d", wzrd_box_get_last()->handle.handle, i);
 
 		bool is_label_clicked = false;
-		wzrd_handle h = wzrd_label_button_activating((wzrd_style) {
-			.layout = (wzrd_layout)
-			{
-				.center_x = true, .center_y = true
-			},
-				.space = (wzrd_space)
-			{
-				.h = 32,
-			},
-			.skin = (wzrd_skin)
-			{
-				.border_type = BorderType_None, .color = EGUI_WHITE,
-			}
-		},
-			item_names[i], & is_label_clicked, panel);
-		//h = wzrd_box_set_unique_handle(h, wzrd_str_create(str));
+		WzHandle h = wzrd_label_button_activating(item_names[i], &is_label_clicked, panel);
+
+		wz_widget_set_h(h, 32);
+		wz_set_alignment(h, WzAlignVCenter | WzAlignHCenter);
+
 
 		if (handles)
 		{
@@ -2329,22 +2360,22 @@ void wzrd_label_list(wzrd_str* item_names, unsigned int count,
 
 		if (*is_selected && *selected == i)
 		{
-			//wzrd_skin_set(h, canvas->label_item_selected_skin);
+			wz_widget_get(h)->color = canvas->stylesheet.label_item_selected_color;
 		}
 	}
 }
 
-void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items,
-	wzrd_v2 size, unsigned int* selected, bool* is_selected, wzrd_handle parent) {
+void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* items,
+	wzrd_v2 size, unsigned int* selected, bool* is_selected, WzHandle parent, const char* file_name, unsigned int line) {
 
-	wzrd_handle handles[MAX_NUM_LABELS] = { 0 };
+	WzHandle handles[MAX_NUM_LABELS] = { 0 };
 
-	wzrd_label_list(item_names, count, size, handles, selected, is_selected, parent);
+	wzrd_label_list_raw(item_names, count, size, handles, selected, is_selected, parent, file_name, line);
 
 	// Ordering
 	{
 		assert(items);
-		wzrd_handle active_label = { 0 }, hovered_label = { 0 }, released_label = { 0 };
+		WzHandle active_label = { 0 }, hovered_label = { 0 }, released_label = { 0 };
 		int hovered_label_index = -1, released_label_index = -1;
 
 		// Set variables
@@ -2372,7 +2403,7 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 
 		// Get hovered widget
 		bool is_bottom = false;
-		wzrd_box* hovered_parent = 0;
+		WzWidget* hovered_parent = 0;
 		for (int i = 0; i < canvas->hovered_boxes_count; ++i)
 		{
 			if (wzrd_handle_is_equal(canvas->hovered_boxes[i].handle, hovered_label))
@@ -2385,9 +2416,8 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 		// Set hover position
 		if (hovered_parent)
 		{
-			wzrd_space hovered_parent_style = hovered_parent->space;
 
-			if (canvas->mouse_pos.y > hovered_parent_style.y + hovered_parent_style.h / 2)
+			if (canvas->mouse_pos.y > hovered_parent->y + hovered_parent->h / 2)
 			{
 				is_bottom = true;
 			}
@@ -2396,21 +2426,15 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 			if (wzrd_handle_is_valid(active_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, active_label))
 			{
 
-				wzrd_box* p = wzrd_box_get_by_handle(hovered_label);
-				wzrd_box* c = 0;
+				WzWidget* p = wz_widget_get(hovered_label);
+				WzWidget* c = 0;
 				if (is_bottom)
 				{
-					c = wzrd_box_create((wzrd_box) {
-						.free = true,
-							.skin = (wzrd_skin)
-						{
-							.border_type = BorderType_None, .color = EGUI_PURPLE,
-						},
-						.space = (wzrd_space)
-						{
-							.y = hovered_parent_style.h - 2, .h = 2,
-						}
-					});
+					c = wz_widget_create();
+					wz_widget_add_source(c->handle, __FILE__, __LINE__);
+					wzrd_widget_set_color(c->handle, EGUI_PURPLE);
+					wz_widget_set_y(c->handle, hovered_parent->h - 2);
+					wz_widget_set_h(c->handle, 2);
 
 					wzrd_box_add_free_child(p->handle, c->handle);
 				}
@@ -2458,20 +2482,15 @@ void wzrd_label_list_sorted(wzrd_str* item_names, unsigned int count, int* items
 
 }
 
-wzrd_handle wzrd_handle_button(bool* active, wzrd_rect_struct rect, wzrd_color color, wzrd_str name, wzrd_handle parent) {
+WzHandle wzrd_handle_button_raw(bool* active, WzRect rect,
+	wzrd_color color, wzrd_str name, WzHandle parent, const char* file_name, unsigned int line) {
 
-	wzrd_style box =
-		(wzrd_style){
-			.skin = (wzrd_skin) {
- .color = color, .border_type = BorderType_Default
-},
-		   .space = (wzrd_space) {.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h },
-	};
-
-	wzrd_handle widget = wzrd_widget_free(box, parent);
+	WzHandle widget = wzrd_widget_free(parent);
+	wz_widget_add_source(widget, file_name, line);
+	wz_widget_set_pos(widget, rect.x, rect.y);
+	wz_widget_set_size(widget, rect.w, rect.h);
 	wzrd_box_set_type(widget, wzrd_box_type_button);
-	//widget = wzrd_box_set_unique_handle(widget, name);
-	*active = wzrd_box_is_active(wzrd_box_get_by_handle(widget));
+	*active = wzrd_box_is_active(wz_widget_get(widget));
 
 	return widget;
 }
@@ -2485,15 +2504,13 @@ void wzrd_drag(bool* drag) {
 
 	if (!(*drag)) return;
 
-	wzrd_space dragged_box_space = canvas->dragged_box.space;
-
-	dragged_box_space.x += canvas->mouse_delta.x;
-	dragged_box_space.y += canvas->mouse_delta.y;
+	canvas->dragged_box.x += canvas->mouse_delta.x;
+	canvas->dragged_box.y += canvas->mouse_delta.y;
 
 	wzrd_crate(1, canvas->dragged_box);
 }
 
-bool wzrd_box_is_active(wzrd_box* box) {
+bool wzrd_box_is_active(WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->active_item)) {
 		return true;
 	}
@@ -2501,7 +2518,7 @@ bool wzrd_box_is_active(wzrd_box* box) {
 	return false;
 }
 
-bool wzrd_box_is_dragged(wzrd_box* box) {
+bool wzrd_box_is_dragged(WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->dragged_item)) {
 		return true;
 	}
@@ -2509,7 +2526,7 @@ bool wzrd_box_is_dragged(wzrd_box* box) {
 	return false;
 }
 
-bool wzrd_box_is_hot_using_canvas(wzrd_canvas* c, wzrd_box* box) {
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas* c, WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, c->hovered_item)) {
 		return true;
 	}
@@ -2517,7 +2534,7 @@ bool wzrd_box_is_hot_using_canvas(wzrd_canvas* c, wzrd_box* box) {
 	return false;
 }
 
-bool wzrd_box_is_hot(wzrd_box* box) {
+bool wzrd_box_is_hot(WzWidget* box) {
 	if (wzrd_handle_is_equal(box->handle, canvas->hovered_item)) {
 		return true;
 	}
@@ -2525,53 +2542,14 @@ bool wzrd_box_is_hot(wzrd_box* box) {
 	return false;
 }
 
-bool wzrd_unique_handle_is_equal(wzrd_str str, wzrd_handle handle) {
-	wzrd_handle unique_handle = wzrd_unique_handle_create(str);
-	if (wzrd_handle_is_equal(unique_handle, handle)) {
-		return true;
-	}
 
-	return false;
-}
-
-wzrd_box* wzrd_box_get_by_handle(wzrd_handle handle) {
-	if (!wzrd_handle_is_valid(handle))
-	{
-		return canvas->boxes;
-	}
-
-	wzrd_box* result = 0;
-	for (int i = 0; i < canvas->boxes_count; ++i)
-	{
-		if (canvas->boxes[i].handle.handle == handle.handle)
-		{
-			result = canvas->boxes + i;
-			break;
-		}
-	}
-
-	assert(result);
-
-	return result;
-}
-
-wzrd_box* wzrd_box_get_released()
+WzWidget* wzrd_box_get_released()
 {
-	wzrd_box* result = 0;
+	WzWidget* result = 0;
 
 	if (wzrd_handle_is_valid(canvas->deactivating_item))
 	{
-		result = wzrd_box_get_by_handle(canvas->deactivating_item);
-	}
-
-	return result;
-}
-
-bool wzrd_is_releasing() {
-	bool result = false;
-	if (wzrd_handle_is_valid(canvas->deactivating_item))
-	{
-		result = true;
+		result = wz_widget_get(canvas->deactivating_item);
 	}
 
 	return result;
@@ -2607,31 +2585,19 @@ bool wzrd_v2_is_inside_polygon(wzrd_v2 point, wzrd_polygon polygon) {
 	return inside;
 }
 
-wzrd_handle wzrd_rect_unique(wzrd_rect_struct rect, wzrd_str name, wzrd_handle parent)
+void wzrd_widget_set_rect(WzHandle widget, WzRect rect)
 {
-	wzrd_style box = (wzrd_style){
-		.space = (wzrd_space) {
-				.x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h
-		} };
-
-	wzrd_handle h = wzrd_widget_free(box
-		, parent);
-
-	h = wzrd_box_set_unique_handle(h, name);
-
-	return h;
+	WzWidget* w = wz_widget_get(widget);
+	w->x = rect.x;
+	w->y = rect.y;
+	w->w = rect.w;
+	w->h = rect.h;
 }
 
-
-wzrd_handle wzrd_command_button(wzrd_str str, bool* released, wzrd_handle parent)
+WzHandle wzrd_command_button_raw(wzrd_str str, bool* released, WzHandle parent, const char* file_name, unsigned int line)
 {
-	wzrd_handle button = egui_button_raw_begin((wzrd_style)
-	{
-		.layout = canvas->command_button_layout,
-			.skin = canvas->command_button_skin,
-			.structure = canvas->command_button_structure,
-			.space = canvas->command_button_space,
-	}, released, parent);
+	WzHandle button = egui_button_raw_begin(released, parent, file_name, line);
+	wz_widget_add_source(button, file_name, line);
 
 	wzrd_text_add(str, button);
 
@@ -2643,7 +2609,7 @@ wzrd_handle wzrd_command_button(wzrd_str str, bool* released, wzrd_handle parent
 	return button;
 }
 
-void wzrd_handle_set_layer(wzrd_handle handle, unsigned int layer)
+void wzrd_handle_set_layer(WzHandle handle, unsigned int layer)
 {
-	wzrd_box_get_by_handle(handle)->layer = layer;
+	wz_widget_get(handle)->layer = layer;
 }
