@@ -1,6 +1,6 @@
 #pragma once
 #include "Platform.h"
-#include "Egui.h"
+#include "WzGuiWidgets.h"
 #include "Textures.h"
 #include "Handle.h"
 #include "ArrayList.h"

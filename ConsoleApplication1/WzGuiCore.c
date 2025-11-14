@@ -1,35 +1,40 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
 
-//#define WZRD_ASSERT(x) assert(x)
-#define WZRD_ASSERT(x) (void)(x)
+#define WZ_ASSERT(x) assert(x)
+//#define WZ_ASSERT(x) (void)(x)
 #define WZRD_UNUSED(x) (void)x
 
-#include "Egui.h"
+#include "WzGuiCore.h"
 #include "Strings.h"
 
 static wzrd_canvas* canvas;
 
-WzHandle wz_widget(WzHandle parent);
-bool wzrd_handle_is_equal(WzHandle a, WzHandle b);
-bool wzrd_handle_is_valid(WzHandle handle);
-WzHandle wzrd_handle_create();
-WzWidget* wzrd_box_get_parent();
-WzWidget* wzrd_box_get_previous();
-void wzrd_crate_begin(int window_id, WzWidget box);
-void wzrd_crate(int window_id, WzWidget box);
-void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzHandle box);
-void wzrd_text_add(wzrd_str str, WzHandle box);
+WzWidget wz_widget_raw(WzWidget parent);
+bool wz_widget_is_equal(WzWidget a, WzWidget b);
+bool wz_handle_is_valid(WzWidget handle);
+WzWidget wzrd_handle_create();
+WzWidgetData* wzrd_box_get_parent();
+WzWidgetData* wzrd_box_get_previous();
+void wzrd_crate_begin(int window_id, WzWidgetData box);
+void wzrd_crate(int window_id, WzWidgetData box);
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzWidget box);
+void wzrd_text_add(wzrd_str str, WzWidget box);
 //void wzrd_box_resize(wzrd_v2* size);
 void wzrd_crate_end();
-WzWidget* wz_widget_get(WzHandle str);
+WzWidgetData* wz_widget_get(WzWidget str);
 void wzrd_drag(bool* drag);
-WzWidget* wzrd_box_get_last();
-bool wzrd_box_is_dragged(WzWidget* box);
-bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidget* box);
-WzWidget* wzrd_box_get_released();
-WzWidget* wzrd_box_find(wzrd_canvas* canvas, wzrd_str name);
+WzWidgetData* wzrd_box_get_last();
+bool wzrd_box_is_dragged(WzWidgetData* box);
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidgetData* box);
+WzWidgetData* wzrd_box_get_released();
+WzWidgetData* wzrd_box_find(wzrd_canvas* canvas, wzrd_str name);
 wzrd_v2 wzrd_lerp(wzrd_v2 pos, wzrd_v2 end_pos);
+
+bool wz_widget_is_equal(WzWidget a, WzWidget b)
+{
+	return a.handle == b.handle;
+}
 
 typedef struct stylesheet
 {
@@ -37,7 +42,7 @@ typedef struct stylesheet
 	int button_color_clicked;
 } stylesheet;
 
-void wz_widget_add_source(WzHandle handle, const char* file, unsigned int line)
+void wz_widget_add_source(WzWidget handle, const char* file, unsigned int line)
 {
 	wz_widget_get(handle)->file = file;
 	wz_widget_get(handle)->line_number = line;
@@ -167,40 +172,52 @@ void wzrd_style_init()
 }
 
 
-WzHandle wzrd_vbox_border_raw(wzrd_v2 size, WzHandle parent, const char* file_name, unsigned int line)
+void wz_widget_set_size_policy(WzWidget widget, WzSizePolicy size_policy)
 {
-	WzHandle handle = wz_widget(parent);
-	wz_widget_add_source(handle, file_name, line);
+	WzWidgetData* w = wz_widget_get(widget);
+
+	if (size_policy == WzSizePolicyPreferred)
+	{
+		w->size_policy_flag |= WzSizePolicyFlagGrow;
+		w->size_policy_flag |= WzSizePolicyFlagShrink;
+	}
+}
+
+
+WzWidget wzrd_vbox_border_raw(wzrd_v2 size, WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget handle = wz_widget_raw(parent, file, line);
+	wz_widget_set_size(handle, size.x, size.y);
+	wz_widget_set_size_policy(handle, WzSizePolicyPreferred);
+
+	return handle;
+}
+
+WzWidget wzrd_vbox_border_click(wzrd_v2 size, WzWidget parent)
+{
+	WzWidget handle = wz_hbox(parent);
 	wz_widget_set_size(handle, size.x, size.y);
 
 	return handle;
 }
 
-WzHandle wzrd_vbox_border_click(wzrd_v2 size, WzHandle parent)
-{
-	WzHandle handle = wz_hbox(parent);
-	wz_widget_set_size(handle, size.x, size.y);
-
-	return handle;
-}
-
-bool wzrd_handle_is_valid(WzHandle handle)
+bool wz_handle_is_valid(WzWidget handle)
 {
 	return (bool)handle.handle;
 }
 
-WzWidget* wz_widget_get(WzHandle handle) {
-	if (!wzrd_handle_is_valid(handle))
+WzWidgetData* wz_widget_get(WzWidget handle) {
+	if (!wz_handle_is_valid(handle))
 	{
-		return canvas->boxes;
+		return canvas->widgets;
 	}
 
-	WzWidget* result = 0;
-	for (int i = 0; i < canvas->boxes_count; ++i)
+	WzWidgetData* result = 0;
+	for (int i = 0; i < canvas->widgets_count; ++i)
 	{
-		if (canvas->boxes[i].handle.handle == handle.handle)
+		if (canvas->widgets[i].handle.handle == handle.handle)
 		{
-			result = canvas->boxes + i;
+			result = canvas->widgets + i;
 			break;
 		}
 	}
@@ -210,18 +227,18 @@ WzWidget* wz_widget_get(WzHandle handle) {
 	return result;
 }
 
-void wz_widget_set_size(WzHandle handle, int w, int h)
+void wz_widget_set_size(WzWidget handle, int w, int h)
 {
-	WzWidget* b = wz_widget_get(handle);
+	WzWidgetData* b = wz_widget_get(handle);
 	b->w = w;
 	b->h = h;
 }
 
 
-WzHandle wzrd_handle_create()
+WzWidget wzrd_handle_create()
 {
 	assert(canvas);
-	WzHandle handle = { canvas->boxes_count };
+	WzWidget handle = { canvas->widgets_count };
 
 	return handle;
 }
@@ -250,41 +267,41 @@ bool wzrd_is_rect_inside_rect(WzRect a, WzRect b) {
 	return res;
 }
 
-void wz_widget_set_h(WzHandle w, int height)
+void wz_widget_set_h(WzWidget w, int height)
 {
 	wz_widget_get(w)->h = height;
 }
 
-void wz_widget_set_w(WzHandle w, int width)
+void wz_widget_set_w(WzWidget w, int width)
 {
 	wz_widget_get(w)->w = width;
 }
 
-void wz_widget_set_x(WzHandle w, int x)
+void wz_widget_set_x(WzWidget w, int x)
 {
-	WzWidget* widget = wz_widget_get(w);
+	WzWidgetData* widget = wz_widget_get(w);
 	widget->x = x;
 }
 
-void wz_widget_set_y(WzHandle w, int y)
+void wz_widget_set_y(WzWidget w, int y)
 {
-	WzWidget* widget = wz_widget_get(w);
+	WzWidgetData* widget = wz_widget_get(w);
 	widget->y = y;
 }
 
-void wz_widget_set_border(WzHandle w, WzBorderType border_type)
+void wz_widget_set_border(WzWidget w, WzBorderType border_type)
 {
 	wz_widget_get(w)->border_type = border_type;
 }
 
-void wz_widget_set_pos(WzHandle handle, int x, int y)
+void wz_widget_set_pos(WzWidget handle, int x, int y)
 {
 	wz_widget_set_x(handle, x);
 	wz_widget_set_y(handle, y);
 }
 
 
-void wzrd_widget_set_color(WzHandle widget, wzrd_color color)
+void wz_widget_set_color(WzWidget widget, wzrd_color color)
 {
 	wz_widget_get(widget)->color = color;
 }
@@ -309,25 +326,25 @@ Crate* EguiGetCurrentWindow() {
 }
 
 Crate* EguiGetPreviousWindow() {
-	WZRD_ASSERT(canvas->current_crate_index > 0);
+	WZ_ASSERT(canvas->current_crate_index > 0);
 	Crate* result = &canvas->crates_stack[canvas->current_crate_index - 1];
 
 	return result;
 }
 
-WzWidget* wzrd_box_get_parent() {
+WzWidgetData* wzrd_box_get_parent() {
 	if (canvas->crates_stack[canvas->current_crate_index].box_stack_count < 2)
 	{
-		return &canvas->boxes[0];
+		return &canvas->widgets[0];
 	}
 	int current_box_index = canvas->crates_stack[canvas->current_crate_index].box_stack_count - 2;
 	int final_index = canvas->crates_stack[canvas->current_crate_index].box_stack[current_box_index];
-	WzWidget* result = &canvas->boxes[final_index];
+	WzWidgetData* result = &canvas->widgets[final_index];
 
 	return result;
 }
 
-bool wzrd_handle_is_child_of_handle(WzHandle a, WzHandle b)
+bool wzrd_handle_is_child_of_handle(WzWidget a, WzWidget b)
 {
 	int stack[MAX_NUM_BOXES];
 	int count = 0;
@@ -337,14 +354,14 @@ bool wzrd_handle_is_child_of_handle(WzHandle a, WzHandle b)
 
 	while (ptr != count)
 	{
-		WzWidget* box = &canvas->boxes[stack[ptr]];
+		WzWidgetData* box = &canvas->widgets[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
 			stack[count++] = box->children[i];
 		}
 
-		if (wzrd_handle_is_equal(box->handle, b))
+		if (wz_widget_is_equal(box->handle, b))
 			return true;
 
 		ptr++;
@@ -355,7 +372,7 @@ bool wzrd_handle_is_child_of_handle(WzHandle a, WzHandle b)
 
 
 int wzrd_box_get_current_index() {
-	WZRD_ASSERT(canvas->current_crate_index >= 0);
+	WZ_ASSERT(canvas->current_crate_index >= 0);
 	int current_box_index = canvas->crates_stack[canvas->current_crate_index].box_stack_count - 1;
 	if (current_box_index < 0) return 0;
 	int final_index = canvas->crates_stack[canvas->current_crate_index].box_stack[current_box_index];
@@ -364,25 +381,25 @@ int wzrd_box_get_current_index() {
 	return result;
 }
 
-WzWidget* wzrd_box_get_last() {
-	WzWidget* result = canvas->boxes + (canvas->boxes_count - 1);
+WzWidgetData* wzrd_box_get_last() {
+	WzWidgetData* result = canvas->widgets + (canvas->widgets_count - 1);
 
 	return result;
 }
 
-void wzrd_text_add(wzrd_str str, WzHandle parent)
+void wzrd_text_add(wzrd_str str, WzWidget parent)
 {
 	wzrd_item_add((Item) { .type = wzrd_item_type_str, .val = { .str = str }, .color = EGUI_BLACK }, parent);
 }
 
-void goo(WzWidget* box, void* data)
+void goo(WzWidgetData* box, void* data)
 {
 	(void)data;
 	(void)box;
 	//box->color = EGUI_BEIGE;
 }
 
-void wzrd_box_tree_apply(int index, void* data, void (*goo)(WzWidget* box, void* data))
+void wzrd_box_tree_apply(int index, void* data, void (*goo)(WzWidgetData* box, void* data))
 {
 	int stack[1024];
 	int count = 0;
@@ -392,7 +409,7 @@ void wzrd_box_tree_apply(int index, void* data, void (*goo)(WzWidget* box, void*
 
 	while (ptr != count)
 	{
-		WzWidget* box = &canvas->boxes[stack[ptr]];
+		WzWidgetData* box = &canvas->widgets[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -404,7 +421,7 @@ void wzrd_box_tree_apply(int index, void* data, void (*goo)(WzWidget* box, void*
 	}
 }
 
-bool wzrd_handle_is_active_tree(WzHandle handle)
+bool wzrd_handle_is_active_tree(WzWidget handle)
 {
 	int stack[1024];
 	int count = 0;
@@ -414,7 +431,7 @@ bool wzrd_handle_is_active_tree(WzHandle handle)
 
 	while (ptr != count)
 	{
-		WzWidget* box = &canvas->boxes[stack[ptr]];
+		WzWidgetData* box = &canvas->widgets[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -432,9 +449,9 @@ bool wzrd_handle_is_active_tree(WzHandle handle)
 	return false;
 }
 
-bool wzrd_widget_is_deactivating(WzHandle handle)
+bool wzrd_widget_is_deactivating(WzWidget handle)
 {
-	if (wzrd_handle_is_equal(handle, canvas->deactivating_item))
+	if (wz_widget_is_equal(handle, canvas->deactivating_item))
 	{
 		return true;
 	}
@@ -442,15 +459,14 @@ bool wzrd_widget_is_deactivating(WzHandle handle)
 	return false;
 }
 
-bool wzrd_box_is_released(WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, canvas->deactivating_item)) {
+bool wzrd_box_is_released(WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, canvas->deactivating_item)) {
 		return true;
 	}
 
 	return false;
 }
-
-bool wzrd_handle_is_released_tree(WzHandle handle)
+bool wzrd_handle_is_released_tree(WzWidget handle)
 {
 	int stack[1024];
 	int count = 0;
@@ -460,7 +476,7 @@ bool wzrd_handle_is_released_tree(WzHandle handle)
 
 	while (ptr != count)
 	{
-		WzWidget* box = &canvas->boxes[stack[ptr]];
+		WzWidgetData* box = &canvas->widgets[stack[ptr]];
 
 		for (int i = 0; i < box->children_count; ++i)
 		{
@@ -482,8 +498,8 @@ bool wzrd_handle_is_released_tree(WzHandle handle)
 int wzrd_compare_boxes(const void* element1, const void* element2) {
 	int index1 = *(int*)element1;
 	int index2 = *(int*)element2;
-	WzWidget* c1 = canvas->boxes + index1;
-	WzWidget* c2 = canvas->boxes + index2;
+	WzWidgetData* c1 = canvas->widgets + index1;
+	WzWidgetData* c2 = canvas->widgets + index2;
 
 	if (c1->layer > c2->layer)
 	{
@@ -522,10 +538,6 @@ int wzrd_compare_boxes(const void* element1, const void* element2) {
 	return 0;
 }
 
-bool wzrd_handle_is_equal(WzHandle a, WzHandle b)
-{
-	return a.handle == b.handle;
-}
 
 int wzrd_float_compare(float a, float b)
 {
@@ -545,11 +557,11 @@ int wzrd_float_compare(float a, float b)
 	return 0;
 }
 
-void wzrd_box_add_free_child(WzHandle parent, WzHandle child)
+void wzrd_box_add_free_child(WzWidget parent, WzWidget child)
 {
-	WzWidget* p = wz_widget_get(parent);
-	WzWidget* c = wz_widget_get(child);
-	WZRD_ASSERT(p->free_children_count < MAX_NUM_CHILDREN - 1);
+	WzWidgetData* p = wz_widget_get(parent);
+	WzWidgetData* c = wz_widget_get(child);
+	WZ_ASSERT(p->free_children_count < MAX_NUM_CHILDREN - 1);
 	p->free_children[p->free_children_count++] = c->index;
 
 	c->layer = p->layer;
@@ -557,29 +569,27 @@ void wzrd_box_add_free_child(WzHandle parent, WzHandle child)
 
 }
 
-void wzrd_box_add_child(WzHandle parent, WzHandle child)
+void wzrd_box_add_child(WzWidget parent, WzWidget child)
 {
-
-
-	WzWidget* p = wz_widget_get(parent);
-	WzWidget* c = wz_widget_get(child);
-	WZRD_ASSERT(p->children_count < MAX_NUM_CHILDREN - 1);
+	WzWidgetData* p = wz_widget_get(parent);
+	WzWidgetData* c = wz_widget_get(child);
+	WZ_ASSERT(p->children_count < MAX_NUM_CHILDREN - 1);
 	p->children[p->children_count++] = c->index;
 
 	c->layer = p->layer;
 	c->clip_widget = p->clip_widget;
-
+	c->parent = parent;
 }
 
-void wzrd_box_add_child_using_pointer(WzWidget* parent, WzWidget* child)
+void wzrd_box_add_child_using_pointer(WzWidgetData* parent, WzWidgetData* child)
 {
-	WZRD_ASSERT(parent->children_count < MAX_NUM_CHILDREN - 1);
+	WZ_ASSERT(parent->children_count < MAX_NUM_CHILDREN - 1);
 	parent->children[parent->children_count++] = child->index;
 }
 
-WzWidget* wz_widget_create()
+WzWidgetData* wz_widget_create()
 {
-	WzWidget box;
+	WzWidgetData box;
 	box.children_count = 0;
 	box.free_children_count = 0;
 	box.items_count = 0;
@@ -601,60 +611,69 @@ WzWidget* wz_widget_create()
 	box.file = 0;
 	box.line_number = 0;
 	box.clip_widget.handle = 0;
+	box.size_policy_flag = WzSizePolicyFlagGrow | WzSizePolicyFlagShrink;
+	box.w_offset = 0;
+	box.h_offset = 0;
+	box.disable_hover = false;
+	box.layer = 0;
+	box.w_internal = box.h_internal = box.x_internal = box.y_internal = 0;
+	box.size_hint_w = 0;
+	box.size_hint_h = 0;
 
 	box.handle = wzrd_handle_create();
 
-	WZRD_ASSERT(canvas->boxes_count < MAX_NUM_BOXES - 1);
+	WZ_ASSERT(canvas->widgets_count < MAX_NUM_BOXES - 1);
 
 	box.layer = EguiGetCurrentWindow()->layer;
 
-	WZRD_ASSERT(canvas->boxes_count < 256);
+	WZ_ASSERT(canvas->widgets_count < 256);
 
-	box.index = canvas->boxes_count;
-	canvas->boxes[canvas->boxes_count++] = box;
+	box.index = canvas->widgets_count;
+	canvas->widgets[canvas->widgets_count++] = box;
 
-	return &canvas->boxes[canvas->boxes_count - 1];
+	return &canvas->widgets[canvas->widgets_count - 1];
 }
 
-WzHandle wzrd_widget_free(WzHandle parent)
+WzWidget wzrd_widget_free(WzWidget parent)
 {
-	WzWidget* box = wz_widget_create();
+	WzWidgetData* box = wz_widget_create();
 	box->layer = wz_widget_get(parent)->layer;
 
 
 	return box->handle;
 }
 
-WzHandle wz_widget(WzHandle parent)
+
+WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
 {
-	WzWidget* widget = wz_widget_create();
+	WzWidgetData* widget = wz_widget_create();
+	wz_widget_add_source(widget->handle, file, line);
 
 	wzrd_box_add_child(parent, widget->handle);
 
 	return widget->handle;
 }
 
-WzHandle wz_vbox_raw(WzHandle parent, const char* file, unsigned int line)
+WzWidget wz_vbox_raw(WzWidget parent, const char* file, unsigned int line)
 {
-	WzHandle p = wz_widget(parent);
+	WzWidget p = wz_widget_raw(parent, file, line);
 	wz_widget_set_layout(p, WzLayoutVertical);
-	wz_widget_add_source(p, file, line);
-	wz_widget_set_strech_factor(p, 1);
+	wz_widget_set_stretch_factor(p, 1);
 
 	return p;
 }
 
-WzHandle wz_hbox_raw(WzHandle parent, const char* file, unsigned int line)
+WzWidget wz_hbox_raw(WzWidget parent, const char* file, unsigned int line)
 {
-	WzHandle p = wz_widget(parent);
+	WzWidget p = wz_widget_raw(parent, file, line);
 	wz_widget_set_layout(p, WzLayoutHorizontal);
-	wz_widget_add_source(p, file, line);
-	wz_widget_set_strech_factor(p, 1);
+	wz_widget_set_stretch_factor(p, 1);
+	wz_widget_set_size_policy(p, WzSizePolicyPreferred);
 
 	return p;
 }
 
-void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzHandle parent) {
+void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzWidget parent) {
 	wzrd_item_add((Item) {
 		.type = ItemType_Texture,
 			.size = size,
@@ -662,7 +681,7 @@ void wzrd_texture_add(wzrd_texture texture, wzrd_v2 size, WzHandle parent) {
 	}, parent);
 }
 
-void wzrd_crate_begin(int layer, WzWidget box) {
+void wzrd_crate_begin(int layer, WzWidgetData box) {
 
 	canvas->total_num_windows++;
 	canvas->current_crate_index++;
@@ -695,12 +714,12 @@ void wzrd_crate_end() {
 #endif
 }
 
-void wzrd_crate(int window_id, WzWidget box) {
+void wzrd_crate(int window_id, WzWidgetData box) {
 	wzrd_crate_begin(window_id, box);
 	wzrd_crate_end();
 }
 
-WzHandle wz_begin(wzrd_canvas* gui,
+WzWidget wz_begin(wzrd_canvas* gui,
 	WzRect window,
 	void (*get_string_size)(char*, int*, int*),
 	wzrd_v2 mouse_pos,
@@ -724,22 +743,22 @@ WzHandle wz_begin(wzrd_canvas* gui,
 
 	WZRD_UNUSED(gui);
 
-	canvas->boxes_count = 0;
+	canvas->widgets_count = 0;
 	canvas->input_box_timer += 16.7f;
 
 	canvas->clip_boxes_count = 1;
 
 	// Empty box
-	canvas->boxes[canvas->boxes_count++] = (WzWidget){ 0 };
+	canvas->widgets[canvas->widgets_count++] = (WzWidgetData){ 0 };
 
 	// Zero-out boxes
 	for (int i = 0; i < MAX_NUM_BOXES; ++i)
 	{
-		//canvas->boxes[i] = (wzrd_box){ 0 };
+		//canvas->widgets[i] = (wzrd_box){ 0 };
 	}
 
 	// Window
-	WzHandle h = wz_vbox((WzHandle) { 0 });
+	WzWidget h = wz_vbox((WzWidget) { 0 });
 
 	wz_widget_set_size(h, window.w, window.h);
 	wz_widget_set_pos(h, window.x, window.y);
@@ -755,8 +774,8 @@ WzHandle wz_begin(wzrd_canvas* gui,
 
 void EguiRectDraw(wzrd_draw_commands_buffer* buffer, WzRect rect, wzrd_color color, int z, int box_index) {
 
-	WZRD_ASSERT(rect.w > 0);
-	WZRD_ASSERT(rect.h > 0);
+	WZ_ASSERT(rect.w > 0);
+	WZ_ASSERT(rect.h > 0);
 
 	wzrd_draw_command command = (wzrd_draw_command){
 		.type = DrawCommandType_Rect,
@@ -765,32 +784,32 @@ void EguiRectDraw(wzrd_draw_commands_buffer* buffer, WzRect rect, wzrd_color col
 		.z = z
 	};
 
-	WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+	WZ_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 	buffer->commands[buffer->count++] = command;
 
 	buffer->commands[buffer->count - 1].box_index = box_index;
 
 }
 
-WzWidget* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
+WzWidgetData* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
 {
 	// TODO: optimize	
 	unsigned int hash = wzrd_hash(name);
 
-	for (int i = 0; i < c->boxes_count; ++i)
+	for (int i = 0; i < c->widgets_count; ++i)
 	{
-		if (hash == c->boxes[i].handle.handle)
+		if (hash == c->widgets[i].handle.handle)
 		{
-			return c->boxes + i;
+			return c->widgets + i;
 		}
 	}
 
-	return &c->boxes[0];
+	return &c->widgets[0];
 }
 
 
-WzWidget* wzrd_box_get_previous() {
-	WzWidget* result = &canvas->boxes[canvas->boxes_count - 1];
+WzWidgetData* wzrd_box_get_previous() {
+	WzWidgetData* result = &canvas->widgets[canvas->widgets_count - 1];
 
 	return result;
 }
@@ -818,23 +837,19 @@ void wzrd_handle_cursor()
 
 void wzrd_handle_border_resize()
 {
-#if 0
-	wzrd_cursor* cursor = 0;
+	canvas->left_resized_item = (WzWidget){ 0 };
+	canvas->right_resized_item = (WzWidget){ 0 };
+	canvas->top_resized_item = (WzWidget){ 0 };
+	canvas->bottom_resized_item = (WzWidget){ 0 };
 
-	canvas->left_resized_item = (wzrd_handle){ 0 };
-	canvas->right_resized_item = (wzrd_handle){ 0 };
-	canvas->top_resized_item = (wzrd_handle){ 0 };
-	canvas->bottom_resized_item = (wzrd_handle){ 0 };
-
-	for (int i = 0; i < canvas->boxes_count; ++i) {
-		wzrd_box* owner = canvas->boxes + i;
+	for (int i = 0; i < canvas->widgets_count; ++i) {
+		WzWidgetData* owner = canvas->widgets + i;
 		for (int j = 0; j < owner->children_count; ++j) {
-			wzrd_box* child = &canvas->boxes[owner->children[j]];
-			wzrd_skin child_style = child->skin;
+			WzWidgetData* child = &canvas->widgets[owner->children[j]];
 
-			int border_size = 2;
+			int border_size = 10;
 
-			if (child->type != wzrd_box_type_resizable) continue;
+			//if (child->type != wzrd_box_type_resizable) continue;
 
 			bool is_inside_left_border =
 				canvas->mouse_pos.x >= child->x_internal &&
@@ -857,31 +872,35 @@ void wzrd_handle_border_resize()
 				canvas->mouse_pos.x < child->x_internal + child->w_internal &&
 				canvas->mouse_pos.y < child->y_internal + child->h_internal;
 
-			if (wzrd_handle_is_equal(canvas->hovered_item, child->handle) || wzrd_handle_is_equal(canvas->active_item, child->handle)) {
+			printf("%u\n", canvas->hovered_item.handle);
+
+			if (wz_widget_is_equal(canvas->hovered_item, child->handle) || wz_widget_is_equal(canvas->active_item, child->handle)) {
 
 				if (is_inside_top_border || is_inside_bottom_border) {
-					*cursor = wzrd_cursor_vertical_arrow;
+					child->color = EGUI_PURPLE;
+					//*cursor = wzrd_cursor_vertical_arrow;
 				}
 				else if (is_inside_left_border || is_inside_right_border) {
-					*cursor = wzrd_cursor_horizontal_arrow;
+					child->color = EGUI_PURPLE;
+					//*cursor = wzrd_cursor_horizontal_arrow;
 				}
 			}
 
-			if (wzrd_handle_is_equal(canvas->active_item, child->handle)) {
+			if (wz_widget_is_equal(canvas->active_item, child->handle)) {
 				if (is_inside_bottom_border) {
-					child_style.color = EGUI_PURPLE;
+					child->color = EGUI_PURPLE;
 					canvas->bottom_resized_item = child->handle;
 				}
 				else if (is_inside_top_border) {
-					child_style.color = EGUI_PURPLE;
+					child->color = EGUI_PURPLE;
 					canvas->top_resized_item = child->handle;
 				}
 				else if (is_inside_left_border) {
-					child_style.color = EGUI_PURPLE;
+					child->color = EGUI_PURPLE;
 					canvas->left_resized_item = child->handle;
 				}
 				else if (is_inside_right_border) {
-					child_style.color = EGUI_PURPLE;
+					child->color = EGUI_PURPLE;
 					canvas->right_resized_item = child->handle;
 				}
 
@@ -889,39 +908,38 @@ void wzrd_handle_border_resize()
 			}
 		}
 	}
-#endif
 }
 
-bool wzrd_handle_is_active(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->active_item)) {
+bool wzrd_handle_is_active(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->active_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_handle_is_released(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->deactivating_item)) {
+bool wzrd_handle_is_released(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->deactivating_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_handle_is_hovered(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->hovered_item)) {
+bool wzrd_handle_is_hovered(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->hovered_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_handle_is_hovered_from_list(WzHandle handle)
+bool wzrd_handle_is_hovered_from_list(WzWidget handle)
 {
 
 	for (int i = 0; i < canvas->hovered_items_list_count; ++i)
 	{
-		if (wzrd_handle_is_equal(handle, canvas->hovered_items_list[i]))
+		if (wz_widget_is_equal(handle, canvas->hovered_items_list[i]))
 		{
 			return true;
 		}
@@ -930,10 +948,10 @@ bool wzrd_handle_is_hovered_from_list(WzHandle handle)
 	return false;
 }
 
-bool wzrd_handle_is_interacting(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->activating_item) ||
-		wzrd_handle_is_equal(handle, canvas->active_item) ||
-		wzrd_handle_is_equal(handle, canvas->deactivating_item))
+bool wzrd_handle_is_interacting(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->activating_item) ||
+		wz_widget_is_equal(handle, canvas->active_item) ||
+		wz_widget_is_equal(handle, canvas->deactivating_item))
 	{
 		return true;
 	}
@@ -943,19 +961,19 @@ bool wzrd_handle_is_interacting(WzHandle handle) {
 
 void wzrd_handle_input(int* indices, int count)
 {
-	WzWidget* hovered_box = canvas->boxes;
+	WzWidgetData* hovered_box = canvas->widgets;
 	unsigned int max_layer = 0;
 	canvas->hovered_items_list_count = 0;
 	canvas->hovered_boxes_count = 0;
 	for (int i = 0; i < count; ++i) {
-		WzWidget* box = canvas->boxes + indices[i];
+		WzWidgetData* box = canvas->widgets + indices[i];
 
 		WzRect scaled_rect = { box->x_internal, box->y_internal, box->w_internal, box->h_internal };
 
 		// Input Clipping: Block mouse from reaching clipped widgets
-		if (wzrd_handle_is_valid(box->clip_widget))
+		if (wz_handle_is_valid(box->clip_widget))
 		{
-			WzWidget* clip_widget = wz_widget_get(box->clip_widget);
+			WzWidgetData* clip_widget = wz_widget_get(box->clip_widget);
 
 			if (box->x_internal < clip_widget->x_internal)
 			{
@@ -1003,45 +1021,41 @@ void wzrd_handle_input(int* indices, int count)
 	}
 
 	// ...
-	WzWidget* half_clicked_box = wz_widget_get(canvas->activating_item);
+	WzWidgetData* half_clicked_box = wz_widget_get(canvas->activating_item);
 	if (half_clicked_box && canvas->mouse_left == WZRD_ACTIVE)
 	{
-		canvas->activating_item = (WzHandle){ 0 };
+		canvas->activating_item = (WzWidget){ 0 };
 	}
 
 	if (canvas->mouse_left == WZRD_DEACTIVATING)
 	{
 		//canvas->released_item = canvas->dragged_item;
-		canvas->dragged_box = (WzWidget){ 0 };
-		canvas->dragged_item = (WzHandle){ 0 };
+		canvas->dragged_box = (WzWidgetData){ 0 };
+		canvas->dragged_item = (WzWidget){ 0 };
 
 		canvas->clean = false;
 	}
 
 	if (canvas->mouse_left == WZRD_INACTIVE)
 	{
-		canvas->deactivating_item = (WzHandle){ 0 };
+		canvas->deactivating_item = (WzWidget){ 0 };
 	}
 
-	if (wzrd_handle_is_valid(hovered_box->handle)) {
-		if (!wzrd_handle_is_equal(hovered_box->handle, canvas->hovered_item))
-		{
-			canvas->clean = false;
-		}
-
+	if (wz_handle_is_valid(hovered_box->handle))
+	{
 		canvas->hovered_item = hovered_box->handle;
 	}
 	else {
-		canvas->hovered_item = (WzHandle){ 0 };
+		canvas->hovered_item = (WzWidget){ 0 };
 	}
 
-	WzWidget* hot_box = wz_widget_get(canvas->hovered_item);
-	WzWidget* active_box = wz_widget_get(canvas->active_item);
+	WzWidgetData* hot_box = wz_widget_get(canvas->hovered_item);
+	WzWidgetData* active_box = wz_widget_get(canvas->active_item);
 
-	if (wzrd_handle_is_valid(active_box->handle)) {
+	if (wz_handle_is_valid(active_box->handle)) {
 
 		if (canvas->mouse_left == WZRD_DEACTIVATING) {
-			if (wzrd_handle_is_valid(canvas->active_item))
+			if (wz_handle_is_valid(canvas->active_item))
 			{
 				if (hot_box == active_box)
 				{
@@ -1051,14 +1065,14 @@ void wzrd_handle_input(int* indices, int count)
 
 				canvas->deactivating_item = canvas->active_item;
 				wz_widget_get(canvas->deactivating_item)->color = EGUI_PURPLE;
-				canvas->active_item = (WzHandle){ 0 };
+				canvas->active_item = (WzWidget){ 0 };
 			}
 		}
 
 		canvas->clean = false;
 	}
 
-	if (wzrd_handle_is_valid(hot_box->handle)) {
+	if (wz_handle_is_valid(hot_box->handle)) {
 
 		/*	if (hot_box->type == wzrd_box_type_flat_button)
 			{
@@ -1070,7 +1084,7 @@ void wzrd_handle_input(int* indices, int count)
 			canvas->activating_item = hot_box->handle;
 
 			// Dragging
-			WZRD_ASSERT(half_clicked_box);
+			WZ_ASSERT(half_clicked_box);
 			if (half_clicked_box->is_draggable) {
 				canvas->dragged_item = half_clicked_box->handle;
 
@@ -1087,16 +1101,16 @@ void wzrd_handle_input(int* indices, int count)
 	}
 
 	// Clicked item
-	if (wzrd_handle_is_valid(canvas->clicked_item) && canvas->mouse_left == WZRD_INACTIVE) {
-		canvas->clicked_item = (WzHandle){ 0 };
+	if (wz_handle_is_valid(canvas->clicked_item) && canvas->mouse_left == WZRD_INACTIVE) {
+		canvas->clicked_item = (WzWidget){ 0 };
 
 		canvas->clean = false;
 	}
 
 	// Input box
-	if (wzrd_handle_is_valid(canvas->clicked_item)) {
-		WzWidget* clicked_box = wz_widget_get(canvas->clicked_item);
-		WZRD_ASSERT(clicked_box);
+	if (wz_handle_is_valid(canvas->clicked_item)) {
+		WzWidgetData* clicked_box = wz_widget_get(canvas->clicked_item);
+		WZ_ASSERT(clicked_box);
 		/*	if (clicked_box->type == wzrd_box_type_input_box) {
 				canvas->active_input_box = clicked_box->handle;
 			}
@@ -1106,224 +1120,294 @@ void wzrd_handle_input(int* indices, int count)
 	}
 }
 
-bool wzrd_widget_is_activating(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->activating_item)) {
+bool wzrd_widget_is_activating(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->activating_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_widget_is_active(WzHandle handle) {
-	if (wzrd_handle_is_equal(handle, canvas->active_item)) {
+bool wzrd_widget_is_active(WzWidget handle) {
+	if (wz_widget_is_equal(handle, canvas->active_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_box_is_activating(WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, canvas->activating_item)) {
+bool wzrd_box_is_activating(WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, canvas->activating_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-void wzrd_box_bring_to_front(WzWidget* box, void* data)
+void wzrd_box_bring_to_front(WzWidgetData* box, void* data)
 {
 	(void)data;
 	box->bring_to_front = true;
 }
 
-void wz_widget_set_strech_factor(WzHandle handle, unsigned int strech_factor)
+void wz_widget_set_stretch_factor(WzWidget handle, unsigned int stretch_factor)
 {
-	wz_widget_get(handle)->strech_factor = strech_factor;
+	WzWidgetData* w = wz_widget_get(handle);
+	w->stretch_factor = stretch_factor;
 }
 
-void wz_widget_set_layout(WzHandle handle, WzLayout layout_type)
+void wz_widget_set_layout(WzWidget handle, WzLayout layout_type)
 {
 	wz_widget_get(handle)->layout_type = layout_type;
 }
 
 void wzrd_do_layout()
 {
-	// Dragging
-	if (wzrd_handle_is_valid(canvas->dragged_box.handle))
+	// Size Pass
+	#define MAX_TREE_DEPTH 32
+	unsigned int widgets_stack[MAX_NUM_CHILDREN + MAX_TREE_DEPTH];
+	unsigned int widgets_stack_count = 0;
+	unsigned int widgets_current_child_stack[MAX_TREE_DEPTH];
+	unsigned int widgets_current_child_stack_count = 0;
+
+	widgets_stack[widgets_stack_count++] = 1;
+	widgets_current_child_stack[widgets_stack_count++] = 0;
+	
+	WzWidgetData *root = &canvas->widgets[widgets_stack[0]];
+	root->constraint_min_w = 0;
+	root->constraint_min_h = 0;
+	root->constraint_max_w = root->w;
+	root->constraint_max_w = root->h;
+	root->w_internal = root->w;
+	root->h_internal = root->h;
+
+	while (widgets_stack_count)
 	{
-		canvas->dragged_box.x_internal += canvas->mouse_delta.x;
-		canvas->dragged_box.y_internal += canvas->mouse_delta.y;
-
-		wzrd_crate(1, canvas->dragged_box);
-	}
-
-	// Calculate size
-	for (int i = 1; i < canvas->boxes_count; ++i)
-	{
-		WzWidget* parent = &canvas->boxes[i];
-
-		WZRD_ASSERT(parent->w_internal > 0);
-		WZRD_ASSERT(parent->h_internal > 0);
-
-		// Calculate the total size of the children
-		unsigned int available_w = 0, available_h = 0, children_w = 0, children_h = 0, children_strech_factor = 0;
+		WzWidgetData* widget = &canvas->widgets[widgets_stack_count];
+		
+		if (!widget->children_count)
 		{
-			for (int j = 0; j < parent->children_count; ++j)
+			if (wz_handle_is_valid(widget->parent))
 			{
-				WzWidget* child = &canvas->boxes[parent->children[j]];
-				children_w += child->w_internal;
-				children_h += child->h_internal;
+				if	(widget->size_policy_flag & WzSizePolicyFlagGrow)
+				{
+					// If size hint is zero, set it to the childrens total size
+					if (widget->size_hint_w == 0 && widget->size_hint_h == 0)
+					{
+						for (int k = 0; k < widget->children_count; ++k)
+						{
+							if (widget->layout_type == WzLayoutHorizontal)
+							{
+								unsigned int child_w = canvas->widgets[widget->children[k]].w_internal;
+								WZ_ASSERT(child_w);
+								widget->size_hint_w += child_w;
+							}
+							else if (widget->layout_type == WzLayoutVertical)
+							{
+								unsigned int child_h = canvas->widgets[widget->children[k]].h_internal;
+								WZ_ASSERT(child_h);
+								widget->size_hint_h += child_h;
+							}
+						}
 
-				children_strech_factor += child->strech_factor;
+						WZ_ASSERT(widget->size_hint_w >= widget->constraint_min_w);
+						WZ_ASSERT(widget->size_hint_h >= widget->constraint_min_h);
+						WZ_ASSERT(widget->size_hint_w <= widget->constraint_max_w);
+						WZ_ASSERT(widget->size_hint_h <= widget->constraint_max_h);
+					}
+					else if (widget->size_hint_w != 0 && widget->size_hint_h != 0)
+					{
+						WZ_ASSERT(widget->size_hint_w >= widget->constraint_min_w);
+						WZ_ASSERT(widget->size_hint_h >= widget->constraint_min_h);
+						WZ_ASSERT(widget->size_hint_w <= widget->constraint_max_w);
+						WZ_ASSERT(widget->size_hint_h <= widget->constraint_max_h);
+					}
+					else
+					{
+						WZ_ASSERT(0);
+					}
+
+					widget->h_internal = widget->size_hint_h;
+					widget->w_internal = widget->size_hint_w;
+
+					if (0)
+					{
+						for (int i = 0; i < widget->children_count; ++i)
+						{
+							WzWidgetData* child = &canvas->widgets[widget->children[i]];
+
+							
+						}
+					}
+				}
+
+				if (widget->size_policy_flag & WzSizePolicyFlagExpand)
+				{
+
+				}
+				if ((widget->size_policy_flag & WzSizePolicyFlagShrink))
+				{
+
+				}
+				if (!widget->size_policy_flag)
+				{
+
+				}
+				
+			}
+		}
+		else
+		{
+
+			WzWidgetData* child = &canvas->widgets[widget->children[widgets_current_child_stack_count]];
+
+			// Calculate available size
+			unsigned int available_w = 0, available_h = 0, children_w = 0, children_h = 0, children_stretch_factor = 0;
+			{
+				for (int j = 0; j < widget->children_count; ++j)
+				{
+					WzWidgetData* child = &canvas->widgets[widget->children[j]];
+					children_w += child->w_internal;
+					children_h += child->h_internal;
+
+					children_stretch_factor += child->stretch_factor;
+				}
+
+				WZ_ASSERT(widget->w_internal);
+				WZ_ASSERT(widget->h_internal);
+
+				available_w = widget->w_internal - widget->pad_left - widget->pad_right - 4 * WZRD_BORDER_SIZE;
+				available_h = widget->h_internal - widget->pad_top - widget->pad_bottom - 4 * WZRD_BORDER_SIZE;
+
+				if (widget->children_count)
+				{
+					if (widget->layout_type == WzLayoutHorizontal)
+						available_w -= widget->child_gap * (widget->children_count - 1);
+					else
+						available_h -= widget->child_gap * (widget->children_count - 1);
+				}
 			}
 
-			WZRD_ASSERT(parent->w_internal);
-			WZRD_ASSERT(parent->h_internal);
-
-			available_w = parent->w_internal - parent->pad_left - parent->pad_right - 4 * WZRD_BORDER_SIZE;
-			available_h = parent->h_internal - parent->pad_top - parent->pad_bottom - 4 * WZRD_BORDER_SIZE;
-
-			if (parent->children_count)
+			// Set child constraints
 			{
-				if (parent->layout_type == WzLayoutHorizontal)
-					available_w -= parent->child_gap * (parent->children_count - 1);
-				else
-					available_h -= parent->child_gap * (parent->children_count - 1);
+				child->constraint_min_w = 0;
+				child->constraint_min_h = 0;
+				child->constraint_max_w = available_w;
+				child->constraint_max_h = available_h;
 			}
 		}
 
 		// Handle growing
+#if 0
 		{
 			unsigned int strech_w = 0;
 			unsigned int strech_h = 0;
-			if (children_strech_factor)
+			if (children_stretch_factor)
 			{
-				strech_w = available_w / children_strech_factor;
-				strech_h = available_h / children_strech_factor;
+				strech_w = available_w / children_stretch_factor;
+				strech_h = available_h / children_stretch_factor;
 			}
 
-			for (int j = 0; j < parent->children_count; ++j)
+			for (int j = 0; j < widget->children_count; ++j)
 			{
-				WzWidget* child = &canvas->boxes[parent->children[j]];
-
-				if (1)
+				WzWidgetData* child = &canvas->widgets[widget->children[j]];
 				{
-					if (child->strech_factor)
+					WZ_ASSERT((child->stretch_factor && child->size_policy_flag) ||
+						(!child->stretch_factor && !child->size_policy_flag));
+
+					if ((child->size_policy_flag & WzSizePolicyFlagGrow) ||
+						(child->size_policy_flag & WzSizePolicyFlagShrink))
 					{
-						if (parent->layout_type == WzLayoutHorizontal)
+						WZ_ASSERT(child->stretch_factor);
+
+						if (widget->layout_type == WzLayoutHorizontal)
 						{
-							WZRD_ASSERT(strech_w);
-							child->w_internal = strech_w * child->strech_factor;
+							WZ_ASSERT(strech_w);
+							child->w_internal += strech_w * child->stretch_factor;
+
+							child->w_internal += child->w_offset;
+
+							// Share extra space with siblings
+							{
+								unsigned int num_siblings = widget->children_count - 1;
+								unsigned int space_per_sibling = -child->w_offset / num_siblings;
+								for (int k = 0; k < widget->children_count; ++k)
+								{
+									if (k != j)
+									{
+										WzWidgetData* sibling = &canvas->widgets[widget->children[k]];
+										//neighbors_stretch_factor += neighbor->stretch_factor;
+										sibling->w_internal += space_per_sibling;
+									}
+								}
+							}
 
 							if (!child->h)
 							{
 								child->h_internal = available_h;
 							}
-
+							
 						}
-						else if (parent->layout_type == WzLayoutVertical)
+						else if (widget->layout_type == WzLayoutVertical)
 						{
-							WZRD_ASSERT(strech_h);
-							child->h_internal = strech_h * child->strech_factor;
+							WZ_ASSERT(strech_h);
+							child->h_internal += strech_h * child->stretch_factor;
+
+							child->h_internal += child->h_offset;
+
+							// Share extra space with siblings
+							{
+								unsigned int num_siblings = widget->children_count - 1;
+								if (num_siblings)
+								{
+									unsigned int space_per_sibling = -child->h_offset / num_siblings;
+									for (int k = 0; k < widget->children_count; ++k)
+									{
+										if (k != j)
+										{
+											WzWidgetData* sibling = &canvas->widgets[widget->children[k]];
+											sibling->h_internal += space_per_sibling;
+										}
+									}
+								}
+							}
 
 							if (!child->w)
 							{
 								child->w_internal = available_w;
 							}
-
 						}
 					}
 				}
-				else
-				{
-					// OLD CODE
-					if (child->strech_factor && !child->fit_w && !child->percentage_w)
-					{
-						if (parent->layout_type == WzLayoutHorizontal)
-						{
-							WZRD_ASSERT(available_w >= children_w);
-							child->w_internal = available_w - children_w;
-						}
-						else
-						{
-							child->w_internal = available_w;
-						}
 
-					}
-
-					if (child->strech_factor && !child->fit_h && !child->percentage_h)
-					{
-						if (parent->layout_type == WzLayoutHorizontal)
-						{
-							WZRD_ASSERT(available_h >= children_h);
-							child->h_internal = available_h - children_h;
-						}
-						else
-						{
-							child->h_internal = available_h;
-						}
-
-					}
-				}
-
-				if (child->best_fit && parent->h_internal && child->h_internal)
-				{
-					float ratio_a = parent->w_internal / parent->h_internal;
-					float ratio_b = child->w_internal / child->h_internal;
-					float ratio = 0;
-
-					if (wzrd_float_compare(ratio_b, ratio_a) >= 0)
-					{
-						WZRD_ASSERT(child->w_internal);
-						ratio = (parent->w_internal / child->w_internal);
-					}
-					else
-					{
-						WZRD_ASSERT(child->h_internal);
-						ratio = (parent->h_internal / child->h_internal);
-					}
-
-					child->w_internal = child->w_internal * ratio;
-					child->h_internal = child->h_internal * ratio;
-				}
-
-				if (child->percentage_w)
-				{
-					child->w_internal = parent->w_internal * child->percentage_w;
-				}
-				if (child->percentage_h)
-				{
-					child->h_internal = parent->h_internal * child->percentage_h;
-				}
-
-				WZRD_ASSERT(child->w_internal > 0);
-				WZRD_ASSERT(child->h_internal > 0);
+				WZ_ASSERT(child->w_internal > 0);
+				WZ_ASSERT(child->h_internal > 0);
 			}
 		}
-
+#endif
 		// Calcuate size for free children
-		for (int j = 0; j < parent->free_children_count; ++j)
+		for (int j = 0; j < widget->free_children_count; ++j)
 		{
-			WzWidget* child = &canvas->boxes[parent->free_children[j]];
+			WzWidgetData* child = &canvas->widgets[widget->free_children[j]];
 
 			if (!child->w_internal)
 			{
-				child->w_internal = parent->w_internal;
+				child->w_internal = widget->w_internal;
 			}
 			if (!child->h_internal)
 			{
-				child->h_internal = parent->h_internal;
+				child->h_internal = widget->h_internal;
 			}
 
-			WZRD_ASSERT(child->w_internal > 0);
-			WZRD_ASSERT(child->h_internal > 0);
+			WZ_ASSERT(child->w_internal > 0);
+			WZ_ASSERT(child->h_internal > 0);
 		}
 	}
 
 	// Calculate content size
-	for (int i = 1; i < canvas->boxes_count; ++i)
+	for (int i = 1; i < canvas->widgets_count; ++i)
 	{
-		WzWidget* parent = canvas->boxes + i;
+		WzWidgetData* parent = canvas->widgets + i;
 
 		parent->content_w = 2 * WZRD_BORDER_SIZE;
 		parent->content_h = 2 * WZRD_BORDER_SIZE;
@@ -1342,7 +1426,7 @@ void wzrd_do_layout()
 		int max_child_w = 0, max_child_h = 0;
 		for (int j = 0; j < parent->children_count; ++j)
 		{
-			WzWidget child = canvas->boxes[parent->children[j]];
+			WzWidgetData child = canvas->widgets[parent->children[j]];
 
 			if (parent->h_internal > max_child_h)
 			{
@@ -1375,8 +1459,8 @@ void wzrd_do_layout()
 	}
 
 	// Calculate positions
-	for (int i = 1; i < canvas->boxes_count; ++i) {
-		WzWidget* parent = &canvas->boxes[i];
+	for (int i = 1; i < canvas->widgets_count; ++i) {
+		WzWidgetData* parent = &canvas->widgets[i];
 
 		int x = parent->x_internal + parent->pad_left, y = parent->y_internal + parent->pad_top;
 
@@ -1386,7 +1470,7 @@ void wzrd_do_layout()
 		// Center
 		int w = 0, h = 0, max_w = 0, max_h = 0;
 		for (int j = 0; j < parent->children_count; ++j) {
-			WzWidget* child = &canvas->boxes[parent->children[j]];
+			WzWidgetData* child = &canvas->widgets[parent->children[j]];
 
 			if (child->w_internal > max_w)
 				max_w = child->w_internal;
@@ -1417,7 +1501,7 @@ void wzrd_do_layout()
 
 		// Calc positions
 		for (int j = 0; j < parent->children_count; ++j) {
-			WzWidget* child = &canvas->boxes[parent->children[j]];
+			WzWidgetData* child = &canvas->widgets[parent->children[j]];
 
 			child->x_internal += x;
 			child->y_internal += y;
@@ -1444,7 +1528,7 @@ void wzrd_do_layout()
 
 		// Calculate positions for free children
 		for (int j = 0; j < parent->free_children_count; ++j) {
-			WzWidget* child = &canvas->boxes[parent->free_children[j]];
+			WzWidgetData* child = &canvas->widgets[parent->free_children[j]];
 
 			child->x_internal += parent->x_internal;
 			child->y_internal += parent->y_internal;
@@ -1452,10 +1536,10 @@ void wzrd_do_layout()
 	}
 
 	// Test child doesn't exceed parent's size
-	for (int i = 0; i < canvas->boxes_count; ++i) {
-		for (int j = 0; j < canvas->boxes[i].children_count; ++j) {
-			WzWidget* owner = canvas->boxes + i;
-			WzWidget* child = canvas->boxes + canvas->boxes[i].children[j];
+	for (int i = 0; i < canvas->widgets_count; ++i) {
+		for (int j = 0; j < canvas->widgets[i].children_count; ++j) {
+			WzWidgetData* owner = canvas->widgets + i;
+			WzWidgetData* child = canvas->widgets + canvas->widgets[i].children[j];
 			if (!wzrd_is_rect_inside_rect((WzRect) { child->x_internal, child->y_internal, child->w_internal, child->h_internal }, (WzRect) { owner->x_internal, owner->y_internal, owner->w_internal, owner->h_internal })) {
 				//owner->color = EGUI_ORANGE;
 				//child->color = EGUI_RED;
@@ -1464,7 +1548,333 @@ void wzrd_do_layout()
 	}
 
 	// Bring to front
-	if (wzrd_handle_is_valid(canvas->active_item))
+	if (wz_handle_is_valid(canvas->active_item))
+	{
+		//wzrd_box_tree_apply(wzrd_box_get_by_handle(canvas->active_item)->index, 0, wzrd_box_bring_to_front);
+	}
+}
+
+
+
+void wzrd_do_layout2()
+{
+	// Dragging
+	if (wz_handle_is_valid(canvas->dragged_box.handle))
+	{
+		canvas->dragged_box.x_internal += canvas->mouse_delta.x;
+		canvas->dragged_box.y_internal += canvas->mouse_delta.y;
+
+		wzrd_crate(1, canvas->dragged_box);
+	}
+
+	// Calculate size
+	for (int i = 1; i < canvas->widgets_count; ++i)
+	{
+		WzWidgetData* parent = &canvas->widgets[i];
+
+		WZ_ASSERT(parent->w_internal > 0);
+		WZ_ASSERT(parent->h_internal > 0);
+
+		// Calculate available size
+		unsigned int available_w = 0, available_h = 0, children_w = 0, children_h = 0, children_stretch_factor = 0;
+		{
+			for (int j = 0; j < parent->children_count; ++j)
+			{
+				WzWidgetData* child = &canvas->widgets[parent->children[j]];
+				children_w += child->w_internal;
+				children_h += child->h_internal;
+
+				children_stretch_factor += child->stretch_factor;
+			}
+
+			WZ_ASSERT(parent->w_internal);
+			WZ_ASSERT(parent->h_internal);
+
+			available_w = parent->w_internal - parent->pad_left - parent->pad_right - 4 * WZRD_BORDER_SIZE;
+			available_h = parent->h_internal - parent->pad_top - parent->pad_bottom - 4 * WZRD_BORDER_SIZE;
+
+			if (parent->children_count)
+			{
+				if (parent->layout_type == WzLayoutHorizontal)
+					available_w -= parent->child_gap * (parent->children_count - 1);
+				else
+					available_h -= parent->child_gap * (parent->children_count - 1);
+			}
+		}
+
+		// Handle growing
+		{
+			unsigned int strech_w = 0;
+			unsigned int strech_h = 0;
+			if (children_stretch_factor)
+			{
+				strech_w = available_w / children_stretch_factor;
+				strech_h = available_h / children_stretch_factor;
+			}
+
+			for (int j = 0; j < parent->children_count; ++j)
+			{
+				WzWidgetData* child = &canvas->widgets[parent->children[j]];
+
+				if (1)
+				{
+					if (child->stretch_factor)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZ_ASSERT(strech_w);
+							child->w_internal = strech_w * child->stretch_factor;
+
+							if (!child->h)
+							{
+								child->h_internal = available_h;
+							}
+
+						}
+						else if (parent->layout_type == WzLayoutVertical)
+						{
+							WZ_ASSERT(strech_h);
+							child->h_internal = strech_h * child->stretch_factor;
+
+							if (!child->w)
+							{
+								child->w_internal = available_w;
+							}
+
+						}
+					}
+				}
+				else
+				{
+					// OLD CODE
+					if (child->stretch_factor && !child->fit_w && !child->percentage_w)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZ_ASSERT(available_w >= children_w);
+							child->w_internal = available_w - children_w;
+						}
+						else
+						{
+							child->w_internal = available_w;
+						}
+
+					}
+
+					if (child->stretch_factor && !child->fit_h && !child->percentage_h)
+					{
+						if (parent->layout_type == WzLayoutHorizontal)
+						{
+							WZ_ASSERT(available_h >= children_h);
+							child->h_internal = available_h - children_h;
+						}
+						else
+						{
+							child->h_internal = available_h;
+						}
+
+					}
+				}
+
+				if (child->best_fit && parent->h_internal && child->h_internal)
+				{
+					float ratio_a = parent->w_internal / parent->h_internal;
+					float ratio_b = child->w_internal / child->h_internal;
+					float ratio = 0;
+
+					if (wzrd_float_compare(ratio_b, ratio_a) >= 0)
+					{
+						WZ_ASSERT(child->w_internal);
+						ratio = (parent->w_internal / child->w_internal);
+					}
+					else
+					{
+						WZ_ASSERT(child->h_internal);
+						ratio = (parent->h_internal / child->h_internal);
+					}
+
+					child->w_internal = child->w_internal * ratio;
+					child->h_internal = child->h_internal * ratio;
+				}
+
+				if (child->percentage_w)
+				{
+					child->w_internal = parent->w_internal * child->percentage_w;
+				}
+				if (child->percentage_h)
+				{
+					child->h_internal = parent->h_internal * child->percentage_h;
+				}
+
+				WZ_ASSERT(child->w_internal > 0);
+				WZ_ASSERT(child->h_internal > 0);
+			}
+		}
+
+		// Calcuate size for free children
+		for (int j = 0; j < parent->free_children_count; ++j)
+		{
+			WzWidgetData* child = &canvas->widgets[parent->free_children[j]];
+
+			if (!child->w_internal)
+			{
+				child->w_internal = parent->w_internal;
+			}
+			if (!child->h_internal)
+			{
+				child->h_internal = parent->h_internal;
+			}
+
+			WZ_ASSERT(child->w_internal > 0);
+			WZ_ASSERT(child->h_internal > 0);
+		}
+	}
+
+	// Calculate content size
+	for (int i = 1; i < canvas->widgets_count; ++i)
+	{
+		WzWidgetData* parent = canvas->widgets + i;
+
+		parent->content_w = 2 * WZRD_BORDER_SIZE;
+		parent->content_h = 2 * WZRD_BORDER_SIZE;
+
+		if (parent->layout_type == WzLayoutHorizontal)
+		{
+			parent->content_w += (parent->children_count + 1) * parent->child_gap;
+			parent->content_h += parent->child_gap;
+		}
+		else
+		{
+			parent->content_h += (parent->children_count + 1) * parent->child_gap;
+			parent->content_w += parent->child_gap;
+		}
+
+		int max_child_w = 0, max_child_h = 0;
+		for (int j = 0; j < parent->children_count; ++j)
+		{
+			WzWidgetData child = canvas->widgets[parent->children[j]];
+
+			if (parent->h_internal > max_child_h)
+			{
+				max_child_h = child.h_internal;
+			}
+
+			if (parent->w_internal > max_child_w)
+			{
+				max_child_w = child.w_internal;
+			}
+
+			if (parent->layout_type == WzLayoutHorizontal)
+			{
+				parent->content_w += child.w_internal;
+			}
+			else
+			{
+				parent->content_h += child.h_internal;
+			}
+		}
+
+		if (parent->layout_type == WzLayoutHorizontal)
+		{
+			parent->content_h += max_child_h;
+		}
+		else
+		{
+			parent->content_w += max_child_w;
+		}
+	}
+
+	// Calculate positions
+	for (int i = 1; i < canvas->widgets_count; ++i) {
+		WzWidgetData* parent = &canvas->widgets[i];
+
+		int x = parent->x_internal + parent->pad_left, y = parent->y_internal + parent->pad_top;
+
+		x += 2 * WZRD_BORDER_SIZE;
+		y += 2 * WZRD_BORDER_SIZE;
+
+		// Center
+		int w = 0, h = 0, max_w = 0, max_h = 0;
+		for (int j = 0; j < parent->children_count; ++j) {
+			WzWidgetData* child = &canvas->widgets[parent->children[j]];
+
+			if (child->w_internal > max_w)
+				max_w = child->w_internal;
+
+			if (child->h_internal > max_h)
+				max_h = child->h_internal;
+
+			if (parent->layout_type == WzLayoutHorizontal)
+				w += child->w_internal;
+			else
+				h += child->h_internal;
+		}
+
+		if (parent->layout_type == WzLayoutHorizontal)
+			w += parent->child_gap * (parent->children_count - 1);
+		else
+			h += parent->child_gap * (parent->children_count - 1);
+
+		if ((parent->alignment & WzAlignVCenter) && parent->layout_type == WzLayoutHorizontal)
+		{
+			x += (parent->w_internal - 4 * WZRD_BORDER_SIZE - parent->pad_left - parent->pad_right) / 2 - w / 2;
+		}
+
+		if ((parent->alignment & WzAlignHCenter) && parent->layout_type == WzLayoutHorizontal)
+		{
+			y += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent->pad_top - parent->pad_bottom) / 2 - h / 2;
+		}
+
+		// Calc positions
+		for (int j = 0; j < parent->children_count; ++j) {
+			WzWidgetData* child = &canvas->widgets[parent->children[j]];
+
+			child->x_internal += x;
+			child->y_internal += y;
+
+			if ((parent->alignment & WzAlignHCenter) && parent->layout_type == WzLayoutHorizontal) {
+				child->y_internal += (parent->h_internal - 4 * WZRD_BORDER_SIZE - parent->pad_top
+					- parent->pad_bottom) / 2 - child->h_internal / 2;
+			}
+
+			if ((parent->alignment & WzAlignVCenter) && parent->layout_type == WzLayoutHorizontal) {
+				child->x_internal += (parent->w_internal - 4 * WZRD_BORDER_SIZE -
+					parent->pad_top - parent->pad_bottom) / 2 - child->w_internal / 2;
+			}
+
+			if (parent->layout_type == WzLayoutHorizontal) {
+				x += child->w_internal;
+				x += parent->child_gap;
+			}
+			else {
+				y += child->h_internal;
+				y += parent->child_gap;
+			}
+		}
+
+		// Calculate positions for free children
+		for (int j = 0; j < parent->free_children_count; ++j) {
+			WzWidgetData* child = &canvas->widgets[parent->free_children[j]];
+
+			child->x_internal += parent->x_internal;
+			child->y_internal += parent->y_internal;
+		}
+	}
+
+	// Test child doesn't exceed parent's size
+	for (int i = 0; i < canvas->widgets_count; ++i) {
+		for (int j = 0; j < canvas->widgets[i].children_count; ++j) {
+			WzWidgetData* owner = canvas->widgets + i;
+			WzWidgetData* child = canvas->widgets + canvas->widgets[i].children[j];
+			if (!wzrd_is_rect_inside_rect((WzRect) { child->x_internal, child->y_internal, child->w_internal, child->h_internal }, (WzRect) { owner->x_internal, owner->y_internal, owner->w_internal, owner->h_internal })) {
+				//owner->color = EGUI_ORANGE;
+				//child->color = EGUI_RED;
+			}
+		}
+	}
+
+	// Bring to front
+	if (wz_handle_is_valid(canvas->active_item))
 	{
 		//wzrd_box_tree_apply(wzrd_box_get_by_handle(canvas->active_item)->index, 0, wzrd_box_bring_to_front);
 	}
@@ -1474,31 +1884,31 @@ void wzrd_draw(int* boxes_indices)
 {
 	wzrd_draw_commands_buffer* buffer = &canvas->command_buffer;
 	buffer->count = 0;
-	for (int i = 1; i < canvas->boxes_count; ++i)
+	for (int i = 1; i < canvas->widgets_count; ++i)
 	{
-		WzWidget box = canvas->boxes[boxes_indices[i]];
+		WzWidgetData box = canvas->widgets[boxes_indices[i]];
 
 		// Draw clip area
 		{
-			static WzHandle current_clip_widget;
+			static WzWidget current_clip_widget;
 
-			if (wzrd_handle_is_valid(box.clip_widget))
+			if (wz_handle_is_valid(box.clip_widget))
 			{
-				if (!wzrd_handle_is_equal(current_clip_widget, box.clip_widget))
+				if (!wz_widget_is_equal(current_clip_widget, box.clip_widget))
 				{
-					WzWidget* clip_box = wz_widget_get(box.clip_widget);
-					WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+					WzWidgetData* clip_box = wz_widget_get(box.clip_widget);
+					WZ_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 					buffer->commands[buffer->count++] = (wzrd_draw_command){
 						.type = DrawCommandType_Clip,
 						.dest_rect = (WzRect) {clip_box->x_internal + 2 * WZRD_BORDER_SIZE, clip_box->y_internal + 2 * WZRD_BORDER_SIZE, clip_box->w_internal - 4 * WZRD_BORDER_SIZE, clip_box->h_internal - 4 * WZRD_BORDER_SIZE},
-						.color = EGUI_BLUE
+						.color = WZ_BLUE
 					};
 				}
 			}
 			else {
-				if (wzrd_handle_is_valid(current_clip_widget))
+				if (wz_handle_is_valid(current_clip_widget))
 				{
-					WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+					WZ_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 					buffer->commands[buffer->count++] = (wzrd_draw_command){
 						.type = DrawCommandType_StopClip,
 					};
@@ -1683,8 +2093,8 @@ void wzrd_draw(int* boxes_indices)
 					.z = box.layer
 				};
 
-				WZRD_ASSERT(command.dest_rect.w > 0);
-				WZRD_ASSERT(command.dest_rect.h > 0);
+				WZ_ASSERT(command.dest_rect.w > 0);
+				WZ_ASSERT(command.dest_rect.h > 0);
 			}
 
 			// Line items
@@ -1783,10 +2193,10 @@ void wzrd_draw(int* boxes_indices)
 			command.dest_rect.x += item.pad_left;
 			command.dest_rect.y += item.pad_top;
 
-			WZRD_ASSERT(command.dest_rect.w >= 0);
-			WZRD_ASSERT(command.dest_rect.h >= 0);
+			WZ_ASSERT(command.dest_rect.w >= 0);
+			WZ_ASSERT(command.dest_rect.h >= 0);
 
-			WZRD_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
+			WZ_ASSERT(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 			buffer->commands[buffer->count++] = command;
 
 			buffer->commands[buffer->count - 1].box_index = i;
@@ -1799,13 +2209,13 @@ void wzrd_draw(int* boxes_indices)
 
 }
 
-void wzrd_widget_clip(WzHandle handle)
+void wzrd_widget_clip(WzWidget handle)
 {
-	WzWidget* box = wz_widget_get(handle);
+	WzWidgetData* box = wz_widget_get(handle);
 	box->clip_widget = box->handle;
 }
 
-WzWidget wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag)
+WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag)
 {
 	for (int i = 0; i < canvas->cached_boxes_count; ++i)
 	{
@@ -1815,10 +2225,10 @@ WzWidget wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const ch
 		}
 	}
 
-	return (WzWidget) { 0 };
+	return (WzWidgetData) { 0 };
 }
 
-WzWidget wzrd_widget_get_cached_box(const char* tag)
+WzWidgetData wzrd_widget_get_cached_box(const char* tag)
 {
 	for (int i = 0; i < canvas->cached_boxes_count; ++i)
 	{
@@ -1828,20 +2238,46 @@ WzWidget wzrd_widget_get_cached_box(const char* tag)
 		}
 	}
 
-	return (WzWidget) { 0 };
+	return (WzWidgetData) { 0 };
 }
 
-void wzrd_widget_tag(WzHandle widget, const char* str)
+void wzrd_widget_tag(WzWidget widget, const char* str)
 {
 	wz_widget_get(widget)->tag = str;
+}
+
+WzWidgetData wz_widget_get_parent(WzWidget widget)
+{
+	//return wz_widget_get(wz_widget_get(widget)->parent);
+}
+
+void wz_widget_resize(WzWidget widget, int* w_offset, int* h_offset)
+{
+	WzWidgetData* w = wz_widget_get(widget);
+	WzWidgetData* parent = wz_widget_get(w->parent);
+
+	if (parent->layout_type == WzLayoutHorizontal)
+	{
+		if (wz_widget_is_equal(w->handle, canvas->right_resized_item)) {
+			*w_offset += canvas->mouse_delta.x;
+		}
+	}
+	else {
+		if (wz_widget_is_equal(w->handle, canvas->bottom_resized_item)) {
+			*h_offset += canvas->mouse_delta.y;
+		}
+	}
+
+	w->w_offset = *w_offset;
+	w->h_offset = *h_offset;
 }
 
 void wzrd_end(wzrd_str* debug_str)
 {
 	// Set internal size
-	for (int i = 1; i < canvas->boxes_count; ++i)
+	for (int i = 1; i < canvas->widgets_count; ++i)
 	{
-		WzWidget* box = &canvas->boxes[i];
+		WzWidgetData* box = &canvas->widgets[i];
 		box->x_internal = box->x;
 		box->y_internal = box->y;
 		box->w_internal = box->w;
@@ -1853,10 +2289,10 @@ void wzrd_end(wzrd_str* debug_str)
 
 	// Cache tagged elements
 	canvas->cached_boxes_count = 0;
-	for (int i = 1; i < canvas->boxes_count; ++i)
+	for (int i = 1; i < canvas->widgets_count; ++i)
 	{
 		assert(canvas->cached_boxes_count < MAX_NUM_CACHED_BOXES - 1);
-		WzWidget* box = &canvas->boxes[i];
+		WzWidgetData* box = &canvas->widgets[i];
 		if (box->tag)
 		{
 			canvas->cached_boxes[canvas->cached_boxes_count++] = *box;
@@ -1866,17 +2302,17 @@ void wzrd_end(wzrd_str* debug_str)
 	// Sort
 	int boxes_indices[MAX_NUM_BOXES] = { 0 };
 
-	for (int i = 0; i < canvas->boxes_count; ++i)
+	for (int i = 0; i < canvas->widgets_count; ++i)
 	{
 		boxes_indices[i] = i;
 	}
 
-	qsort(boxes_indices, canvas->boxes_count, sizeof(int), wzrd_compare_boxes);
+	qsort(boxes_indices, canvas->widgets_count, sizeof(int), wzrd_compare_boxes);
 
 	// Mouse interaction
 	if (canvas->enable_input)
 	{
-		wzrd_handle_input(boxes_indices, canvas->boxes_count);
+		wzrd_handle_input(boxes_indices, canvas->widgets_count);
 		wzrd_handle_cursor();
 		wzrd_handle_border_resize();
 	}
@@ -1885,9 +2321,9 @@ void wzrd_end(wzrd_str* debug_str)
 		{
 			//canvas->released_item = canvas->dragged_item;
 			//canvas->released_item = canvas->dragged_item;
-			canvas->dragged_box = (WzWidget){ 0 };
-			canvas->dragged_item = (WzHandle){ 0 };
-			canvas->active_item = (WzHandle){ 0 };
+			canvas->dragged_box = (WzWidgetData){ 0 };
+			canvas->dragged_item = (WzWidget){ 0 };
+			canvas->active_item = (WzWidget){ 0 };
 		}
 	}
 
@@ -1898,18 +2334,17 @@ void wzrd_end(wzrd_str* debug_str)
 	canvas = 0;
 }
 
-void wzrd_box_set_type(WzHandle handle, wzrd_box_type type)
+void wzrd_box_set_type(WzWidget handle, wzrd_box_type type)
 {
 	wz_widget_get(handle)->layout_type = type;
 }
 
-WzHandle egui_button_raw_begin(bool* released, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget egui_button_raw_begin(bool* released, WzWidget parent, const char* file, unsigned int line) {
 
-	WzHandle handle = wz_widget(parent);
-	wz_widget_add_source(handle, file_name, line);
+	WzWidget handle = wz_widget_raw(parent, file, line);
 	wzrd_box_set_type(handle, wzrd_box_type_button);
 
-	if (wzrd_handle_is_equal(handle, canvas->deactivating_item)) {
+	if (wz_widget_is_equal(handle, canvas->deactivating_item)) {
 		*released = true;
 	}
 	else {
@@ -1924,15 +2359,15 @@ wzrd_canvas* wzrd_canvas_get()
 	return canvas;
 }
 
-WzHandle wzrd_toggle_icon_raw(wzrd_texture texture, bool* active, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_toggle_icon_raw(wzrd_texture texture, bool* active, WzWidget parent, const char* file_name, unsigned int line) {
 	bool b = false;
-	WzHandle widget = egui_button_raw_begin(&b, parent, file_name, line);
+	WzWidget widget = egui_button_raw_begin(&b, parent, file_name, line);
 	wz_widget_add_source(widget, file_name, line);
 
 	return widget;
 }
 
-WzHandle wzrd_button_icon_raw(wzrd_texture texture, bool* result, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_button_icon_raw(wzrd_texture texture, bool* result, WzWidget parent, const char* file, unsigned int line) {
 #if 0
 	bool active = false;
 	wzrd_handle h1, h2;
@@ -1961,16 +2396,16 @@ wzrd_item_add((Item) {
 return h1;
 #else
 
-	WzHandle widget = wz_widget(parent);
+	WzWidget widget = wz_widget_raw(parent, file, line);
 
 	return widget;
 #endif
 }
 
-WzHandle wzrd_command_toggle_raw(wzrd_str str, bool* active, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_command_toggle_raw(wzrd_str str, bool* active, WzWidget parent, const char* file_name, unsigned int line) {
 	bool b1 = false, a1 = false;
 
-	WzHandle widget = egui_button_raw_begin(&b1, parent, file_name, line);
+	WzWidget widget = egui_button_raw_begin(&b1, parent, file_name, line);
 	wz_widget_add_source(widget, file_name, line);
 	wzrd_text_add(str, widget);
 
@@ -1979,7 +2414,7 @@ WzHandle wzrd_command_toggle_raw(wzrd_str str, bool* active, WzHandle parent, co
 		*active = !*active;
 	}
 
-	a1 = wzrd_box_is_active(&canvas->boxes[canvas->boxes_count - 1]);
+	a1 = wzrd_box_is_active(&canvas->widgets[canvas->widgets_count - 1]);
 
 	if (*active || a1)
 	{
@@ -1989,11 +2424,11 @@ WzHandle wzrd_command_toggle_raw(wzrd_str str, bool* active, WzHandle parent, co
 	return widget;
 }
 
-WzHandle egui_button_raw_begin_on_half_click(bool* b, WzHandle parent) {
-	WzHandle h = wz_widget(parent);
+WzWidget egui_button_raw_begin_on_half_click(bool* b, WzWidget parent, const char* file, unsigned int line) {
+	WzWidget h = wz_widget_raw(parent, file, line);
 
 	//if (wzrd_handle_is_valid(h))
-	if (wzrd_handle_is_equal(h, canvas->activating_item)) {
+	if (wz_widget_is_equal(h, canvas->activating_item)) {
 		*b = true;
 	}
 	else
@@ -2004,9 +2439,9 @@ WzHandle egui_button_raw_begin_on_half_click(bool* b, WzHandle parent) {
 	return h;
 }
 
-WzHandle wzrd_label_button_activating(wzrd_str str, bool* active, WzHandle parent)
+WzWidget wzrd_label_button_activating(wzrd_str str, bool* active, WzWidget parent, const char* file, unsigned int line)
 {
-	WzHandle h = egui_button_raw_begin_on_half_click(active, parent);
+	WzWidget h = egui_button_raw_begin_on_half_click(active, parent, file, line);
 	wzrd_box_set_type(h, wzrd_box_type_button);
 
 	wzrd_text_add(str, h);
@@ -2043,26 +2478,25 @@ bool EguiButton2(wzrd_box box, wzrd_str str, wzrd_color color) {
 	egui_button_raw_end();
 
 	if (flag) {
-		//canvas->boxes[canvas->boxes_count - 1].color = EGUI_DARKBLUE;
-		//canvas->boxes[canvas->boxes_count - 2].color = EGUI_DARKBLUE;
+		//canvas->widgets[canvas->widgets_count - 1].color = EGUI_DARKBLUE;
+		//canvas->widgets[canvas->widgets_count - 2].color = EGUI_DARKBLUE;
 	}
 
 	return result;
 }
 #endif
 
-void wzrd_item_add(Item item, WzHandle box) {
-	WzWidget* b = wz_widget_get(box);
-	WZRD_ASSERT(b->items_count < MAX_NUM_ITEMS - 1);
+void wzrd_item_add(Item item, WzWidget box) {
+	WzWidgetData* b = wz_widget_get(box);
+	WZ_ASSERT(b->items_count < MAX_NUM_ITEMS - 1);
 	b->items[b->items_count++] = item;
 }
 
-WzHandle wzrd_label_raw(wzrd_str str, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_label_raw(wzrd_str str, WzWidget parent, const char* file, unsigned int line) {
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	WzHandle widget = wz_widget(parent);
-	wz_widget_add_source(widget, file_name, line);
+	WzWidget widget = wz_widget_raw(parent, file, line);
 
 	wz_widget_set_size(widget, w, h);
 
@@ -2071,11 +2505,10 @@ WzHandle wzrd_label_raw(wzrd_str str, WzHandle parent, const char* file_name, un
 	return widget;
 }
 
-WzHandle wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzHandle parent, const char* file_name, unsigned int line) {
-	WzHandle widget = wz_widget(parent);
-	wz_widget_add_source(widget, file_name, line);
+WzWidget wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzWidget parent, const char* file, unsigned int line) {
+	WzWidget widget = wz_widget_raw(parent, file, line);
 
-	WzWidget* box = wz_widget_get(widget);
+	WzWidgetData* box = wz_widget_get(widget);
 	box->w = 50;
 	box->h = 30;
 	box->color = EGUI_GREEN;
@@ -2149,12 +2582,11 @@ wzrd_str wzrd_str_create(char* str)
 	return result;
 }
 
-WzHandle wzrd_label_button_raw(wzrd_str str, bool* result, WzHandle parent, const char* file_name, unsigned  int line) {
+WzWidget wzrd_label_button_raw(wzrd_str str, bool* result, WzWidget parent, const char* file, unsigned  int line) {
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	WzHandle widget = wz_widget(parent);
-	wz_widget_add_source(widget, file_name, line);
+	WzWidget widget = wz_widget_raw(parent, file, line);
 
 	wz_widget_set_w(widget, w);
 	wz_widget_set_h(widget, h);
@@ -2171,36 +2603,35 @@ WzHandle wzrd_label_button_raw(wzrd_str str, bool* result, WzHandle parent, cons
 	return widget;
 }
 
-WzHandle wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
-	bool* active, wzrd_str name, int layer, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
+	bool* active, wzrd_str name, int layer, WzWidget parent, const char* file, unsigned int line) {
 	WZRD_UNUSED(name);
 
-	if (!*active) return (WzHandle) { 0 };
+	if (!*active) return (WzWidget) { 0 };
 
-	WzHandle window = wzrd_widget_free(
+	WzWidget window = wzrd_widget_free(
 		/*	(wzrd_style) {
 			.space = (wzrd_space){ .x = pos->x, .y = pos->y, .w = size.x, .h = size.y },
 				.skin = canvas->panel_border_skin,
 		},*/
 		parent);
-	wz_widget_add_source(window, file_name, line);
 
 	wz_widget_get(window)->layer = layer;
 
 	bool close = false;
 
-	WzHandle top_panel = wz_widget(window);
+	WzWidget top_panel = wz_widget_raw(window, file, line);
 
 	wz_widget_set_h(top_panel, 28);
 
 	wz_widget_get(top_panel)->h = 28;
 	//wzrd_box_get(top_panel)->canvas = v_panel_layout;
 
-	WzHandle bar = wz_widget(top_panel);
+	WzWidget bar = wz_widget_raw(top_panel, file, line);
 
-	wzrd_widget_set_color(bar, (wzrd_color) { 57, 77, 205, 255 });
+	wz_widget_set_color(bar, (wzrd_color) { 57, 77, 205, 255 });
 
-	if (wzrd_handle_is_equal(bar, canvas->active_item)) {
+	if (wz_widget_is_equal(bar, canvas->active_item)) {
 		pos->x += canvas->mouse_pos.x - canvas->previous_mouse_pos.x;
 		pos->y += canvas->mouse_pos.y - canvas->previous_mouse_pos.y;
 	}
@@ -2260,7 +2691,7 @@ void wzrd_dialog_end(bool active) {
 	}
 }
 
-WzHandle wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active, WzHandle parent, const char* file_name, unsigned int line)
+WzWidget wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active, WzWidget parent, const char* file, unsigned int line)
 {
 #if 0
 	WZRD_ASSERT(texts);
@@ -2309,22 +2740,21 @@ WzHandle wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_
 	}
 #endif
 
-	WzHandle widget = wz_widget(parent);
+	WzWidget widget = wz_widget_raw(parent, file, line);
 
 	return widget;
 }
 
 
-void wz_set_alignment(WzHandle widget, WzAlignment alignment)
+void wz_set_alignment(WzWidget widget, WzAlignment alignment)
 {
 	wz_widget_get(widget)->alignment |= alignment;
 }
 
 void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
-	wzrd_v2 size, WzHandle* handles, unsigned int* selected, bool* is_selected, WzHandle parent, const char* file_name, unsigned int line)
+	wzrd_v2 size, WzWidget* handles, unsigned int* selected, bool* is_selected, WzWidget parent, const char* file, unsigned int line)
 {
-	WzHandle panel = wz_widget(parent);
-	wz_widget_add_source(panel, file_name, line);
+	WzWidget panel = wz_widget_raw(parent, file, line);
 
 	wz_widget_set_size(panel, size.x, size.y);
 
@@ -2333,7 +2763,7 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 		*is_selected = false;
 	}
 
-	WzHandle selected_label = { 0 };
+	WzWidget selected_label = { 0 };
 
 	for (unsigned int i = 0; i < count; ++i)
 	{
@@ -2341,7 +2771,7 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 		sprintf_s(str, 32, "%d label list %d", wzrd_box_get_last()->handle.handle, i);
 
 		bool is_label_clicked = false;
-		WzHandle h = wzrd_label_button_activating(item_names[i], &is_label_clicked, panel);
+		WzWidget h = wzrd_label_button_activating(item_names[i], &is_label_clicked, panel, file, line);
 
 		wz_widget_set_h(h, 32);
 		wz_set_alignment(h, WzAlignVCenter | WzAlignHCenter);
@@ -2349,7 +2779,7 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 
 		if (handles)
 		{
-			handles[i] = canvas->boxes[canvas->boxes_count - 2].handle;
+			handles[i] = canvas->widgets[canvas->widgets_count - 2].handle;
 		}
 
 		if (is_label_clicked) {
@@ -2366,16 +2796,16 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 }
 
 void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* items,
-	wzrd_v2 size, unsigned int* selected, bool* is_selected, WzHandle parent, const char* file_name, unsigned int line) {
+	wzrd_v2 size, unsigned int* selected, bool* is_selected, WzWidget parent, const char* file_name, unsigned int line) {
 
-	WzHandle handles[MAX_NUM_LABELS] = { 0 };
+	WzWidget handles[MAX_NUM_LABELS] = { 0 };
 
 	wzrd_label_list_raw(item_names, count, size, handles, selected, is_selected, parent, file_name, line);
 
 	// Ordering
 	{
 		assert(items);
-		WzHandle active_label = { 0 }, hovered_label = { 0 }, released_label = { 0 };
+		WzWidget active_label = { 0 }, hovered_label = { 0 }, released_label = { 0 };
 		int hovered_label_index = -1, released_label_index = -1;
 
 		// Set variables
@@ -2403,10 +2833,10 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 
 		// Get hovered widget
 		bool is_bottom = false;
-		WzWidget* hovered_parent = 0;
+		WzWidgetData* hovered_parent = 0;
 		for (int i = 0; i < canvas->hovered_boxes_count; ++i)
 		{
-			if (wzrd_handle_is_equal(canvas->hovered_boxes[i].handle, hovered_label))
+			if (wz_widget_is_equal(canvas->hovered_boxes[i].handle, hovered_label))
 			{
 				hovered_parent = canvas->hovered_boxes + i;
 				break;
@@ -2423,16 +2853,16 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 			}
 
 			// Label grabbed and hovering over another one
-			if (wzrd_handle_is_valid(active_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, active_label))
+			if (wz_handle_is_valid(active_label) && wz_handle_is_valid(hovered_label) && !wz_widget_is_equal(hovered_label, active_label))
 			{
 
-				WzWidget* p = wz_widget_get(hovered_label);
-				WzWidget* c = 0;
+				WzWidgetData* p = wz_widget_get(hovered_label);
+				WzWidgetData* c = 0;
 				if (is_bottom)
 				{
 					c = wz_widget_create();
 					wz_widget_add_source(c->handle, __FILE__, __LINE__);
-					wzrd_widget_set_color(c->handle, EGUI_PURPLE);
+					wz_widget_set_color(c->handle, EGUI_PURPLE);
 					wz_widget_set_y(c->handle, hovered_parent->h - 2);
 					wz_widget_set_h(c->handle, 2);
 
@@ -2450,7 +2880,7 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 
 
 		// Label released over another label
-		if (wzrd_handle_is_valid(released_label) && wzrd_handle_is_valid(hovered_label) && !wzrd_handle_is_equal(hovered_label, released_label))
+		if (wz_handle_is_valid(released_label) && wz_handle_is_valid(hovered_label) && !wz_widget_is_equal(hovered_label, released_label))
 		{
 			int val = items[released_label_index];
 
@@ -2482,10 +2912,10 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 
 }
 
-WzHandle wzrd_handle_button_raw(bool* active, WzRect rect,
-	wzrd_color color, wzrd_str name, WzHandle parent, const char* file_name, unsigned int line) {
+WzWidget wzrd_handle_button_raw(bool* active, WzRect rect,
+	wzrd_color color, wzrd_str name, WzWidget parent, const char* file_name, unsigned int line) {
 
-	WzHandle widget = wzrd_widget_free(parent);
+	WzWidget widget = wzrd_widget_free(parent);
 	wz_widget_add_source(widget, file_name, line);
 	wz_widget_set_pos(widget, rect.x, rect.y);
 	wz_widget_set_size(widget, rect.w, rect.h);
@@ -2510,32 +2940,32 @@ void wzrd_drag(bool* drag) {
 	wzrd_crate(1, canvas->dragged_box);
 }
 
-bool wzrd_box_is_active(WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, canvas->active_item)) {
+bool wzrd_box_is_active(WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, canvas->active_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_box_is_dragged(WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, canvas->dragged_item)) {
+bool wzrd_box_is_dragged(WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, canvas->dragged_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_box_is_hot_using_canvas(wzrd_canvas* c, WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, c->hovered_item)) {
+bool wzrd_box_is_hot_using_canvas(wzrd_canvas* c, WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, c->hovered_item)) {
 		return true;
 	}
 
 	return false;
 }
 
-bool wzrd_box_is_hot(WzWidget* box) {
-	if (wzrd_handle_is_equal(box->handle, canvas->hovered_item)) {
+bool wzrd_box_is_hot(WzWidgetData* box) {
+	if (wz_widget_is_equal(box->handle, canvas->hovered_item)) {
 		return true;
 	}
 
@@ -2543,11 +2973,11 @@ bool wzrd_box_is_hot(WzWidget* box) {
 }
 
 
-WzWidget* wzrd_box_get_released()
+WzWidgetData* wzrd_box_get_released()
 {
-	WzWidget* result = 0;
+	WzWidgetData* result = 0;
 
-	if (wzrd_handle_is_valid(canvas->deactivating_item))
+	if (wz_handle_is_valid(canvas->deactivating_item))
 	{
 		result = wz_widget_get(canvas->deactivating_item);
 	}
@@ -2585,18 +3015,18 @@ bool wzrd_v2_is_inside_polygon(wzrd_v2 point, wzrd_polygon polygon) {
 	return inside;
 }
 
-void wzrd_widget_set_rect(WzHandle widget, WzRect rect)
+void wzrd_widget_set_rect(WzWidget widget, WzRect rect)
 {
-	WzWidget* w = wz_widget_get(widget);
+	WzWidgetData* w = wz_widget_get(widget);
 	w->x = rect.x;
 	w->y = rect.y;
 	w->w = rect.w;
 	w->h = rect.h;
 }
 
-WzHandle wzrd_command_button_raw(wzrd_str str, bool* released, WzHandle parent, const char* file_name, unsigned int line)
+WzWidget wzrd_command_button_raw(wzrd_str str, bool* released, WzWidget parent, const char* file_name, unsigned int line)
 {
-	WzHandle button = egui_button_raw_begin(released, parent, file_name, line);
+	WzWidget button = egui_button_raw_begin(released, parent, file_name, line);
 	wz_widget_add_source(button, file_name, line);
 
 	wzrd_text_add(str, button);
@@ -2609,7 +3039,7 @@ WzHandle wzrd_command_button_raw(wzrd_str str, bool* released, WzHandle parent, 
 	return button;
 }
 
-void wzrd_handle_set_layer(WzHandle handle, unsigned int layer)
+void wzrd_handle_set_layer(WzWidget handle, unsigned int layer)
 {
 	wz_widget_get(handle)->layer = layer;
 }

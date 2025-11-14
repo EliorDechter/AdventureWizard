@@ -10,38 +10,38 @@ wzrd_str wzrd_str_from_str128(str128* str)
 	return result;
 }
 
-void editor_seperator_horizontal(WzHandle parent)
+void editor_seperator_horizontal(WzWidget parent)
 {
-	WzHandle w = wz_hbox(parent);
+	WzWidget w = wz_hbox(parent);
 	wz_widget_set_h(w, 2);
 	wz_widget_set_border(w, BorderType_BottomLine);
 }
 
-void editor_seperator_vertical(WzHandle parent)
+void editor_seperator_vertical(WzWidget parent)
 {
-	WzHandle w = wz_hbox(parent);
+	WzWidget w = wz_hbox(parent);
 	wz_widget_set_w(w, 2);
 }
 
-WzHandle editor_vertical_panel(wzrd_v2 size, WzHandle parent)
+WzWidget editor_vertical_panel(wzrd_v2 size, WzWidget parent)
 {
-	WzHandle p = wz_hbox(parent);
+	WzWidget p = wz_hbox(parent);
 
 	return p;
 }
 
-WzHandle editor_vertical_panel_bordered(wzrd_v2 size, WzHandle parent)
+WzWidget editor_vertical_panel_bordered(wzrd_v2 size, WzWidget parent)
 {
-	WzHandle p = wz_hbox(parent);
+	WzWidget p = wz_hbox(parent);
 
 	wz_widget_set_size(p, size.x, size.y);
 
 	return p;
 }
 
-WzHandle editor_horizontal_panel_bordered(wzrd_v2 size, WzHandle parent)
+WzWidget editor_horizontal_panel_bordered(wzrd_v2 size, WzWidget parent)
 {
-	WzHandle p = wz_hbox(parent);
+	WzWidget p = wz_hbox(parent);
 
 	wz_widget_set_size(p, size.x, size.y);
 
@@ -64,11 +64,11 @@ float g_width = 20, g_target_width = 255;
 
 
 
-WzHandle editor_add_row(WzHandle form, wzrd_str label, WzHandle widget)
+WzWidget editor_add_row(WzWidget form, wzrd_str label, WzWidget widget)
 {
 	const int h = 30;
 
-	WzHandle row = wz_hbox(form);
+	WzWidget row = wz_hbox(form);
 	wz_widget_set_h(row, h);
 	wzrd_label(label, row);
 	wzrd_box_add_child(row, widget);
@@ -76,44 +76,44 @@ WzHandle editor_add_row(WzHandle form, wzrd_str label, WzHandle widget)
 	return row;
 }
 
-WzHandle wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzHandle parent, const char* tag)
+WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const char* tag)
 {
 	const int scroll_bar_width = 20;
 
-	WzHandle panel = wz_hbox(parent);
+	WzWidget panel = wz_hbox(parent);
 	wz_widget_set_size(panel, size.x, size.y);
-	wzrd_widget_set_color(panel, EGUI_BEIGE);
+	wz_widget_set_color(panel, EGUI_BEIGE);
 
-	WzHandle clip_panel = editor_vertical_panel((wzrd_v2) { 0 }, panel);
-	wz_widget_get(clip_panel)->color = EGUI_YELLOW;
+	WzWidget clip_panel = editor_vertical_panel((wzrd_v2) { 0 }, panel);
+	wz_widget_get(clip_panel)->color = WZ_YELLOW;
 	wzrd_widget_clip(clip_panel);
 	wzrd_widget_tag(clip_panel, tag);
 
-	WzHandle user_panel = wz_hbox(clip_panel);
+	WzWidget user_panel = wz_hbox(clip_panel);
 	wz_widget_set_y(panel, -*scroll);
 	wz_widget_set_h(panel, 1500);
 
-	WzHandle scrollbar_panel = wz_hbox(panel);
+	WzWidget scrollbar_panel = wz_hbox(panel);
 	wz_widget_set_w(scrollbar_panel, scroll_bar_width + 4);
 
-	WzHandle top_button = wz_hbox(scrollbar_panel);
+	WzWidget top_button = wz_hbox(scrollbar_panel);
 	wz_widget_set_w(top_button, scroll_bar_width);
 	wz_widget_set_h(top_button, scroll_bar_width);
 
-	WzHandle middle_panel = wz_hbox(scrollbar_panel);
+	WzWidget middle_panel = wz_hbox(scrollbar_panel);
 	wz_widget_set_w(middle_panel, scroll_bar_width);
 	wz_widget_get(middle_panel)->color = EGUI_GRAY;
 	wz_widget_get(middle_panel)->tag = tag;
 	wz_widget_get(middle_panel)->secondary_tag = "scrollbar_middle";
 
-	WzHandle bottom_button = wz_hbox(scrollbar_panel);
+	WzWidget bottom_button = wz_hbox(scrollbar_panel);
 	wz_widget_set_size(bottom_button, scroll_bar_width, scroll_bar_width);
 
-	WzWidget b = wzrd_widget_get_cached_box(tag);
-	WzHandle scrollbar = (WzHandle){ 0 };
-	if (wzrd_handle_is_valid(b.handle))
+	WzWidgetData b = wzrd_widget_get_cached_box(tag);
+	WzWidget scrollbar = (WzWidget){ 0 };
+	if (wz_handle_is_valid(b.handle))
 	{
-		WzWidget* box = &b;
+		WzWidgetData* box = &b;
 		float ratio = (float)b.h_internal / (float)b.content_h;
 		if (ratio > 1)
 			ratio = 1;
@@ -126,8 +126,8 @@ WzHandle wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzHandle parent, const cha
 		wz_widget_get(scrollbar)->secondary_tag = "scrollbar";
 	}
 
-	WzWidget scrollbar_middle_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar_middle");
-	WzWidget scrollbar_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar");
+	WzWidgetData scrollbar_middle_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar_middle");
+	WzWidgetData scrollbar_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar");
 
 	if (wzrd_widget_is_active(top_button))
 	{
@@ -156,24 +156,23 @@ WzHandle wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzHandle parent, const cha
 	return user_panel;
 }
 
-
-void editor_debug_panel(WzHandle parent, wzrd_str str)
+void editor_debug_panel(WzWidget parent, wzrd_str str)
 {
-	WzHandle main_panel = wzrd_widget_free(parent);
+	WzWidget main_panel = wzrd_widget_free(parent);
 
 	wz_widget_set_size(main_panel, 295, 500);
 	wz_widget_set_pos(main_panel, (int)g_platform.window_width - 300, 10);
 
 	static int scroll;
-	WzHandle panel = wzrd_scroll_panel((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
+	WzWidget panel = wzrd_scroll_panel((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
 
 	//static float scrollbar_x, scrollbar_y;
 	//wzrd_box_get_last()->clip = true;
 	//wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
 	//wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
 	wzrd_label(str, panel);
-	WzHandle some_panel = editor_vertical_panel((wzrd_v2) { .x = 20, .y = 2000 }, panel);
-	wz_widget_get(some_panel)->color = EGUI_RED;
+	WzWidget some_panel = editor_vertical_panel((wzrd_v2) { .x = 20, .y = 2000 }, panel);
+	wz_widget_get(some_panel)->color = WZ_RED;
 
 	//*debug_str->str = 0;
 	//debug_str->len = 0;
@@ -183,7 +182,7 @@ void editor_debug_panel(WzHandle parent, wzrd_str str)
 void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str* debug_str) {
 	(void)icons;
 
-	WzHandle window = wz_begin(gui,
+	WzWidget window = wz_begin(gui,
 		(WzRect) {
 		0, 0, (int)g_platform.window_width, (int)g_platform.window_height
 	},
@@ -194,21 +193,41 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		(wzrd_state)g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed, true);
 
-	WzHandle box = wz_hbox(window);
+	WzWidget panel = wz_hbox(window);
 
-	WzHandle a = wz_widget(box);
-	wz_widget_set_strech_factor(a, 1);
-	wzrd_widget_set_color(a, EGUI_RED);
+	WzWidget a = wz_widget(panel);
+	wz_widget_set_stretch_factor(a, 1);
+	wz_widget_set_color(a, WZ_RED);
+	static int a_x, a_y;
+	wz_widget_resize(a, &a_x, &a_y);
+	wz_widget_set_size_policy(a, WzSizePolicyPreferred);
 
-	WzHandle b = wz_widget(box);
-	wz_widget_set_strech_factor(b, 1);
-	wzrd_widget_set_color(b, EGUI_BLUE);
+	WzWidget b = wz_vbox(panel);
+	wz_widget_set_stretch_factor(b, 1);
+	wz_widget_set_color(b, WZ_BLUE);
+	static  int b_x, b_y;
+	wz_widget_resize(b, &b_x, &b_y);
+	wz_widget_set_size_policy(b, WzSizePolicyPreferred);
+
+	WzWidget c = wz_widget(b);
+	wz_widget_set_stretch_factor(c, 1);
+	wz_widget_set_color(c, WZ_YELLOW);
+	static  int c_x, c_y;
+	wz_widget_resize(c, &c_x, &c_y);
+	wz_widget_set_size_policy(c, WzSizePolicyPreferred);
+
+	WzWidget d = wz_widget(b);
+	wz_widget_set_stretch_factor(d, 1);
+	wz_widget_set_color(d, EGUI_GREEN);
+	static  int d_x, d_y;
+	wz_widget_resize(d, &d_x, &d_y);
+	wz_widget_set_size_policy(d, WzSizePolicyPreferred);
 
 	if (0) {
 
 		//editor_file_panel(window);
 		{
-			WzHandle files_panel = wz_hbox(window);
+			WzWidget files_panel = wz_hbox(window);
 			wz_widget_set_h(files_panel, 30);
 
 			bool b1 = false, b2 = false;
@@ -220,11 +239,11 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 		//editor_buttons_panel(window);
 		{
-			WzHandle panel = wz_hbox(window);
+			WzWidget panel = wz_hbox(window);
 			wz_widget_set_h(panel, 36);
 
 			bool b = false;
-			WzHandle button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
+			WzWidget button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
 
 			g_width = g_width + (g_target_width - g_width) * 0.1;
 
@@ -256,7 +275,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			// seperator
 
 			static bool finish;
-			bool is_dragged = wzrd_box_is_dragged(&(WzWidget) {
+			bool is_dragged = wzrd_box_is_dragged(&(WzWidgetData) {
 				0
 			});
 			if (!is_dragged && !finish)
@@ -290,18 +309,18 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		}
 
 
-		WzHandle bottom_panel = editor_horizontal_panel_bordered((wzrd_v2) { 0 }, window);
+		WzWidget bottom_panel = editor_horizontal_panel_bordered((wzrd_v2) { 0 }, window);
 
 		//editor_left_panel(bottom_panel);
 		{
-			WzHandle outer_panel = editor_vertical_panel_bordered((wzrd_v2) { .x = 200 }, bottom_panel);
+			WzWidget outer_panel = editor_vertical_panel_bordered((wzrd_v2) { .x = 200 }, bottom_panel);
 
 			//wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
 			//static bool active;
 			static int selected_category;
 			//wzrd_dropdown(&selected_category, texts, 3, 100, &active);
 
-			WzHandle inner_panel = editor_vertical_panel((wzrd_v2) { 0 }, outer_panel);
+			WzWidget inner_panel = editor_vertical_panel((wzrd_v2) { 0 }, outer_panel);
 
 			if (selected_category == 0) {
 
@@ -335,11 +354,11 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 		//editor_right_panel(bottom_panel, *(wzrd_texture*)&target_texture);
 		{
-			WzHandle panel = wz_hbox(bottom_panel);
+			WzWidget panel = wz_hbox(bottom_panel);
 
 			wz_widget_get(panel)->disable_input = true;
 
-			WzHandle target_panel = wz_hbox(panel);
+			WzWidget target_panel = wz_hbox(panel);
 
 			wz_widget_set_size(target_panel, 1920 / 6, 1080 / 6);
 
@@ -354,10 +373,10 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 		//editor_debug_panel(window, *debug_str);
 		{
-			WzHandle bar = wz_hbox(window);
+			WzWidget bar = wz_hbox(window);
 			wz_widget_set_h(bar, 40);
 
-			WzHandle b = wz_hbox(bar);
+			WzWidget b = wz_hbox(bar);
 			wz_widget_set_h(b, 90);
 		}
 
@@ -372,10 +391,10 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 				static unsigned int selected;
 				static bool is_selected = false;
 
-				WzHandle dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_active, size, &g_editor.create_object_dialog_active, wzrd_str_create("add object"), 4, window);
+				WzWidget dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_active, size, &g_editor.create_object_dialog_active, wzrd_str_create("add object"), 4, window);
 				bool* active = &g_editor.create_object_dialog_active;
 				if (*active) {
-					WzHandle panel = wz_hbox(dialog);
+					WzWidget panel = wz_hbox(dialog);
 					wzrd_v2 v = (wzrd_v2){
 							100, 0
 					};
@@ -386,14 +405,14 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 							v,
 							0, &selected, &is_selected, panel);
 
-						WzHandle form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
-						editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (WzHandle) { 0 }));
+						WzWidget form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
+						editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (WzWidget) { 0 }));
 					}
 
-					WzHandle bottom_panel = wz_hbox(dialog);
+					WzWidget bottom_panel = wz_hbox(dialog);
 					wz_widget_set_h(bottom_panel, 50);
 					{
-						WzHandle buttons_panel = wz_hbox(bottom_panel);
+						WzWidget buttons_panel = wz_hbox(bottom_panel);
 						{
 							bool b1;
 

@@ -46,7 +46,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>ClangCL</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <EnableASAN>false</EnableASAN>
     <EnableUnitySupport>false</EnableUnitySupport>
@@ -173,7 +173,7 @@
     <ClCompile Include="Animation.c" />
     <ClCompile Include="ArrayList.c" />
     <ClCompile Include="Editor.c" />
-    <ClCompile Include="Egui.c" />
+    <ClCompile Include="WzGuiCore.c" />
     <ClCompile Include="FileName.c" />
     <ClCompile Include="Game.c" />
     <ClCompile Include="GameState.c" />
@@ -189,11 +189,12 @@
     <ClCompile Include="Strings.c" />
     <ClCompile Include="Textures.c" />
     <ClCompile Include="Timer.c" />
+    <ClCompile Include="WzGuiWidgets.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArrayList.h" />
     <ClInclude Include="Editor.h" />
-    <ClInclude Include="Egui.h" />
+    <ClInclude Include="WzGuiCore.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Handle.h" />
     <ClInclude Include="HashTable.h" />
@@ -204,6 +205,7 @@
     <ClInclude Include="stb_textedit.h" />
     <ClInclude Include="Strings.h" />
     <ClInclude Include="Textures.h" />
+    <ClInclude Include="WzGuiWidgets.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

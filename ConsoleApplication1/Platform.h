@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <SDL3_image/SDL_image.h>
 #include <stdio.h>
-#include "Egui.h"
+#include "WzGuiCore.h"
 #include <stdint.h>
 
 #if 1
