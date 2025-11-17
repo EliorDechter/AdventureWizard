@@ -114,7 +114,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 	if (wz_handle_is_valid(b.handle))
 	{
 		WzWidgetData* box = &b;
-		float ratio = (float)b.h_internal / (float)b.content_h;
+		float ratio = (float)b.actual_h / (float)b.content_h;
 		if (ratio > 1)
 			ratio = 1;
 
@@ -137,7 +137,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 
 	if (wzrd_widget_is_active(bottom_button))
 	{
-		if (*scroll + scrollbar_box.h_internal < scrollbar_middle_box.h_internal - 2)
+		if (*scroll + scrollbar_box.actual_h < scrollbar_middle_box.actual_h - 2)
 			*scroll += 1;
 	}
 
@@ -145,7 +145,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 	{
 		int scroll_temp = *scroll + wzrd_canvas_get()->mouse_delta.y;
 
-		if (scroll_temp + scrollbar_box.h_internal < scrollbar_middle_box.h_internal - 2 && scroll_temp > 0)
+		if (scroll_temp + scrollbar_box.actual_h < scrollbar_middle_box.actual_h - 2 && scroll_temp > 0)
 		{
 			*scroll = scroll_temp;
 		}
@@ -193,36 +193,52 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		(wzrd_state)g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed, true);
 
-	WzWidget panel = wz_hbox(window);
+	WzWidget panel = wz_widget(window);
+	wz_widget_set_color(panel, WZ_RED);
+	wz_widget_set_layout(panel, WzLayoutHorizontal);
 
-	WzWidget a = wz_widget(panel);
-	wz_widget_set_stretch_factor(a, 1);
-	wz_widget_set_color(a, WZ_RED);
-	static int a_x, a_y;
-	wz_widget_resize(a, &a_x, &a_y);
-	wz_widget_set_size_policy(a, WzSizePolicyPreferred);
+	/*WzWidget a = wz_widget(panel);
+	wz_widget_set_color(a, WZ_GREEN);
 
-	WzWidget b = wz_vbox(panel);
-	wz_widget_set_stretch_factor(b, 1);
+	WzWidget b = wz_widget(panel);
 	wz_widget_set_color(b, WZ_BLUE);
-	static  int b_x, b_y;
-	wz_widget_resize(b, &b_x, &b_y);
-	wz_widget_set_size_policy(b, WzSizePolicyPreferred);
+	wz_widget_set_w(b, 50);*/
 
-	WzWidget c = wz_widget(b);
-	wz_widget_set_stretch_factor(c, 1);
-	wz_widget_set_color(c, WZ_YELLOW);
-	static  int c_x, c_y;
-	wz_widget_resize(c, &c_x, &c_y);
-	wz_widget_set_size_policy(c, WzSizePolicyPreferred);
+	wz_widget_add_rect(panel, 50, 50, WZ_GREEN);
 
-	WzWidget d = wz_widget(b);
-	wz_widget_set_stretch_factor(d, 1);
-	wz_widget_set_color(d, EGUI_GREEN);
-	static  int d_x, d_y;
-	wz_widget_resize(d, &d_x, &d_y);
-	wz_widget_set_size_policy(d, WzSizePolicyPreferred);
+#if 0
+	{
+		WzWidget panel = wz_hbox(window);
 
+		WzWidget a = wz_widget(panel);
+		wz_widget_set_stretch_factor(a, 1);
+		wz_widget_set_color(a, WZ_RED);
+		static int a_x, a_y;
+		wz_widget_resize(a, &a_x, &a_y);
+		wz_widget_set_size_policy(a, WzSizePolicyPreferred);
+
+		WzWidget b = wz_vbox(panel);
+		wz_widget_set_stretch_factor(b, 1);
+		wz_widget_set_color(b, WZ_BLUE);
+		static  int b_x, b_y;
+		wz_widget_resize(b, &b_x, &b_y);
+		wz_widget_set_size_policy(b, WzSizePolicyPreferred);
+
+		WzWidget c = wz_widget(b);
+		wz_widget_set_stretch_factor(c, 1);
+		wz_widget_set_color(c, WZ_YELLOW);
+		static  int c_x, c_y;
+		wz_widget_resize(c, &c_x, &c_y);
+		wz_widget_set_size_policy(c, WzSizePolicyPreferred);
+
+		WzWidget d = wz_widget(b);
+		wz_widget_set_stretch_factor(d, 1);
+		wz_widget_set_color(d, EGUI_GREEN);
+		static  int d_x, d_y;
+		wz_widget_resize(d, &d_x, &d_y);
+		wz_widget_set_size_policy(d, WzSizePolicyPreferred);
+	}
+#endif
 	if (0) {
 
 		//editor_file_panel(window);
@@ -287,7 +303,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 					}, panel);*/
 			}
 
-			static wzrd_color color = { 100, 100, 100, 255 };
+			static WzColor color = { 100, 100, 100, 255 };
 			//wzrd_widget((wzrd_style) {
 			//	.is_slot = true,
 			//		.style = wzrd_style_create((wzrd_style_template) {
@@ -442,7 +458,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 							.name = str128_create(name.val),
 								.texture = game_texture_get_handle_by_name(str128_create("player")),
 								.rect = { .x = 0, .y = 0, .w = 100, .h = 100 },
-								.color = (wzrd_color){ 255, 255, 255, 255 }
+								.color = (WzColor){ 255, 255, 255, 255 }
 						});
 					}
 

@@ -68,7 +68,7 @@ typedef struct Entity {
 	Rect rect;
 	str128 name;
 	Texture_handle texture;
-	wzrd_color color;
+	WzColor color;
 	EntityType type;
 	PixelPos pixel_pos;
 	v2 size;

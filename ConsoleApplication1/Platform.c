@@ -474,7 +474,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		// Game ui and stuff
 		WzWidgetData* box = wzrd_box_find(&editor_gui, wzrd_str_create("Target"));
-		game_screen_rect = (WzRect){ box->x_internal, box->y_internal, box->w_internal, box->h_internal };
+		game_screen_rect = (WzRect){ box->actual_w, box->actual_y, box->actual_w, box->actual_h };
 		bool enable_game_input = false;
 		if (wzrd_box_is_hot_using_canvas(&editor_gui, box))
 		{
