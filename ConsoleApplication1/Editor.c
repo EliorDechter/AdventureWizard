@@ -34,7 +34,7 @@ WzWidget editor_vertical_panel_bordered(wzrd_v2 size, WzWidget parent)
 {
 	WzWidget p = wz_hbox(parent);
 
-	wz_widget_set_size(p, size.x, size.y);
+	wz_widget_set_tight_constraints(p, size.x, size.y);
 
 	return p;
 }
@@ -43,7 +43,7 @@ WzWidget editor_horizontal_panel_bordered(wzrd_v2 size, WzWidget parent)
 {
 	WzWidget p = wz_hbox(parent);
 
-	wz_widget_set_size(p, size.x, size.y);
+	wz_widget_set_tight_constraints(p, size.x, size.y);
 
 	return p;
 }
@@ -81,7 +81,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 	const int scroll_bar_width = 20;
 
 	WzWidget panel = wz_hbox(parent);
-	wz_widget_set_size(panel, size.x, size.y);
+	wz_widget_set_tight_constraints(panel, size.x, size.y);
 	wz_widget_set_color(panel, EGUI_BEIGE);
 
 	WzWidget clip_panel = editor_vertical_panel((wzrd_v2) { 0 }, panel);
@@ -107,7 +107,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 	wz_widget_get(middle_panel)->secondary_tag = "scrollbar_middle";
 
 	WzWidget bottom_button = wz_hbox(scrollbar_panel);
-	wz_widget_set_size(bottom_button, scroll_bar_width, scroll_bar_width);
+	wz_widget_set_tight_constraints(bottom_button, scroll_bar_width, scroll_bar_width);
 
 	WzWidgetData b = wzrd_widget_get_cached_box(tag);
 	WzWidget scrollbar = (WzWidget){ 0 };
@@ -160,7 +160,7 @@ void editor_debug_panel(WzWidget parent, wzrd_str str)
 {
 	WzWidget main_panel = wzrd_widget_free(parent);
 
-	wz_widget_set_size(main_panel, 295, 500);
+	wz_widget_set_tight_constraints(main_panel, 295, 500);
 	wz_widget_set_pos(main_panel, (int)g_platform.window_width - 300, 10);
 
 	static int scroll;
@@ -197,14 +197,30 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	wz_widget_set_color(panel, WZ_RED);
 	wz_widget_set_layout(panel, WzLayoutHorizontal);
 
-	/*WzWidget a = wz_widget(panel);
+	WzWidget a = wz_widget(panel);
 	wz_widget_set_color(a, WZ_GREEN);
-
+	wz_widget_set_w(a, 50);
+	
 	WzWidget b = wz_widget(panel);
 	wz_widget_set_color(b, WZ_BLUE);
-	wz_widget_set_w(b, 50);*/
+	wz_widget_set_size(b, 50, 50);
 
-	wz_widget_add_rect(panel, 50, 50, WZ_GREEN);
+	WzWidget c = wz_widget(panel);
+	wz_widget_set_color(c, EGUI_BROWN);
+	wz_widget_set_expanded(c);
+
+	WzWidget d = wz_widget(panel);
+	wz_widget_set_color(d, WZ_BLUE);
+	wz_widget_set_expanded(d);
+	wz_widget_set_layout(d, WzLayoutHorizontal);
+
+	WzWidget e = wz_widget(d);
+	wz_widget_set_color(e, WZ_GREEN);
+	wz_widget_set_expanded(e);
+
+	WzWidget f = wz_widget(d);
+	wz_widget_set_color(f, EGUI_PURPLE);
+	wz_widget_set_expanded(f);
 
 #if 0
 	{
@@ -273,7 +289,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			}
 
 			wz_widget_get(button)->color.r = 255;
-			wz_widget_get(button)->w = (int)g_width;
+			wz_widget_set_w(button, (unsigned int)g_width);
 
 			if (b)
 			{
@@ -376,7 +392,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 			WzWidget target_panel = wz_hbox(panel);
 
-			wz_widget_set_size(target_panel, 1920 / 6, 1080 / 6);
+			wz_widget_set_tight_constraints(target_panel, 1920 / 6, 1080 / 6);
 
 			wz_widget_get(target_panel)->disable_input = true;
 

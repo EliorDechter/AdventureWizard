@@ -68,7 +68,7 @@ typedef struct WzColor {
 #define EGUI_LIME      (WzColor){ 0, 158, 47, 255 }      // Lime
 #define EGUI_DARKGREEN (WzColor){ 0, 117, 44, 255 }      // Dark Green
 #define EGUI_SKYBLUE   (WzColor){ 102, 191, 255, 255 }   // Sky Blue
-#define WZ_BLUE      (WzColor){ 0, 255, 255, 255 }     // Blue
+#define WZ_BLUE      (WzColor){ 0, 0, 255, 255 }     // Blue
 #define EGUI_DARKBLUE  (WzColor){ 0, 82, 172, 255 }      // Dark Blue
 #define EGUI_PURPLE    (WzColor){ 200, 122, 255, 255 }   // Purple
 #define EGUI_VIOLET    (WzColor){ 135, 60, 190, 255 }    // Violet
@@ -96,7 +96,8 @@ typedef enum EguiState {
 } wzrd_state;
 
 typedef struct wzrd_rect_struct {
-	int x, y, w, h;
+	int x, y;
+	unsigned int w, h;
 } WzRect;
 
 typedef struct wzrd_v2 {
@@ -241,13 +242,37 @@ typedef enum WzSizePolicy
 	WzSizePolicyMinimumIgnored,
 } WzLayoutSizePolicy;
 
+typedef enum FlexFit
+{
+	FlexFitLoose,
+	FlexFitTight
+} FlexFit;
+
+typedef enum MainAxisSize
+{
+	MainAxisSizeMin,
+	MainAxisSizeMax
+} MainAxisSize;
+
 typedef struct {
 	WzWidget handle;
 	int line_number;
 	const char* file;
 
-	int actual_x, actual_y;
+	// New layout stuff
+	unsigned int constraint_min_w, constraint_min_h, constraint_max_h, constraint_max_w;
+	WzWidget parent;
+	MainAxisSize main_axis_size;
+	bool flex;
+	FlexFit flex_fit;
+	int w_offset, h_offset;
+
+	// ...
+	unsigned int actual_x, actual_y;
 	unsigned int actual_w, actual_h;
+	WzLayout layout_type;
+
+	// Old
 	bool disable_hover;
 	WzWidget clip_widget;
 	bool disable_input;
@@ -268,8 +293,8 @@ typedef struct {
 	unsigned int index;
 	bool is_selected;
 	
-	//wzrd_space space;
-	int x, y, w, h;
+	//int x, y;
+	//unsigned int w, h;
 	float percentage_w, percentage_h;
 	//bool w_strech, h_strech;
 	unsigned int flex_factor;
@@ -278,7 +303,6 @@ typedef struct {
 	unsigned int pad_right, pad_bottom, pad_left, pad_top;
 
 	int child_gap;
-	WzLayout layout_type;
 	bool fit_h, fit_w;
 	WzAlignment alignment;
 	bool best_fit;
@@ -293,15 +317,7 @@ typedef struct {
 	const char* tag;
 	const char* secondary_tag;
 
-	// New layout stuff
-	unsigned int constraint_min_w, constraint_min_h, constraint_max_h, constraint_max_w;
-	WzWidget parent;
-
-
-
-
-	// For resizing widgets
-	int w_offset, h_offset;
+	unsigned int x, y;
 
 } WzWidgetData;
 
@@ -513,9 +529,13 @@ void wz_widget_set_x(WzWidget w, int width);
 void wz_widget_set_y(WzWidget h, int height);
 void wz_widget_set_pos(WzWidget handle, int x, int y);
 bool wz_handle_is_valid(WzWidget handle);
-void wz_widget_set_size(WzWidget handle, int w, int h);
+void wz_widget_set_tight_constraints(WzWidget handle, int w, int h);
 void wz_widget_set_border(WzWidget w, WzBorderType border_type);
 void wz_widget_resize(WzWidget widget, int* w, int* h);
+void wz_widget_set_flex_factor(WzWidget widget, unsigned int flex_factor);
+void wz_widget_set_expanded(WzWidget widget);
+void wz_widget_set_flex(WzWidget widget);
+void wz_widget_set_size(WzWidget c, unsigned int w, unsigned int h);
 
 #define wzrd_widget_set_style2(widget, style) wzrd_widget_set_style2_explicit(__LINE__, widget, style)
 
