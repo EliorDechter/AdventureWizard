@@ -1213,21 +1213,29 @@ void wzrd_do_layout(int index)
 
 	unsigned int widgets_visits[MAX_NUM_BOXES];
 
-	unsigned int w_per_flex_factor;
+	unsigned int size_per_flex_factor;
 	WzWidgetData* widget;
 	WzWidgetData* child;
 
 	unsigned int w;
 	unsigned int h;
-	unsigned int available_w, available_h;
+	unsigned int available_size, available_h;
 	int i;
 	unsigned int children_flex_factor;
-	unsigned int children_w, max_child_h;
+	unsigned int children_size, max_child_h;
 	unsigned int children_h, max_child_w;
 
 	memset(widgets_visits, 0, sizeof(*widgets_visits) * MAX_NUM_BOXES);
 
 	widgets_stack[widgets_stack_count++] = index;
+
+	unsigned int *constraint_min_main_axis, *constraint_max_main_axis,
+		*constraint_min_cross_axis, *constraint_max_cross_axis,
+		*actual_size_main_axis, *actual_size_cross_axis;
+	
+	unsigned int *child_constraint_min_main_axis, *child_constraint_max_main_axis,
+		*child_constraint_min_cross_axis, *child_constraint_max_cross_axis,
+		*child_actual_size_main_axis, *child_cross_axis_actual_size;
 
 	// Constraints pass
 	while (widgets_stack_count)
@@ -1238,6 +1246,8 @@ void wzrd_do_layout(int index)
 		WZ_ASSERT(widget->constraint_min_h >= 0);
 		WZ_ASSERT(widget->constraint_max_w > 0);
 		WZ_ASSERT(widget->constraint_max_h > 0);
+		WZ_ASSERT(widget->actual_w <= canvas->window.w);
+		WZ_ASSERT(widget->actual_h <= canvas->window.h);
 
 		if (!widget->children_count)
 		{
@@ -1255,6 +1265,8 @@ void wzrd_do_layout(int index)
 
 			WZ_ASSERT(widget->actual_w);
 			WZ_ASSERT(widget->actual_h);
+			WZ_ASSERT(widget->actual_w <= canvas->window.w);
+			WZ_ASSERT(widget->actual_h <= canvas->window.h);
 			WZ_ASSERT(widget->actual_w <= widget->constraint_max_w);
 			WZ_ASSERT(widget->actual_h <= widget->constraint_max_h);
 			WZ_ASSERT(widget->actual_w <= canvas->window.w);
@@ -1267,8 +1279,15 @@ void wzrd_do_layout(int index)
 			// Handle widgets with children
 			if (widget->layout_type == WzLayoutHorizontal)
 			{
+				constraint_min_main_axis = &widget->constraint_min_w;
+				constraint_max_main_axis = &widget->constraint_max_w;
+				constraint_min_cross_axis = &widget->constraint_min_h;
+				constraint_max_cross_axis = &widget->constraint_max_h;
+				actual_size_main_axis = &widget->actual_w;
+				actual_size_cross_axis = &widget->actual_h;
+
 				// Handle horizontal widgets
-				if (widget->constraint_max_w != UINT_MAX)
+				if (*constraint_max_main_axis != UINT_MAX)
 				{
 					// Handle the case a widget has bounded constraints
 					if (widgets_visits[widget->index] == 0)
@@ -1279,12 +1298,17 @@ void wzrd_do_layout(int index)
 						{
 							child = &canvas->widgets[widget->children[i]];
 
+							child_constraint_min_main_axis = &child->constraint_min_w;
+							child_constraint_max_main_axis = &child->constraint_max_w;
+							child_constraint_min_cross_axis = &child->constraint_min_h;
+							child_constraint_max_cross_axis = &child->constraint_max_h;
+
 							if (child->flex_factor == 0)
 							{
-								child->constraint_min_w = 0;
-								child->constraint_min_h = 0;
-								child->constraint_max_w = UINT_MAX;
-								child->constraint_max_h = widget->constraint_max_h;
+								*child_constraint_min_main_axis = 0;
+								*child_constraint_min_cross_axis = 0;
+								*child_constraint_max_main_axis = UINT_MAX;
+								*child_constraint_max_cross_axis = *constraint_max_cross_axis;
 
 								widgets_stack[widgets_stack_count] = child->index;
 								widgets_stack_count++;
@@ -1296,7 +1320,7 @@ void wzrd_do_layout(int index)
 					else if (widgets_visits[widget->index] == 1)
 					{
 						// Give constraints to flex children, allocating from the availble space
-						available_w = widget->constraint_max_w;
+						available_size = widget->constraint_max_w;
 						available_h = widget->constraint_max_h;
 						children_flex_factor = 0;
 
@@ -1304,10 +1328,12 @@ void wzrd_do_layout(int index)
 						{
 							child = &canvas->widgets[widget->children[i]];
 
+							child_actual_size_main_axis = &child->actual_w;
+
 							if (!child->flex_factor)
 							{
 								WZ_ASSERT(child->actual_w);
-								available_w -= child->actual_w;
+								available_size -= *child_actual_size_main_axis;
 							}
 							else
 							{
@@ -1317,29 +1343,34 @@ void wzrd_do_layout(int index)
 
 						if (children_flex_factor)
 						{
-							w_per_flex_factor = available_w / children_flex_factor;
+							size_per_flex_factor = available_size / children_flex_factor;
 						}
 
 						for (int i = 0; i < widget->children_count; ++i)
 						{
 							child = &canvas->widgets[widget->children[i]];
+
+							child_constraint_min_main_axis = &child->constraint_min_w;
+							child_constraint_max_main_axis = &child->constraint_max_w;
+							child_constraint_min_cross_axis = &child->constraint_min_h;
+							child_constraint_max_cross_axis = &child->constraint_max_h;
 							
 							if (child->flex_factor)
 							{
-								unsigned int w = w_per_flex_factor * child->flex_factor;
+								unsigned int main_axis_size = size_per_flex_factor * child->flex_factor;
 
 								if (widget->flex_fit == FlexFitLoose)
 								{
-									child->constraint_min_w = 0;
+									child_constraint_min_main_axis = 0;
 								}
 								else
 								{
-									child->constraint_min_w = w;
+									child_constraint_min_main_axis = main_axis_size;
 								}
 
-								child->constraint_min_h = widget->constraint_min_h;
-								child->constraint_max_w = w;
-								child->constraint_max_h = widget->constraint_max_h;
+								*child_constraint_min_cross_axis = *constraint_min_cross_axis;
+								*child_constraint_max_main_axis = main_axis_size;
+								*child_constraint_max_cross_axis = *constraint_max_cross_axis;
 
 								widgets_stack[widgets_stack_count] = child->index;
 								widgets_stack_count++;
@@ -1351,22 +1382,28 @@ void wzrd_do_layout(int index)
 					else if (widgets_visits[widget->index] == 2)
 					{
 						// Horizontal widget can now size itself and pop
-						if (widget->constraint_max_w == UINT_MAX)
+						if (*constraint_max_main_axis == UINT_MAX)
 						{
-							children_w = 0;
+							children_size = 0;
 							for (i = 0; i < widget->children_count; ++i)
 							{
 								child = &canvas->widgets[widget->children[i]];
-								children_w += child->actual_w;
+
+								child_actual_size_main_axis = &child->actual_w;
+
+								children_size += *child_actual_size_main_axis;
 							}
 
-							widget->actual_w = children_w;
+							*actual_size_main_axis = children_size;
 						}
 						else
 						{
-							widget->actual_w = widget->constraint_max_w;
-							widget->actual_h = widget->constraint_max_h;
+							*actual_size_main_axis = *constraint_max_main_axis;
+							*actual_size_cross_axis = *constraint_max_cross_axis;
 						}
+
+						WZ_ASSERT(*actual_size_main_axis <= canvas->window.w);
+						WZ_ASSERT(*actual_size_cross_axis <= canvas->window.h);
 
 						// Give positions for children
 						unsigned int offset = 0;
@@ -1393,12 +1430,17 @@ void wzrd_do_layout(int index)
 					{
 						child = &canvas->widgets[widget->children[i]];
 
+						child_constraint_min_main_axis = &child->constraint_min_w;
+						child_constraint_max_main_axis = &child->constraint_max_w;
+						child_constraint_min_cross_axis = &child->constraint_min_h;
+						child_constraint_max_cross_axis = &child->constraint_max_h;
+
 						WZ_ASSERT(child->flex_fit == FlexFitLoose);
 
-						child->constraint_min_w = 0;
-						child->constraint_min_h = 0;
-						child->constraint_max_w = UINT_MAX;
-						child->constraint_max_h = widget->constraint_max_h;
+						*child_constraint_min_main_axis = 0;
+						*child_constraint_min_cross_axis = 0;
+						*child_constraint_max_main_axis = UINT_MAX;
+						*child_constraint_max_cross_axis = *constraint_max_cross_axis;
 
 						widgets_stack[widgets_stack_count] = child->index;
 						widgets_stack_count++;
@@ -1467,8 +1509,6 @@ void wzrd_do_layout(int index)
 			WZ_ASSERT(child->actual_y >= 0);
 			WZ_ASSERT(child->actual_w);
 			WZ_ASSERT(child->actual_h);
-			WZ_ASSERT(widget->actual_x >= 0);
-			WZ_ASSERT(widget->actual_y >= 0);
 			WZ_ASSERT(widget->actual_w);
 			WZ_ASSERT(widget->actual_h);
 			WZ_ASSERT(child->actual_x + child->actual_w <= widget->actual_x + widget->actual_w);
