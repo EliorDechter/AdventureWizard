@@ -218,18 +218,19 @@ typedef enum EguiDrawCommandType {
 
 typedef struct EguiDrawCommand {
 	EguiDrawCommandType type;
-	int box_index;
+	int widget_line_number;
+	const char* file;
 	wzrd_str str;
 	WzRect dest_rect, src_rect;
 	WzColor color;
 	wzrd_texture texture;
 	int z;
-} wzrd_draw_command;
+} WzDrawCommand;
 
-typedef struct wzrd_draw_commands_buffer {
-	wzrd_draw_command commands[MAX_NUM_DRAW_COMMANDS];
+typedef struct WzDrawCommandBuffer {
+	WzDrawCommand commands[MAX_NUM_DRAW_COMMANDS];
 	int count;
-} wzrd_draw_commands_buffer;
+} WzDrawCommandBuffer;
 
 typedef enum WzSizePolicy
 {
@@ -248,29 +249,25 @@ typedef enum FlexFit
 	FlexFitTight
 } FlexFit;
 
-typedef enum MainAxisSize
-{
-	MainAxisSizeMin,
-	MainAxisSizeMax
-} MainAxisSize;
+#define	MAIN_AXIS_SIZE_TYPE_MIN  0X0
+#define	MAIN_AXIS_SIZE_TYPE_MAX  0X1
 
 typedef struct {
 	WzWidget handle;
-	int line_number;
+	int line;
 	const char* file;
 
 	// New layout stuff
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_h, constraint_max_w;
 	WzWidget parent;
-	MainAxisSize main_axis_size;
-	bool flex;
-	FlexFit flex_fit;
+	unsigned char main_axis_size_type;
+	FlexFit flex_fit; // Should the widget take all the space given to it 
 	int w_offset, h_offset;
 
 	// ...
 	unsigned int actual_x, actual_y;
 	unsigned int actual_w, actual_h;
-	WzLayout layout_type;
+	WzLayout layout;
 
 	// Old
 	bool disable_hover;
@@ -386,7 +383,7 @@ typedef struct wzrd_canvas {
 
 	int styles_count;
 	wzrd_cursor cursor;
-	wzrd_draw_commands_buffer command_buffer;
+	WzDrawCommandBuffer command_buffer;
 
 	//wzrd_skin panel_skin, panel_border_skin, panel_border_click_skin, command_button_skin, label_item_skin, label_item_selected_skin, label_skin, input_box_skin, command_button_on_skin, list_skin;
 	//wzrd_structure panel_structure, command_button_structure, label_structure, input_box_structure;
@@ -497,7 +494,7 @@ void wzrd_dialog_end(bool active);
 
 // UTILS
 void wz_widget_set_fixed_size(WzWidget widget, unsigned int w, unsigned int h);
-void wz_widget_set_layout(WzWidget handle, WzLayout layout_type);
+void wz_widget_set_layout(WzWidget handle, WzLayout layout);
 void wz_widget_set_stretch_factor(WzWidget handle, unsigned int strech_factor);
 WzWidget wzrd_widget_free(WzWidget parent);
 void wzrd_box_add_child(WzWidget parent, WzWidget child);
@@ -523,8 +520,8 @@ bool wzrd_widget_is_deactivating(WzWidget handle);
 bool wzrd_widget_is_active(WzWidget handle);
 WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag);
 void wz_widget_set_color(WzWidget widget, WzColor color);
-void wz_widget_set_w(WzWidget w, int width);
-void wz_widget_set_h(WzWidget h, int height);
+void wz_widget_set_constraint_w(WzWidget w, int width);
+void wz_widget_set_constraint_h(WzWidget h, int height);
 void wz_widget_set_x(WzWidget w, int width);
 void wz_widget_set_y(WzWidget h, int height);
 void wz_widget_set_pos(WzWidget handle, int x, int y);

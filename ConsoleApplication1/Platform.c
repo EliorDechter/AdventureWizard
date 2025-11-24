@@ -145,10 +145,10 @@ SDL_Texture* g_texture;
 
 void platform_draw_wzrd(wzrd_canvas *canvas) {
 
-	wzrd_draw_commands_buffer* buffer = &canvas->command_buffer;
+	WzDrawCommandBuffer* buffer = &canvas->command_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
-		wzrd_draw_command command = buffer->commands[i];
+		WzDrawCommand command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Rect) {
 				SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
