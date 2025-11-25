@@ -230,7 +230,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 #else
 	TTF_Init();
 
-	g_sdl.font = TTF_OpenFont("C:\\Users\\elior\\AppData\\Local\\Microsoft\\Windows\\Fonts\\FragmentMono-Regular.ttf", 16);
+	g_sdl.font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", 16);
 	assert(g_sdl.font);
 
 	g_sdl.engine = TTF_CreateRendererTextEngine(g_sdl.renderer);

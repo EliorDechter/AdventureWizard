@@ -3,8 +3,11 @@
 Texture texture_get_by_name(str128 s) {
 	int i = hashtable_get(g_texture_system.hashtable, s);
 	Texture result = g_texture_system.textures[i];
-
-	assert(result.name.len);
+	
+	if (!result.name.len)
+	{
+		return (Texture) { 0 };
+	}
 
 	return result;
 }

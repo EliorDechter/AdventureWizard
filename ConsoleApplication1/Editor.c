@@ -13,7 +13,6 @@ wzrd_str wzrd_str_from_str128(str128* str)
 void editor_seperator_horizontal(WzWidget parent)
 {
 	WzWidget w = wz_widget(parent);
-	wz_widget_set_expanded(w);
 	wz_widget_set_constraint_h(w, 2);
 	wz_widget_set_border(w, BorderType_BottomLine);
 }
@@ -21,24 +20,7 @@ void editor_seperator_horizontal(WzWidget parent)
 void editor_seperator_vertical(WzWidget parent)
 {
 	WzWidget w = wz_widget(parent);
-	wz_widget_set_expanded(w);
 	wz_widget_set_constraint_w(w, 2);
-}
-
-WzWidget editor_vertical_panel(wzrd_v2 size, WzWidget parent)
-{
-	WzWidget p = wz_hbox(parent);
-
-	return p;
-}
-
-WzWidget editor_vertical_panel_bordered(wzrd_v2 size, WzWidget parent)
-{
-	WzWidget p = wz_hbox(parent);
-
-	wz_widget_set_tight_constraints(p, size.x, size.y);
-
-	return p;
 }
 
 WzWidget editor_horizontal_panel_bordered(wzrd_v2 size, WzWidget parent)
@@ -86,7 +68,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 	wz_widget_set_tight_constraints(panel, size.x, size.y);
 	wz_widget_set_color(panel, EGUI_BEIGE);
 
-	WzWidget clip_panel = editor_vertical_panel((wzrd_v2) { 0 }, panel);
+	WzWidget clip_panel = wz_vbox(panel);
 	wz_widget_get(clip_panel)->color = WZ_YELLOW;
 	wzrd_widget_clip(clip_panel);
 	wzrd_widget_tag(clip_panel, tag);
@@ -160,12 +142,15 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 
 void editor_debug_panel(WzWidget parent, wzrd_str str)
 {
-	WzWidget main_panel = wzrd_widget_free(parent);
+	static int scroll;
+
+	WzWidget main_panel = wz_widget(parent);
+	wz_widget_set_free_from_parent_horizontally(main_panel);
+	wz_widget_set_free_from_parent_vertically(main_panel);
 
 	wz_widget_set_tight_constraints(main_panel, 295, 500);
 	wz_widget_set_pos(main_panel, (int)g_platform.window_width - 300, 10);
 
-	static int scroll;
 	WzWidget panel = wzrd_scroll_panel((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
 
 	//static float scrollbar_x, scrollbar_y;
@@ -173,7 +158,9 @@ void editor_debug_panel(WzWidget parent, wzrd_str str)
 	//wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
 	//wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
 	wzrd_label(str, panel);
-	WzWidget some_panel = editor_vertical_panel((wzrd_v2) { .x = 20, .y = 2000 }, panel);
+	WzWidget some_panel = wz_vbox(panel);
+	wz_widget_set_constraint_w(some_panel, 20);
+	wz_widget_set_constraint_w(some_panel, 2000);
 	wz_widget_get(some_panel)->color = WZ_RED;
 
 	//*debug_str->str = 0;
@@ -183,6 +170,11 @@ void editor_debug_panel(WzWidget parent, wzrd_str str)
 
 void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str* debug_str) {
 	(void)icons;
+	static bool finish;
+	static int selected_category;
+	static str128 name;
+	static unsigned int selected;
+	static bool is_selected = false;
 
 	WzWidget window0 = wz_begin(gui,
 		(WzRect) {
@@ -196,16 +188,19 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed, true);
 
 	WzWidget window = wz_vbox(window0);
+	wz_widget_set_constraint_size(window, g_platform.window_width, g_platform.window_height);
+
 
 #if 0
 	WzWidget panel = wz_widget(window);
 	wz_widget_set_color(panel, WZ_RED);
 	wz_widget_set_layout(panel, WzLayoutVertical);
+	wz_widget_set_expanded(panel);
 
 	WzWidget a = wz_widget(panel);
 	wz_widget_set_color(a, WZ_GREEN);
-	wz_widget_set_h(a, 50);
-
+	wz_widget_set_constraint_h(a, 50);
+#if 0
 	WzWidget b = wz_widget(panel);
 	wz_widget_set_color(b, WZ_BLUE);
 	wz_widget_set_size(b, 50, 50);
@@ -227,6 +222,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	wz_widget_set_color(f, EGUI_PURPLE);
 	wz_widget_set_expanded(f);
 #endif
+#endif
 
 
 	if (1)
@@ -240,14 +236,12 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			wzrd_label_button(wzrd_str_create("View"), &b1, files_panel);
 			wzrd_label_button(wzrd_str_create("Help"), &b2, files_panel);
 		}
-#if 0
 
 		editor_seperator_horizontal(window);
 
 		//editor_buttons_panel(window);
 		{
 			WzWidget panel = wz_hbox(window);
-			wz_widget_set_expanded(panel);
 			wz_widget_set_constraint_h(panel, 36);
 
 			bool b = false;
@@ -282,7 +276,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 			// seperator
 
-			static bool finish;
+
 			bool is_dragged = wzrd_box_is_dragged(&(WzWidgetData) {
 				0
 			});
@@ -295,7 +289,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 					}, panel);*/
 			}
 
-			static WzColor color = { 100, 100, 100, 255 };
+			//static WzColor color = { 100, 100, 100, 255 };
 			//wzrd_widget((wzrd_style) {
 			//	.is_slot = true,
 			//		.style = wzrd_style_create((wzrd_style_template) {
@@ -317,7 +311,10 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		}
 
 
-		WzWidget bottom_panel = editor_horizontal_panel_bordered((wzrd_v2) { 0 }, window);
+		WzWidget bottom_panel = wz_hbox(window);
+		wz_widget_set_expanded(bottom_panel);
+
+#if 1
 
 		//editor_left_panel(bottom_panel);
 		{
@@ -327,10 +324,11 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 			//wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
 			//static bool active;
-			static int selected_category;
 			//wzrd_dropdown(&selected_category, texts, 3, 100, &active);
 
-			WzWidget inner_panel = editor_vertical_panel((wzrd_v2) { 0 }, outer_panel);
+			WzWidget inner_panel = wz_vbox(outer_panel);
+			wz_widget_set_expanded(inner_panel);
+
 
 			if (selected_category == 0) {
 
@@ -360,6 +358,9 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 			}
 		}
+#endif
+
+#if 1
 
 		//editor_right_panel(bottom_panel, *(wzrd_texture*)&target_texture);
 		{
@@ -399,13 +400,11 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			{
 				wzrd_v2 size = { 500, 500 };
 				bool ok = false, cancel = false;
-				static str128 name;
-				static unsigned int selected;
-				static bool is_selected = false;
 
 				WzWidget dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_active, size, &g_editor.create_object_dialog_active, wzrd_str_create("add object"), 4, window);
 				bool* active = &g_editor.create_object_dialog_active;
-				if (*active) {
+				//if (*active) {
+				if (1) {
 					WzWidget panel = wz_hbox(dialog);
 					wzrd_v2 v = (wzrd_v2){
 							100, 0
@@ -417,9 +416,11 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 							v,
 							0, &selected, &is_selected, panel);
 
-						WzWidget form = editor_vertical_panel_bordered((wzrd_v2) { 0 }, panel);
+						WzWidget form = wz_vbox(panel);
+						wz_widget_set_expanded(form);
 						editor_add_row(form, wzrd_str_create("Name:"), wzrd_input_box(name.val, &name.len, 10, (WzWidget) { 0 }));
 					}
+#if 0
 
 					WzWidget bottom_panel = wz_hbox(dialog);
 					wz_widget_set_constraint_h(bottom_panel, 50);
@@ -440,6 +441,7 @@ void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 							}
 						}
 					}
+#endif
 				}
 				wzrd_dialog_end(active);
 

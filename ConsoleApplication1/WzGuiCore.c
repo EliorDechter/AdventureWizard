@@ -10,7 +10,6 @@
 
 static wzrd_canvas* canvas;
 
-WzWidget wz_widget_raw(WzWidget parent);
 bool wz_widget_is_equal(WzWidget a, WzWidget b);
 bool wz_handle_is_valid(WzWidget handle);
 WzWidget wzrd_handle_create();
@@ -650,7 +649,8 @@ WzWidgetData* wz_widget_create()
 	box.constraint_min_w = box.constraint_min_h = 0;
 	box.constraint_max_w = box.constraint_max_h = UINT_MAX;
 	box.x = box.y = 0;
-	box.border_type = BorderType_Black;
+	box.border_type = BorderType_Default;
+	box.free_from_parent_horizontally = box.free_from_parent_vertically = 0;
 
 	box.handle = wzrd_handle_create();
 
@@ -666,13 +666,14 @@ WzWidgetData* wz_widget_create()
 	return &canvas->widgets[canvas->widgets_count - 1];
 }
 
-WzWidget wzrd_widget_free(WzWidget parent)
+void wz_widget_set_free_from_parent_horizontally(WzWidget w)
 {
-	WzWidgetData* box = wz_widget_create();
-	box->layer = wz_widget_get(parent)->layer;
+	wz_widget_get(w)->free_from_parent_horizontally = true;
+}
 
-
-	return box->handle;
+void wz_widget_set_free_from_parent_vertically(WzWidget w)
+{
+	wz_widget_get(w)->free_from_parent_horizontally = true;
 }
 
 WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
@@ -689,7 +690,7 @@ WzWidget wz_vbox_raw(WzWidget parent, const char* file, unsigned int line)
 {
 	WzWidget p = wz_widget_raw(parent, file, line);
 	wz_widget_set_layout(p, WzLayoutVertical);
-	wz_widget_set_expanded(p);
+	//wz_widget_set_expanded(p);
 
 	return p;
 }
@@ -698,7 +699,7 @@ WzWidget wz_hbox_raw(WzWidget parent, const char* file, unsigned int line)
 {
 	WzWidget p = wz_widget_raw(parent, file, line);
 	wz_widget_set_layout(p, WzLayoutHorizontal);
-	wz_widget_set_expanded(p);
+	//wz_widget_set_expanded(p);
 
 	return p;
 }
@@ -810,7 +811,8 @@ WzWidget wz_begin(wzrd_canvas* gui,
 	return window_widget;
 }
 
-void EguiRectDraw(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color, int z, unsigned int widget_line_number, const char* file)
+void EguiRectDraw(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color,
+	int z, unsigned int widget_line_number, const char* file)
 {
 	WZ_ASSERT(rect.w > 0);
 	WZ_ASSERT(rect.h > 0);
@@ -822,6 +824,11 @@ void EguiRectDraw(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color, int z
 		.color = color,
 		.z = z
 	};
+
+	WZ_LOG("Rect command: (id: %s %u) (rect: %u %u %u %u)  (color: %u %u %u %u)\n",
+		file, widget_line_number,
+		rect.x, rect.y, rect.w, rect.h,
+		color.r, color.g, color.b, color.a);
 
 	command.widget_line_number = widget_line_number;
 	command.file = file;
@@ -892,35 +899,34 @@ void wzrd_handle_border_resize()
 			//if (child->type != wzrd_box_type_resizable) continue;
 
 			bool is_inside_left_border =
-				canvas->mouse_pos.x >= child->actual_w &&
+				canvas->mouse_pos.x >= child->actual_x &&
 				canvas->mouse_pos.y >= child->actual_y &&
-				canvas->mouse_pos.x < child->actual_w + border_size &&
+				canvas->mouse_pos.x < child->actual_x + border_size &&
 				canvas->mouse_pos.y < child->actual_y + child->actual_h;
 			bool is_inside_right_border =
-				canvas->mouse_pos.x >= child->actual_w + child->actual_w - border_size &&
+				canvas->mouse_pos.x >= child->actual_x + child->actual_w - border_size &&
 				canvas->mouse_pos.y >= child->actual_y &&
-				canvas->mouse_pos.x < child->actual_w + child->actual_w &&
+				canvas->mouse_pos.x < child->actual_x + child->actual_w &&
 				canvas->mouse_pos.y < child->actual_y + child->actual_h;
 			bool is_inside_top_border =
-				canvas->mouse_pos.x >= child->actual_w &&
+				canvas->mouse_pos.x >= child->actual_x &&
 				canvas->mouse_pos.y >= child->actual_y &&
-				canvas->mouse_pos.x < child->actual_w + child->actual_w &&
+				canvas->mouse_pos.x < child->actual_x + child->actual_w &&
 				canvas->mouse_pos.y < child->actual_y + border_size;
 			bool is_inside_bottom_border =
-				canvas->mouse_pos.x >= child->actual_w &&
+				canvas->mouse_pos.x >= child->actual_x &&
 				canvas->mouse_pos.y >= child->actual_y + child->actual_h - border_size &&
-				canvas->mouse_pos.x < child->actual_w + child->actual_w &&
+				canvas->mouse_pos.x < child->actual_x + child->actual_w &&
 				canvas->mouse_pos.y < child->actual_y + child->actual_h;
 
 
 			if (wz_widget_is_equal(canvas->hovered_item, child->handle) || wz_widget_is_equal(canvas->active_item, child->handle)) {
-
 				if (is_inside_top_border || is_inside_bottom_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = WZ_BLUE;
 					//*cursor = wzrd_cursor_vertical_arrow;
 				}
 				else if (is_inside_left_border || is_inside_right_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = WZ_BLUE;
 					//*cursor = wzrd_cursor_horizontal_arrow;
 				}
 			}
@@ -1005,14 +1011,14 @@ void wzrd_handle_input(int* indices, int count)
 	for (int i = 0; i < count; ++i) {
 		WzWidgetData* box = canvas->widgets + indices[i];
 
-		WzRect scaled_rect = { box->actual_w, box->actual_y, box->actual_w, box->actual_h };
+		WzRect scaled_rect = { box->actual_x, box->actual_y, box->actual_w, box->actual_h };
 
 		// Input Clipping: Block mouse from reaching clipped widgets
 		if (wz_handle_is_valid(box->clip_widget))
 		{
 			WzWidgetData* clip_widget = wz_widget_get(box->clip_widget);
 
-			if (box->actual_w < clip_widget->actual_w)
+			if (box->actual_x < clip_widget->actual_w)
 			{
 				scaled_rect.x = clip_widget->actual_w;
 			}
@@ -1022,7 +1028,7 @@ void wzrd_handle_input(int* indices, int count)
 				scaled_rect.y = clip_widget->actual_y;
 			}
 
-			if (box->actual_w + box->actual_w > clip_widget->actual_w + clip_widget->actual_w)
+			if (box->actual_x + box->actual_w > clip_widget->actual_w + clip_widget->actual_w)
 			{
 				scaled_rect.w = clip_widget->actual_w;
 			}
@@ -1101,7 +1107,7 @@ void wzrd_handle_input(int* indices, int count)
 				}
 
 				canvas->deactivating_item = canvas->active_item;
-				wz_widget_get(canvas->deactivating_item)->color = EGUI_PURPLE;
+				wz_widget_get(canvas->deactivating_item)->color = WZ_GREEN;
 				canvas->active_item = (WzWidget){ 0 };
 			}
 		}
@@ -1207,6 +1213,13 @@ void wz_widget_set_layout(WzWidget handle, WzLayout layout)
 	d->main_axis_size_type = MAIN_AXIS_SIZE_TYPE_MAX;
 }
 
+void wz_widget_set_constraint_size(WzWidget widget, unsigned int w, unsigned int h)
+{
+	WzWidgetData *d = wz_widget_get(widget);
+	d->constraint_max_w = w;
+	d->constraint_max_h = h;
+}
+
 void wz_widget_add_constraints(WzWidget widget,
 	unsigned int min_w, unsigned int min_h, unsigned int max_w, unsigned int max_h)
 {
@@ -1217,7 +1230,6 @@ void wz_widget_add_constraints(WzWidget widget,
 	data->constraint_max_h = max_h;
 }
 
-#define WZ_LOG(...) printf(__VA_ARGS__)
 
 void wzrd_do_layout(int index)
 {
@@ -1253,7 +1265,6 @@ void wzrd_do_layout(int index)
 	unsigned int screen_size_main_axis, screen_size_cross_axis;
 
 	WZ_LOG("---------------------------\n");
-
 
 	// Constraints pass
 	while (widgets_stack_count)
@@ -1359,44 +1370,57 @@ void wzrd_do_layout(int index)
 
 						if (child->flex_factor == 0)
 						{
-
-							if (widget->layout == WzLayoutHorizontal)
 							{
-								child_constraint_min_main_axis = &child->constraint_min_w;
-								child_constraint_max_main_axis = &child->constraint_max_w;
-								child_constraint_min_cross_axis = &child->constraint_min_h;
-								child_constraint_max_cross_axis = &child->constraint_max_h;
-							}
-							else if (widget->layout == WzLayoutVertical)
-							{
-								child_constraint_min_main_axis = &child->constraint_min_h;
-								child_constraint_max_main_axis = &child->constraint_max_h;
-								child_constraint_min_cross_axis = &child->constraint_min_w;
-								child_constraint_max_cross_axis = &child->constraint_max_w;
-							}
-							else
-							{
-								child_constraint_min_main_axis = child_constraint_max_main_axis =
-									child_constraint_max_cross_axis = child_constraint_min_cross_axis = 0;
-								child_constraint_max_cross_axis = 0;
-								WZ_ASSERT(0);
-							}
+								if (widget->layout == WzLayoutHorizontal)
+								{
+									child_constraint_min_main_axis = &child->constraint_min_w;
+									child_constraint_max_main_axis = &child->constraint_max_w;
+									child_constraint_min_cross_axis = &child->constraint_min_h;
+									child_constraint_max_cross_axis = &child->constraint_max_h;
+								}
+								else if (widget->layout == WzLayoutVertical)
+								{
+									child_constraint_min_main_axis = &child->constraint_min_h;
+									child_constraint_max_main_axis = &child->constraint_max_h;
+									child_constraint_min_cross_axis = &child->constraint_min_w;
+									child_constraint_max_cross_axis = &child->constraint_max_w;
+								}
+								else
+								{
+									// Just to appease the compiler
+									child_constraint_min_main_axis = child_constraint_max_main_axis =
+										child_constraint_min_cross_axis = child_constraint_max_cross_axis = 0;
+								}
 
-							// The child must have min axis size if it's unbounded
-							WZ_ASSERT(!(*child_constraint_max_main_axis == UINT_MAX && child->main_axis_size_type == MAIN_AXIS_SIZE_TYPE_MAX));
+								if (!child->free_from_parent_horizontally)
+								{
+									if (widget->layout == WzLayoutHorizontal)
+									{
+										// The child must have min axis size if it's unbounded
+										WZ_ASSERT(!(widget->constraint_max_w == UINT_MAX &&
+											child->size_type_w== MAIN_AXIS_SIZE_TYPE_MAX));
+									}
+									else if (widget->layout == WzLayoutVertical)
+									{
+										// The child must have min axis size if it's unbounded
+										WZ_ASSERT(!(widget->constraint_max_w == UINT_MAX &&
+											child->size_type_w== MAIN_AXIS_SIZE_TYPE_MAX));
+									}
+								
+									// Leave by default all constraints as they are
+									// Child will only inherit the cross axis constraint
+									if (*constraint_max_cross_axis < *child_constraint_max_cross_axis)
+									{
+										*child_constraint_max_cross_axis = *constraint_max_cross_axis;
+									}
 
-							// Leave by default all constraints as they are
-							// Child will only inherit the cross axis constraint
-							if (*constraint_max_cross_axis < *child_constraint_max_cross_axis)
-							{
-								*child_constraint_max_cross_axis = *constraint_max_cross_axis;
+									WZ_ASSERT(*child_constraint_max_main_axis);
+									WZ_ASSERT(*child_constraint_max_cross_axis);
+
+									WZ_LOG("Non-flex widget (%s, %d) with constraints (%u, %u)\n", child->file, child->line,
+										child->constraint_max_w, child->constraint_max_h);
+								}
 							}
-
-							WZ_ASSERT(*child_constraint_max_main_axis);
-							WZ_ASSERT(*child_constraint_max_cross_axis);
-
-							WZ_LOG("Non-flex widget (%s, %d) with constraints (%u, %u)\n", child->file, child->line,
-								child->constraint_max_w, child->constraint_max_h);
 
 							widgets_stack[widgets_stack_count] = child->index;
 							widgets_stack_count++;
@@ -1420,11 +1444,17 @@ void wzrd_do_layout(int index)
 						available_size_main_axis = widget->constraint_max_h;
 						available_size_cross_axis = widget->constraint_max_w;
 					}
+
 					children_flex_factor = 0;
 
 					for (i = 0; i < widget->children_count; ++i)
 					{
 						child = &canvas->widgets[widget->children[i]];
+
+						if (child->free_from_parent_horizontally)
+						{
+							continue;
+						}
 
 						if (widget->layout == WzLayoutHorizontal)
 						{
@@ -1515,7 +1545,7 @@ void wzrd_do_layout(int index)
 								*child_constraint_max_cross_axis = *constraint_max_cross_axis;
 							}
 
-							WZ_LOG("Flex widget (%s, %d) with constraints (%u, %u) \n", child->file, child->line,
+							WZ_LOG("Flex widget (%s, %d) recieved constraints (%u, %u) \n", child->file, child->line,
 								child->constraint_max_w, child->constraint_max_h);
 
 							widgets_stack[widgets_stack_count] = child->index;
@@ -1577,6 +1607,12 @@ void wzrd_do_layout(int index)
 					for (int i = 0; i < widget->children_count; ++i)
 					{
 						child = &canvas->widgets[widget->children[i]];
+
+						if (child->free_from_parent_horizontally)
+						{
+							continue;
+						}
+
 						if (widget->layout == WzLayoutHorizontal)
 						{
 							actual_size_main_axis = &child->actual_w;
@@ -1596,6 +1632,9 @@ void wzrd_do_layout(int index)
 
 						offset += *actual_size_main_axis;
 
+						WZ_LOG("Child widget (%s, %d) will have the raltive position %u %u\n", child->file, child->line,
+							child->x, child->y);
+
 						WZ_ASSERT(child->x <= canvas->window.w);
 						WZ_ASSERT(child->y <= canvas->window.h);
 					}
@@ -1605,12 +1644,14 @@ void wzrd_do_layout(int index)
 			}
 			else if (widget->layout == WzLayoutNone)
 			{
-				if (widget->children_count == 1)
+				//for (int i = 0; i < widget->children_count; ++i)
+				int i = 0;
 				{
-					child = &canvas->widgets[widget->children[0]];
+					child = &canvas->widgets[widget->children[i]];
 
 					if (widgets_visits[widget->index] == 0)
 					{
+#if 0
 						if (widget->constraint_min_w > child->constraint_min_w)
 							child->constraint_min_w = widget->constraint_min_w;
 						if (widget->constraint_min_h > child->constraint_min_h)
@@ -1619,7 +1660,10 @@ void wzrd_do_layout(int index)
 							child->constraint_max_w = widget->constraint_max_w;
 						if (widget->constraint_max_h < child->constraint_max_h)
 							child->constraint_max_h = widget->constraint_max_h;
+#else
+						// Dont touch constraints
 
+#endif
 						WZ_LOG("Widget (%s, %d) with constraints (%u, %u)\n", child->file, child->line,
 							child->constraint_max_w, child->constraint_max_h, child->actual_w, child->actual_h);
 
@@ -1643,11 +1687,6 @@ void wzrd_do_layout(int index)
 						widgets_stack_count--;
 					}
 				}
-				else
-				{
-					// A widget without layout cannot have more than one child
-					WZ_ASSERT(0);
-				}
 			}
 		}
 	}
@@ -1661,8 +1700,8 @@ void wzrd_do_layout(int index)
 		for (int j = 0; j < widget->children_count; ++j)
 		{
 			child = &canvas->widgets[widget->children[j]];
-			child->actual_x = widget->x + child->x;
-			child->actual_y = widget->y + child->y;
+			child->actual_x = widget->actual_x + child->x;
+			child->actual_y = widget->actual_y + child->y;
 
 			// Check the widgets size doesnt exceeds its parents
 			WZ_ASSERT(child->actual_x >= 0);
@@ -2015,13 +2054,18 @@ void wzrd_do_layout2()
 }
 
 
-void wzrd_draw(int* boxes_indices)
+void wz_draw(int* boxes_indices)
 {
 	WzWidgetData widget;
 	WzDrawCommand command;
 	WzDrawCommandBuffer* buffer = &canvas->command_buffer;
 	buffer->count = 0;
 	unsigned int line_size;
+	WzWidget current_clip_widget;
+	Item item;
+	WzRect item_dest_rect;
+
+	current_clip_widget.handle = 0;
 
 	for (int i = 1; i < canvas->widgets_count; ++i)
 	{
@@ -2030,8 +2074,6 @@ void wzrd_draw(int* boxes_indices)
 #if 1
 		// Draw clip area
 		{
-			static WzWidget current_clip_widget;
-
 			if (wz_handle_is_valid(widget.clip_widget))
 			{
 				if (!wz_widget_is_equal(current_clip_widget, widget.clip_widget))
@@ -2073,34 +2115,32 @@ void wzrd_draw(int* boxes_indices)
 				widget.color,
 				widget.layer, widget.line, widget.file);
 
-			continue;
 		}
 
 		// Borders (1215 x 810)
-		if (1)
 		{
 			line_size = WZRD_BORDER_SIZE;
 
-			WzRect top0 = (WzRect){ widget.actual_w, widget.actual_y, widget.actual_w - line_size, line_size };
-			WzRect left0 = (WzRect){ widget.actual_w, widget.actual_y, line_size, widget.actual_h };
+			WzRect top0 = (WzRect){ widget.actual_x, widget.actual_y, widget.actual_w - line_size, line_size };
+			WzRect left0 = (WzRect){ widget.actual_x, widget.actual_y, line_size, widget.actual_h };
 
-			WzRect top1 = (WzRect){ widget.actual_w + line_size, widget.actual_y + line_size, widget.actual_w - 3 * line_size, line_size };
-			WzRect left1 = (WzRect){ widget.actual_w + line_size, widget.actual_y + line_size, line_size, widget.actual_h - line_size };
+			WzRect top1 = (WzRect){ widget.actual_x + line_size, widget.actual_y + line_size, widget.actual_w - 3 * line_size, line_size };
+			WzRect left1 = (WzRect){ widget.actual_x + line_size, widget.actual_y + line_size, line_size, widget.actual_h - line_size };
 
-			WzRect bottom0 = (WzRect){ widget.actual_w, widget.actual_y + widget.actual_h - line_size, widget.actual_w, line_size };
-			WzRect right0 = (WzRect){ widget.actual_w + widget.actual_w - line_size, widget.actual_y, line_size, widget.actual_h };
+			WzRect bottom0 = (WzRect){ widget.actual_x, widget.actual_y + widget.actual_h - line_size, widget.actual_w, line_size };
+			WzRect right0 = (WzRect){ widget.actual_x + widget.actual_w - line_size, widget.actual_y, line_size, widget.actual_h };
 
-			WzRect bottom1 = (WzRect){ widget.actual_w + 1 * line_size, widget.actual_y + widget.actual_h - 2 * line_size, widget.actual_w - 3 * line_size, line_size };
-			WzRect right1 = (WzRect){ widget.actual_w + widget.actual_w - 2 * line_size, widget.actual_y + 1 * line_size, line_size, widget.actual_h - 2 * line_size };
+			WzRect bottom1 = (WzRect){ widget.actual_x + 1 * line_size, widget.actual_y + widget.actual_h - 2 * line_size, widget.actual_w - 3 * line_size, line_size };
+			WzRect right1 = (WzRect){ widget.actual_x + widget.actual_w - 2 * line_size, widget.actual_y + 1 * line_size, line_size, widget.actual_h - 2 * line_size };
 
-			wzrd_is_rect_inside_rect(top0, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(left0, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(top1, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(left1, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(bottom0, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(right0, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(bottom1, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
-			wzrd_is_rect_inside_rect(right1, (WzRect) { widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(top0, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(left0, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(top1, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(left1, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(bottom0, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(right0, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(bottom1, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
+			wzrd_is_rect_inside_rect(right1, (WzRect) { widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h });
 
 			if (widget.border_type == BorderType_Default) {
 				// Draw top and left lines
@@ -2165,16 +2205,18 @@ void wzrd_draw(int* boxes_indices)
 		}
 
 		// Draw content
-		for (int j = 0; j < widget.items_count; ++j) {
-			Item item = widget.items[j];
+
+		for (int j = 0; j < widget.items_count; ++j)
+		{
+			item = widget.items[j];
 
 			if (item.size.x == 0)
 				item.size.x = widget.actual_w;
 			if (item.size.y == 0)
 				item.size.y = widget.actual_h;
 
-			WzRect dest = (WzRect){
-				widget.actual_w,
+			item_dest_rect = (WzRect){
+				widget.actual_x,
 				widget.actual_y,
 					widget.actual_w,
 					widget.actual_h
@@ -2183,10 +2225,9 @@ void wzrd_draw(int* boxes_indices)
 			// String item
 			if (item.type == wzrd_item_type_str)
 			{
-#if 0
 				int w, h;
 				canvas->get_string_size(item.val.str.str, &w, &h);
-
+#if 0
 				if ((widget.alignment & WzAlignHCenter))
 				{
 					dest.x += dest.w / 2 - w / 2;
@@ -2201,17 +2242,19 @@ void wzrd_draw(int* boxes_indices)
 				dest.y += widget.pad_top;
 				dest.x -= widget.pad_right;
 				dest.y -= widget.pad_bottom;
-
+#endif
 				command = (WzDrawCommand){
 					.type = DrawCommandType_String,
 						.str = item.val.str,
-						.dest_rect = dest,
+						.dest_rect = item_dest_rect,
 						.color = item.color,
 						.z = widget.layer
 				};
-#else
-				continue;
-#endif
+
+				WZ_LOG("String command: (id: %s %u) (%u %u %u %u) (str: %s)\n",
+					widget.file, widget.line,
+					item_dest_rect.x, item_dest_rect.y, item_dest_rect.w, item_dest_rect.h,
+					item.val.str.str);
 			}
 
 			// Texture item
@@ -2231,6 +2274,9 @@ void wzrd_draw(int* boxes_indices)
 
 			// Rect item
 			if (item.type == ItemType_Rect) {
+
+				WZ_ASSERT(0); // Log file and line num
+
 				command = (WzDrawCommand){
 					.type = DrawCommandType_Rect,
 						.dest_rect = (WzRect){
@@ -2354,9 +2400,6 @@ void wzrd_draw(int* boxes_indices)
 		}
 #endif
 	}
-
-	canvas->clean = true;
-
 }
 
 void wzrd_widget_clip(WzWidget handle)
@@ -2427,6 +2470,7 @@ void wzrd_end(wzrd_str* debug_str)
 
 	wzrd_do_layout(1);
 
+#if 0
 	for (int i = 0; i < canvas->widgets_count; ++i)
 	{
 		unsigned int x = i % 4;
@@ -2459,6 +2503,7 @@ void wzrd_end(wzrd_str* debug_str)
 			canvas->widgets[i].color.a = 255;
 		}
 	}
+#endif
 
 	// Cache tagged elements
 	canvas->cached_boxes_count = 0;
@@ -2502,7 +2547,7 @@ void wzrd_end(wzrd_str* debug_str)
 
 	canvas->previous_mouse_pos = canvas->mouse_pos;
 
-	wzrd_draw(boxes_indices);
+	wz_draw(boxes_indices);
 
 	canvas = 0;
 }
@@ -2784,78 +2829,24 @@ WzWidget wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
 
 	if (!*active) return (WzWidget) { 0 };
 
-	WzWidget window = wzrd_widget_free(
-		/*	(wzrd_style) {
-			.space = (wzrd_space){ .x = pos->x, .y = pos->y, .w = size.x, .h = size.y },
-				.skin = canvas->panel_border_skin,
-		},*/
-		parent);
-
-	wz_widget_get(window)->layer = layer;
-
-	bool close = false;
-
+	WzWidget window = wz_vbox(parent);
+	wz_widget_set_free_from_parent_horizontally(window);
+	wz_widget_set_free_from_parent_vertically(window);
+	wz_widget_set_constraint_w(window, size.x);
+	wz_widget_set_constraint_h(window, size.y);
+	wz_widget_set_layer(window, layer);
+#if 0
 	WzWidget top_panel = wz_widget_raw(window, file, line);
-
 	wz_widget_set_constraint_h(top_panel, 28);
-
-	//wz_widget_get(top_panel)->h = 28;
-	//wzrd_box_get(top_panel)->canvas = v_panel_layout;
-
+	
 	WzWidget bar = wz_widget_raw(top_panel, file, line);
-
 	wz_widget_set_color(bar, (WzColor) { 57, 77, 205, 255 });
 
 	if (wz_widget_is_equal(bar, canvas->active_item)) {
 		pos->x += canvas->mouse_pos.x - canvas->previous_mouse_pos.x;
 		pos->y += canvas->mouse_pos.y - canvas->previous_mouse_pos.y;
 	}
-
-	//	wzrd_box_begin((wzrd_box) {
-
-	//		.style = wzrd_style_create((wzrd_style) {
-	//			.w = 28,
-	//				.border_type = BorderType_None, .row_mode = true,
-	//				.center_x = true, .center_y = true,
-	//				.color = (wzrd_color){ 57, 77, 205, 255 },
-	//		})
-	//	});
-	//	{
-	//		bool b = egui_button_raw_begin((wzrd_box) {
-
-	//			.style = wzrd_style_create((wzrd_style) {
-	//				.center_x = true, .center_y = true, .w = 20, .h = 20,
-	//			})
-	//		});
-	//		{
-	//			b |= egui_button_raw_begin((wzrd_box) {
-	//				.style = wzrd_style_create((wzrd_style) {
-	//					.border_type = BorderType_None,
-	//						.w = 12, .h = 12,
-	//				})
-	//			});
-	//			{
-	//				wzrd_item_add((Item) { .type = ItemType_CloseIcon });
-	//			}
-	//			egui_button_raw_end();
-	//		}
-	//		egui_button_raw_end();
-
-	//		if (b) {
-	//			*active = false;
-	//			close = true;
-	//		}
-
-	//	}
-	//	wzrd_box_end();
-	//}
-	//wzrd_box_end();
-
-	if (close)
-	{
-		wzrd_crate_end();
-	}
-
+#endif
 	return window;
 }
 
@@ -2930,6 +2921,7 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 	wzrd_v2 size, WzWidget* handles, unsigned int* selected, bool* is_selected, WzWidget parent, const char* file, unsigned int line)
 {
 	WzWidget panel = wz_vbox(parent, file, line);
+	wz_widget_set_expanded(panel);
 
 	//wz_widget_set_tight_constraints(panel, size.x, size.y);
 
@@ -3037,7 +3029,7 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 				{
 					c = wz_widget_create();
 					wz_widget_add_source(c->handle, __FILE__, __LINE__);
-					wz_widget_set_color(c->handle, EGUI_PURPLE);
+					//wz_widget_set_color(c->handle, EGUI_PURPLE);
 					wz_widget_set_y(c->handle, hovered_parent->actual_h - 2);
 					wz_widget_set_constraint_h(c->handle, 2);
 
@@ -3090,7 +3082,9 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 WzWidget wzrd_handle_button_raw(bool* active, WzRect rect,
 	WzColor color, wzrd_str name, WzWidget handle, const char* file_name, unsigned int line) {
 
-	WzWidget parent = wzrd_widget_free(handle);
+	WzWidget parent = wz_widget(handle);
+	wz_widget_set_free_from_parent_horizontally(parent);
+	wz_widget_set_free_from_parent_vertically(parent);
 	wz_widget_add_source(parent, file_name, line);
 	wz_widget_set_pos(parent, rect.x, rect.y);
 	wz_widget_set_tight_constraints(parent, rect.w, rect.h);
@@ -3216,7 +3210,7 @@ WzWidget wzrd_command_button_raw(wzrd_str str, bool* released, WzWidget parent, 
 	return button;
 }
 
-void wzrd_handle_set_layer(WzWidget handle, unsigned int layer)
+void wz_widget_set_layer(WzWidget handle, unsigned int layer)
 {
 	wz_widget_get(handle)->layer = layer;
 }

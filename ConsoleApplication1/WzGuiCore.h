@@ -260,7 +260,7 @@ typedef struct {
 	// New layout stuff
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_h, constraint_max_w;
 	WzWidget parent;
-	unsigned char main_axis_size_type;
+	unsigned char size_type_w, size_type_h;
 	FlexFit flex_fit; // Should the widget take all the space given to it 
 	int w_offset, h_offset;
 
@@ -315,6 +315,8 @@ typedef struct {
 	const char* secondary_tag;
 
 	unsigned int x, y;
+
+	bool free_from_parent_horizontally, free_from_parent_vertically;
 
 } WzWidgetData;
 
@@ -490,9 +492,12 @@ void wz_widget_add_constraints(WzWidget widget, unsigned int min_w, unsigned int
 #define wz_vbox(parent) wz_vbox_raw(parent,  __FILE__, __LINE__)
 #define wz_widget(parent) wz_widget_raw(parent,  __FILE__, __LINE__)
 
+#define WZ_LOG(...) printf(__VA_ARGS__)
+
 void wzrd_dialog_end(bool active);
 
 // UTILS
+void wz_widget_set_layer(WzWidget handle, unsigned int layer);
 void wz_widget_set_fixed_size(WzWidget widget, unsigned int w, unsigned int h);
 void wz_widget_set_layout(WzWidget handle, WzLayout layout);
 void wz_widget_set_stretch_factor(WzWidget handle, unsigned int strech_factor);
@@ -511,7 +516,7 @@ void wzrd_item_add(Item item, WzWidget box);
 bool wzrd_box_is_hot(WzWidgetData* box);
 bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidgetData* box);
 bool wz_widget_is_equal(WzWidget a, WzWidget b);
-void wzrd_handle_set_layer(WzWidget handle, unsigned int layer);
+void wz_widget_set_layer(WzWidget handle, unsigned int layer);
 wzrd_canvas* wzrd_canvas_get();
 WzWidgetData wzrd_widget_get_cached_box(const char *tag);
 void wzrd_widget_tag(WzWidget widget, const char* str);
@@ -533,6 +538,8 @@ void wz_widget_set_flex_factor(WzWidget widget, unsigned int flex_factor);
 void wz_widget_set_expanded(WzWidget widget);
 void wz_widget_set_flex(WzWidget widget);
 void wz_widget_set_size(WzWidget c, unsigned int w, unsigned int h);
+void wz_widget_set_free_from_parent_horizontally(WzWidget w);
+void wz_widget_set_free_from_parent_vertically(WzWidget w);
 
 #define wzrd_widget_set_style2(widget, style) wzrd_widget_set_style2_explicit(__LINE__, widget, style)
 
