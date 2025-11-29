@@ -4,6 +4,6 @@
 #include "WzGuiWidgets.h"
 #include "Platform.h"
 #include "Game.h"
-void editor_do(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str *debug_str);
+void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str *debug_str);
 
 #endif

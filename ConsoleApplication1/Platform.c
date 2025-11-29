@@ -452,7 +452,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		if (enable_editor) {
 			wzrd_icons icons = game_icons_get();
 			unsigned int time_a = SDL_GetTicksNS();
-			editor_do(&editor_gui, game_target_texture_get(), icons, &debug_str);
+			do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str);
 			unsigned int time_b = SDL_GetTicksNS();
 
 			platform_draw_wzrd(&editor_gui);
