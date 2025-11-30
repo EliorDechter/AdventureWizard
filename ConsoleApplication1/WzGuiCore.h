@@ -387,6 +387,8 @@ typedef struct wzrd_canvas {
 
 	wzrd_stylesheet stylesheet;
 
+	WzRect rects[MAX_NUM_WIDGETS]; // aka Final Layout
+
 } wzrd_canvas;
 
 #define MAX_NUM_HASHTABLE_ELEMENTS 32
@@ -469,7 +471,7 @@ void wz_widget_set_layer(WzWidget handle, unsigned int layer);
 wzrd_canvas* wzrd_canvas_get();
 WzWidgetData wzrd_widget_get_cached_box(const char* tag);
 void wzrd_widget_tag(WzWidget widget, const char* str);
-void wzrd_widget_clip(WzWidget handle);
+void wz_widget_clip(WzWidget handle);
 bool wzrd_widget_is_deactivating(WzWidget handle);
 bool wzrd_widget_is_active(WzWidget handle);
 WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag);

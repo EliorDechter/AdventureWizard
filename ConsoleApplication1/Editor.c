@@ -64,7 +64,7 @@ WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const cha
 
 	WzWidget clip_panel = wz_vbox(panel);
 	wz_widget_get(clip_panel)->color = WZ_YELLOW;
-	wzrd_widget_clip(clip_panel);
+	wz_widget_clip(clip_panel);
 	wzrd_widget_tag(clip_panel, tag);
 
 	WzWidget user_panel = wz_hbox(clip_panel);
@@ -187,17 +187,17 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	wz_widget_set_pad_top(window, 10);
 	wz_widget_set_pad_bottom(window, 10);
 	wz_widget_set_child_gap(window, 10);
-#if 0
 
+#if 0
 	WzWidget l_a = wz_label(wzrd_str_create("Label2"), window);
 	WzWidget l_b = wz_label(wzrd_str_create("Label"), window);
 	//WzWidget w = wz_widget(window);
 	//wz_widget_set_color_old(w, WZ_GREEN);
 	//wz_widget_set_flex(w);
 	//wz_widget_set_constraint_h(w, 100);
-	WzWidget files_panel = wz_widget(window);
-	wz_widget_set_color_old(files_panel, WZ_BLUE);
-	wz_widget_set_flex(files_panel);
+	//WzWidget files_panel = wz_widget(window);
+	//wz_widget_set_color_old(files_panel, WZ_BLUE);
+	//wz_widget_set_flex(files_panel);
 #endif
 #endif
 
@@ -225,6 +225,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			wz_widget_set_child_gap(panel, 15);
 			wz_widget_set_pad(panel, 10);
 			wz_widget_set_color(panel, 0x00ff00ff);
+			wz_widget_clip(panel);
 
 			bool b = false;
 			WzWidget button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
@@ -278,6 +279,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 		WzWidget bottom_panel = wz_hbox(window);
 		wz_widget_set_expanded(bottom_panel);
+		wz_widget_clip(bottom_panel);
 
 #if 1
 

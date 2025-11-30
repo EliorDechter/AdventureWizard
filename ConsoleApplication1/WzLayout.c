@@ -3,6 +3,8 @@
 
 //#define wz_log(x) (void)x;
 
+unsigned int wz_layout_failed;
+
 void wz_log(WzLogMessage* arr, unsigned int* count, const char* fmt, ...)
 {
 	WzLogMessage message;
@@ -32,10 +34,20 @@ WzWidgetDescriptor wz_widget_descriptor_create(
 
 }
 
-void wz_do_layout(unsigned int index,
-	const WzWidgetDescriptor* widgets, WzlRect* rects,
-	unsigned int count)
+void wz_assert(unsigned int b)
 {
+	if (!b)
+	{
+		//wz_layout_failed = 1;
+	}
+}
+
+void wz_do_layout(unsigned int index,
+	WzWidgetDescriptor* widgets, WzLayoutRect* rects,
+	unsigned int count, unsigned int *failed)
+{
+	wz_layout_failed = 0;
+
 	unsigned int widgets_stack_count = 0;
 
 	unsigned int size_per_flex_factor;
@@ -63,7 +75,7 @@ void wz_do_layout(unsigned int index,
 	widgets_stack[widgets_stack_count++] = index;
 
 	unsigned int* constraint_min_main_axis, * constraint_max_main_axis,
-		* constraint_min_cross_axis = 0, * constraint_max_cross_axis = 0,
+		* constraint_min_cross_axis = 0, * parent_constraint_max_cross_axis = 0,
 		* actual_size_main_axis, * actual_size_cross_axis;
 
 	unsigned int* child_constraint_min_main_axis, * child_constraint_max_main_axis,
@@ -72,10 +84,10 @@ void wz_do_layout(unsigned int index,
 
 	unsigned int screen_size_main_axis, screen_size_cross_axis;
 
-	unsigned int layout_widget_cross_axis_size;
+	unsigned int parent_cross_axis_size;
 
 	unsigned int padding_cross_axis;
-	WzlRect* child_rect, * parent_rect;
+	WzLayoutRect* child_rect, * parent_rect;
 	unsigned int root_w, root_h;
 
 	root_w = widgets[index].constraint_max_w;
@@ -91,33 +103,36 @@ void wz_do_layout(unsigned int index,
 		parent = &widgets[parent_index];
 		parent_rect = &rects[parent_index];
 
-		WZ_ASSERT(parent->constraint_max_w > 0);
-		WZ_ASSERT(parent->constraint_max_h > 0);
-		WZ_ASSERT(parent_rect->x >= 0);
-		WZ_ASSERT(parent_rect->y >= 0);
+		wz_assert(parent->constraint_max_w > 0);
+		wz_assert(parent->constraint_max_h > 0);
+		wz_assert(parent_rect->x >= 0);
+		wz_assert(parent_rect->y >= 0);
 
 		if (!parent->children_count)
 		{
 			// Size leaf widgets, and pop immediately
 			// For now all leaf widgets must have a finite constraint
 			// Later on we'll let them decide their own size based on their content
-			WZ_ASSERT(!((parent->layout == WZ_LAYOUT_HORIZONTAL || parent->layout == WZ_LAYOUT_VERTICAL))
-				&& !parent->children_count);
 
-			WZ_ASSERT(parent->constraint_max_w != WZ_UINT_MAX);
+#if 0
+			WZ_ASSERT(!((parent->layout == WZ_LAYOUT_HORIZONTAL || parent->layout == WZ_LAYOUT_VERTICAL))
+			&& !parent->children_count);
+#endif
+
+			wz_assert(parent->constraint_max_w != WZ_UINT_MAX);
 			parent_rect->w = parent->constraint_max_w;
 
-			WZ_ASSERT(parent->constraint_max_h != WZ_UINT_MAX);
+			wz_assert(parent->constraint_max_h != WZ_UINT_MAX);
 			parent_rect->h = parent->constraint_max_h;
 
-			WZ_ASSERT(parent_rect->w);
-			WZ_ASSERT(parent_rect->h);
-			WZ_ASSERT(parent_rect->w <= root_w);
-			WZ_ASSERT(parent_rect->h <= root_h);
-			WZ_ASSERT(parent_rect->w <= parent->constraint_max_w);
-			WZ_ASSERT(parent_rect->h <= parent->constraint_max_h);
-			WZ_ASSERT(parent_rect->w <= root_w);
-			WZ_ASSERT(parent_rect->h <= root_h);
+			wz_assert(parent_rect->w);
+			wz_assert(parent_rect->h);
+			wz_assert(parent_rect->w <= root_w);
+			wz_assert(parent_rect->h <= root_h);
+			wz_assert(parent_rect->w <= parent->constraint_max_w);
+			wz_assert(parent_rect->h <= parent->constraint_max_h);
+			wz_assert(parent_rect->w <= root_w);
+			wz_assert(parent_rect->h <= root_h);
 
 			wz_log(log_messages, &log_messages_count, "Leaf widget (%u %s %d) with constraints (%u, %u) determined its size (%u, %u)\n",
 				parent_index, parent->file, parent->line,
@@ -135,7 +150,7 @@ void wz_do_layout(unsigned int index,
 					constraint_min_main_axis = &parent->constraint_min_w;
 					constraint_max_main_axis = &parent->constraint_max_w;
 					constraint_min_cross_axis = &parent->constraint_min_h;
-					constraint_max_cross_axis = &parent->constraint_max_h;
+					parent_constraint_max_cross_axis = &parent->constraint_max_h;
 					actual_size_main_axis = &parent_rect->w;
 					actual_size_cross_axis = &parent_rect->h;
 					screen_size_main_axis = root_w;
@@ -147,7 +162,7 @@ void wz_do_layout(unsigned int index,
 					constraint_min_main_axis = &parent->constraint_min_h;
 					constraint_max_main_axis = &parent->constraint_max_h;
 					constraint_min_cross_axis = &parent->constraint_min_w;
-					constraint_max_cross_axis = &parent->constraint_max_w;
+					parent_constraint_max_cross_axis = &parent->constraint_max_w;
 					actual_size_main_axis = &parent_rect->h;
 					actual_size_cross_axis = &parent_rect->w;
 					screen_size_main_axis = root_h;
@@ -161,7 +176,7 @@ void wz_do_layout(unsigned int index,
 					constraint_max_main_axis = 0;
 					actual_size_main_axis = actual_size_cross_axis = 0;
 
-					WZ_ASSERT(0);
+					wz_assert(0);
 				}
 
 				// You got 3 visits for layout widget.
@@ -183,7 +198,7 @@ void wz_do_layout(unsigned int index,
 
 					wz_log(log_messages, &log_messages_count, "%s (%s, %d) with constraints (main %u, cross %u) begins constrains non-flex children\n",
 						widget_type, parent->file, parent->line,
-						*constraint_max_main_axis, *constraint_max_cross_axis);
+						*constraint_max_main_axis, *parent_constraint_max_cross_axis);
 
 					// Give constraints to non flex children
 					// A child with flex factor 0 recieves unbounded constraints in the main axis
@@ -212,22 +227,22 @@ void wz_do_layout(unsigned int index,
 								// Just to appease the compiler
 								child_constraint_min_main_axis = child_constraint_max_main_axis =
 									child_constraint_min_cross_axis = child_constraint_max_cross_axis = 0;
-								WZ_ASSERT(0);
+								wz_assert(0);
 							}
 
 							if (!child->free_from_parent_horizontally)
 							{
 								// Leave by default all constraints as they are
 								// Child will only inherit the cross axis constraint
-								WZ_ASSERT(*child_constraint_max_cross_axis);
-								if (*constraint_max_cross_axis < *child_constraint_max_cross_axis)
+								wz_assert(*child_constraint_max_cross_axis);
+								if (*parent_constraint_max_cross_axis < *child_constraint_max_cross_axis)
 								{
-									WZ_ASSERT(*constraint_max_cross_axis > padding_cross_axis);
-									*child_constraint_max_cross_axis = *constraint_max_cross_axis - padding_cross_axis;
+									wz_assert(*parent_constraint_max_cross_axis > padding_cross_axis);
+									*child_constraint_max_cross_axis = *parent_constraint_max_cross_axis - padding_cross_axis;
 								}
 
-								WZ_ASSERT(*child_constraint_max_main_axis);
-								WZ_ASSERT(*child_constraint_max_cross_axis);
+								wz_assert(*child_constraint_max_main_axis);
+								wz_assert(*child_constraint_max_cross_axis);
 
 								wz_log(log_messages, &log_messages_count, "Non-flex widget (%s, %d) with constraints (%u, %u)\n", child->file, child->line,
 									child->constraint_max_w, child->constraint_max_h);
@@ -282,8 +297,15 @@ void wz_do_layout(unsigned int index,
 
 						if (!child->flex_factor)
 						{
-							WZ_ASSERT(*child_actual_size_main_axis);
-							available_size_main_axis -= *child_actual_size_main_axis;
+							wz_assert(*child_actual_size_main_axis);
+							if (available_size_main_axis >= *child_actual_size_main_axis)
+							{
+								available_size_main_axis -= *child_actual_size_main_axis;
+							}
+							else
+							{
+								available_size_main_axis = 0;
+							}
 						}
 						else
 						{
@@ -294,14 +316,35 @@ void wz_do_layout(unsigned int index,
 					// Substract padding and child gap 
 					if (parent->layout == WZ_LAYOUT_HORIZONTAL)
 					{
-						available_size_main_axis -= parent->pad_left + parent->pad_right;
+						if (available_size_main_axis >= parent->pad_left + parent->pad_right)
+						{
+							available_size_main_axis -= parent->pad_left + parent->pad_right;
+						}
+						else
+						{
+							available_size_main_axis = 0;
+						}
 					}
 					else if (parent->layout == WZ_LAYOUT_VERTICAL)
 					{
-						available_size_main_axis -= parent->pad_top + parent->pad_bottom;
+						if (available_size_main_axis >= parent->pad_top + parent->pad_bottom)
+						{
+							available_size_main_axis -= parent->pad_top + parent->pad_bottom;
+						}
+						else
+						{
+							available_size_main_axis = 0;
+						}
 					}
 
-					available_size_main_axis -= parent->gap * (parent->children_count - 1);
+					if (available_size_main_axis > parent->gap * (parent->children_count - 1))
+					{
+						available_size_main_axis -= parent->gap * (parent->children_count - 1);
+					}
+					else
+					{
+						available_size_main_axis = 0;
+					}
 
 					if (children_flex_factor)
 					{
@@ -342,7 +385,7 @@ void wz_do_layout(unsigned int index,
 						{
 							child_constraint_min_main_axis = child_constraint_max_main_axis =
 								child_constraint_max_cross_axis = child_constraint_min_cross_axis = 0;
-							WZ_ASSERT(0);
+							wz_assert(0);
 						}
 
 						if (child->flex_factor)
@@ -363,9 +406,9 @@ void wz_do_layout(unsigned int index,
 								*child_constraint_min_cross_axis = *constraint_min_cross_axis;
 							}
 
-							if (*constraint_max_cross_axis < *child_constraint_max_cross_axis)
+							if (*parent_constraint_max_cross_axis < *child_constraint_max_cross_axis)
 							{
-								*child_constraint_max_cross_axis = *constraint_max_cross_axis - padding_cross_axis;
+								*child_constraint_max_cross_axis = *parent_constraint_max_cross_axis - padding_cross_axis;
 							}
 
 							wz_log(log_messages, &log_messages_count, "Flex widget (%s, %d) recieved constraints (%u, %u) \n", child->file, child->line,
@@ -385,17 +428,18 @@ void wz_do_layout(unsigned int index,
 					// We finally determined the size of all the children of a widget with a layout
 					// Now we determine it's size
 
-					WZ_ASSERT(parent->children_count);
+					wz_assert(parent->children_count);
 
 					// Layout widget is unconstrained in the main axis
 					// It must shrink-wrap
-					WZ_ASSERT(!(parent->layout == WZ_LAYOUT_HORIZONTAL &&
+					wz_assert(!(parent->layout == WZ_LAYOUT_HORIZONTAL &&
 						parent->constraint_max_w == WZ_UINT_MAX &&
 						parent->main_axis_size_type == MAIN_AXIS_SIZE_TYPE_MAX));
-					WZ_ASSERT(!(parent->layout == WZ_LAYOUT_VERTICAL &&
+					wz_assert(!(parent->layout == WZ_LAYOUT_VERTICAL &&
 						parent->constraint_max_h == WZ_UINT_MAX &&
 						parent->main_axis_size_type == MAIN_AXIS_SIZE_TYPE_MAX));
 
+					// Main axis size
 					if (*constraint_max_main_axis == WZ_UINT_MAX)
 					{
 						children_size = 0;
@@ -415,7 +459,7 @@ void wz_do_layout(unsigned int index,
 							else
 							{
 								child_actual_size_main_axis = 0;
-								WZ_ASSERT(0);
+								wz_assert(0);
 							}
 
 							children_size += *child_actual_size_main_axis;
@@ -429,36 +473,47 @@ void wz_do_layout(unsigned int index,
 						*actual_size_main_axis = *constraint_max_main_axis;
 					}
 
-					layout_widget_cross_axis_size = 0;
+					// Cross axis size (use tallest child)
+					parent_cross_axis_size = 0;
 					for (int i = 0; i < parent->children_count; ++i)
 					{
 						child = &widgets[parent->children[i]];
 						child_rect = &rects[parent->children[i]];
 
-						WZ_ASSERT(child_rect->w <= root_w);
-						WZ_ASSERT(child_rect->h <= root_h);
+						wz_assert(child_rect->w <= root_w);
+						wz_assert(child_rect->h <= root_h);
 
 						if (parent->layout == WZ_LAYOUT_HORIZONTAL)
 						{
-							if (child_rect->h > layout_widget_cross_axis_size)
+							if (child_rect->h > parent_cross_axis_size)
 							{
-								layout_widget_cross_axis_size = child_rect->h;
+								parent_cross_axis_size = child_rect->h;
 							}
 						}
 						else if (parent->layout == WZ_LAYOUT_VERTICAL)
 						{
-							if (child_rect->w > layout_widget_cross_axis_size)
+							if (child_rect->w > parent_cross_axis_size)
 							{
-								layout_widget_cross_axis_size = child_rect->w;
+								parent_cross_axis_size = child_rect->w;
 							}
 						}
 					}
+					
+					if (parent->layout == WZ_LAYOUT_HORIZONTAL)
+					{
+						parent_cross_axis_size += parent->pad_top + parent->pad_bottom;
+					}
+					else if (parent->layout == WZ_LAYOUT_VERTICAL)
+					{
+						parent_cross_axis_size += parent->pad_left+ parent->pad_right;
+					}
 
-					layout_widget_cross_axis_size += parent->pad_top + parent->pad_bottom;
 
-					WZ_ASSERT(layout_widget_cross_axis_size);
-					WZ_ASSERT(layout_widget_cross_axis_size <= parent->constraint_max_w);
-					*actual_size_cross_axis = layout_widget_cross_axis_size;
+					wz_assert(parent_cross_axis_size);
+					wz_assert(parent_cross_axis_size <= parent_constraint_max_cross_axis);
+
+
+					*actual_size_cross_axis = parent_cross_axis_size;
 
 					if (parent->layout == WZ_LAYOUT_HORIZONTAL)
 					{
@@ -471,10 +526,10 @@ void wz_do_layout(unsigned int index,
 							parent->constraint_max_w, parent->constraint_max_h, parent_rect->w, parent_rect->h);
 					}
 
-					WZ_ASSERT(*actual_size_main_axis <= *constraint_max_main_axis);
-					WZ_ASSERT(*actual_size_cross_axis <= *constraint_max_cross_axis);
-					WZ_ASSERT(*actual_size_main_axis <= screen_size_main_axis);
-					WZ_ASSERT(*actual_size_cross_axis <= screen_size_cross_axis);
+					wz_assert(*actual_size_main_axis <= *constraint_max_main_axis);
+					wz_assert(*actual_size_cross_axis <= *parent_constraint_max_cross_axis);
+					wz_assert(*actual_size_main_axis <= screen_size_main_axis);
+					wz_assert(*actual_size_cross_axis <= screen_size_cross_axis);
 
 					// Give positions to children
 					unsigned int offset = 0;
@@ -490,36 +545,39 @@ void wz_do_layout(unsigned int index,
 
 						if (parent->layout == WZ_LAYOUT_HORIZONTAL)
 						{
-							actual_size_main_axis = &child_rect->w;
+							child_actual_size_main_axis = &child_rect->w;
 							child_rect->x = offset;
 							child_rect->y = 0;
 						}
 						else if (parent->layout == WZ_LAYOUT_VERTICAL)
 						{
-							actual_size_main_axis = &child_rect->h;
+							child_actual_size_main_axis = &child_rect->h;
 							child_rect->y = offset;
 							child_rect->x = 0;
 						}
 						else
 						{
-							WZ_ASSERT(0);
+							child_actual_size_main_axis = 0;
+							wz_assert(0);
 						}
 
 						// Position padding
 						child_rect->x += parent->pad_left;
 						child_rect->y += parent->pad_top;
 
-						offset += *actual_size_main_axis;
+						offset += *child_actual_size_main_axis;
 						offset += parent->gap;
 
 						wz_log(log_messages, &log_messages_count, "Child widget (%u %s, %d) will have the raltive position %u %u\n",
 							parent->children[i], child->file, child->line,
 							child_rect->x, child_rect->y);
-
-						WZ_ASSERT(child_rect->x <= root_w);
-						WZ_ASSERT(child_rect->y <= root_h);
+						
+						//wz_assert(child_rect->x + child_rect->w <= parent_rect->w - parent->pad_right);
+						//wz_assert(child_rect->y + child_rect->h <= parent_rect->h - parent->pad_bottom);
+						wz_assert(child_rect->x <= root_w);
+						wz_assert(child_rect->y <= root_h);
 					}
-
+					
 					widgets_stack_count--;
 				}
 			}
@@ -561,24 +619,22 @@ void wz_do_layout(unsigned int index,
 					parent_rect->w = parent->constraint_max_w;
 					parent_rect->h = parent->constraint_max_h;
 
-#if 1
 					wz_log(log_messages, &log_messages_count,
 						"Non-layout widget (%s, %d) with constraints (%u, %u) determined its size (%u, %u)\n",
 						parent->file, parent->line,
 						parent->constraint_max_w, parent->constraint_max_h, parent_rect->w, parent_rect->h);
-#endif
 
-					WZ_ASSERT(parent_rect->w <= parent->constraint_max_w);
-					WZ_ASSERT(parent_rect->h <= parent->constraint_max_h);
-					WZ_ASSERT(parent_rect->w <= root_w);
-					WZ_ASSERT(parent_rect->h <= root_h);
+					wz_assert(parent_rect->w <= parent->constraint_max_w);
+					wz_assert(parent_rect->h <= parent->constraint_max_h);
+					wz_assert(parent_rect->w <= root_w);
+					wz_assert(parent_rect->h <= root_h);
 
 					widgets_stack_count--;
 				}
 			}
 			else
 			{
-				WZ_ASSERT(0);
+				wz_assert(0);
 			}
 		}
 	}
@@ -613,11 +669,6 @@ void wz_do_layout(unsigned int index,
 			child = &widgets[parent->children[j]];
 			child_rect = &rects[parent->children[j]];
 
-			if (parent->alignment)
-			{
-				printf("asd");
-			}
-			
 			unsigned int parent_size_h = parent_rect->h - parent->pad_top - parent->pad_bottom;
 			unsigned int parent_size_w = parent_rect->w - parent->pad_left - parent->pad_right;
 
@@ -649,17 +700,18 @@ void wz_do_layout(unsigned int index,
 			child_rect->y = parent_rect->y + child_rect->y;
 
 			// Check the widgets size doesnt exceeds its parents
-			WZ_ASSERT(child_rect->x >= 0);
-			WZ_ASSERT(child_rect->y >= 0);
-			WZ_ASSERT(child_rect->x <= root_w);
-			WZ_ASSERT(child_rect->y <= root_h);
-			WZ_ASSERT(child_rect->y >= 0);
-			WZ_ASSERT(child_rect->w);
-			WZ_ASSERT(child_rect->h);
-			WZ_ASSERT(child_rect->w);
-			WZ_ASSERT(child_rect->h);
-			WZ_ASSERT(child_rect->x + child_rect->w <= parent_rect->x + parent_rect->w);
-			WZ_ASSERT(child_rect->y + child_rect->h <= parent_rect->y + parent_rect->h);
+			wz_assert(child_rect->x >= 0);
+			wz_assert(child_rect->y >= 0);
+			wz_assert(child_rect->y >= 0);
+			wz_assert(child_rect->w);
+			wz_assert(child_rect->h);
+			wz_assert(child_rect->w);
+			wz_assert(child_rect->h);
+
+			/*wz_assert(child_rect->x <= root_w);
+			wz_assert(child_rect->y <= root_h);
+			wz_assert(child_rect->x + child_rect->w <= parent_rect->x + parent_rect->w);
+			wz_assert(child_rect->y + child_rect->h <= parent_rect->y + parent_rect->h);*/
 		}
 	}
 
@@ -684,4 +736,6 @@ void wz_do_layout(unsigned int index,
 	free(widgets_visits);
 	free(widgets_stack);
 	free(log_messages);
+
+	*failed = wz_layout_failed;
 }

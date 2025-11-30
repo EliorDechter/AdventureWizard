@@ -8,8 +8,6 @@
 
 #define WZL_LOG(...) (void)0;
 
-#define WZ_ASSERT(x) assert(x)
-
 #define WZ_FLEX_FIT_LOOSE 0
 #define WZ_FLEX_FIT_TIGHT 1
 
@@ -37,8 +35,9 @@ typedef struct wzl_str
 
 typedef struct WzlRect
 {
+	unsigned int index;
 	unsigned int x, y, w, h;
-} WzlRect;
+} WzLayoutRect;
 
 typedef struct WzWidgetDescriptor
 {
@@ -71,7 +70,7 @@ typedef struct WzLogMessage
 } WzLogMessage;
 
 void wz_do_layout(unsigned int index,
-	const WzWidgetDescriptor* widgets, WzlRect* rects,
-	unsigned int count);
+	const WzWidgetDescriptor* widgets, WzLayoutRect* rects,
+	unsigned int count, unsigned int *failed);
 
 #endif
