@@ -470,6 +470,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			}
 			average_time /= 32;
 			str1024_concat(&g_debug_text, str1024_create("editor time: %f\n", average_time));
+			printf("editor time: %f\n", (float)(time_b - time_a) / 1000000);
 		}
 
 		// Game ui and stuff

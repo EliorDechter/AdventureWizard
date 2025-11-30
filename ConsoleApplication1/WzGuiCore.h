@@ -10,10 +10,11 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
+#include "WzLayout.h"
 #include "Strings.h"
 
-#define WZ_LOG(...) printf(__VA_ARGS__)
-//#define WZ_LOG(...) (void)0;
+//#define WZ_LOG(...) printf(__VA_ARGS__)
+#define wz_layout_log(...) (void)0;
 
 #define WZ_BORDER_SIZE 1
 
@@ -99,7 +100,7 @@ typedef enum EguiState {
 } wzrd_state;
 
 typedef struct wzrd_rect_struct {
-	int x, y;
+	unsigned int x, y;
 	unsigned int w, h;
 } WzRect;
 
@@ -182,18 +183,6 @@ typedef enum {
 	wzrd_box_type_crate
 } wzrd_box_type;
 
-typedef enum WzLayout
-{
-	WzLayoutNone,
-	WzLayoutHorizontal,
-	WzLayoutVertical,
-} WzLayout;
-
-typedef enum {
-	WzAlignVCenter = 1 << 0,
-	WzAlignHCenter = 1 << 1,
-} WzAlignment;
-
 typedef struct Crate {
 	int layer;
 	int index;
@@ -246,14 +235,7 @@ typedef enum WzSizePolicy
 	WzSizePolicyMinimumIgnored,
 } WzLayoutSizePolicy;
 
-typedef enum FlexFit
-{
-	FlexFitLoose,
-	FlexFitTight
-} FlexFit;
 
-#define	MAIN_AXIS_SIZE_TYPE_MIN  0X0
-#define	MAIN_AXIS_SIZE_TYPE_MAX  0X1
 
 typedef struct {
 	WzWidget handle;
@@ -264,13 +246,13 @@ typedef struct {
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_h, constraint_max_w;
 	WzWidget parent;
 	unsigned char main_axis_size_type, size_type_vertical;
-	FlexFit flex_fit; // Should the widget take all the space given to it 
+	unsigned int flex_fit; // Should the widget take all the space given to it 
 	int w_offset, h_offset;
 
 	// ...
 	unsigned int actual_x, actual_y;
 	unsigned int actual_w, actual_h;
-	WzLayout layout;
+	unsigned int layout;
 
 	// Old
 	bool disable_hover;
@@ -466,7 +448,7 @@ void wz_widget_set_constraint_size(WzWidget widget, unsigned int w, unsigned int
 void wz_widget_set_main_axis_size_min(WzWidget w);
 void wz_widget_set_layer(WzWidget handle, unsigned int layer);
 void wz_widget_set_fixed_size(WzWidget widget, unsigned int w, unsigned int h);
-void wz_widget_set_layout(WzWidget handle, WzLayout layout);
+void wz_widget_set_layout(WzWidget handle, unsigned int layout);
 void wz_widget_set_stretch_factor(WzWidget handle, unsigned int strech_factor);
 WzWidget wzrd_widget_free(WzWidget parent);
 void wzrd_box_add_child(WzWidget parent, WzWidget child);
@@ -508,6 +490,9 @@ void wz_widget_set_size(WzWidget c, unsigned int w, unsigned int h);
 void wz_widget_set_free_from_parent_horizontally(WzWidget w);
 void wz_widget_set_free_from_parent_vertically(WzWidget w);
 void wz_widget_set_color(WzWidget widget, unsigned int color);
+void wz_center_horizontal(WzWidget widget);
+void wz_center_vertical(WzWidget widget);
+
 
 // WIDGETS
 WzWidget wzrd_label_button_raw(wzrd_str str, bool* result, WzWidget parent, const char *file, unsigned int line);

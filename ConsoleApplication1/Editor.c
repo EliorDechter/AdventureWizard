@@ -40,8 +40,6 @@ typedef struct Editor
 
 Editor g_editor;
 
-
-
 float g_width = 20, g_target_width = 255;
 
 WzWidget editor_add_row(WzWidget form, wzrd_str label, WzWidget widget)
@@ -179,6 +177,8 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		(wzrd_state)g_platform.mouse_left,
 		* (wzrd_keyboard_keys*)&g_platform.keys_pressed, true);
 	
+	
+#if 1
 	WzWidget window = wz_vbox(window0);
 	wz_widget_set_constraint_size(window, g_platform.window_width, g_platform.window_height);
 	wz_widget_set_color_old(window, WZ_RED);
@@ -187,8 +187,8 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	wz_widget_set_pad_top(window, 10);
 	wz_widget_set_pad_bottom(window, 10);
 	wz_widget_set_child_gap(window, 10);
-
 #if 0
+
 	WzWidget l_a = wz_label(wzrd_str_create("Label2"), window);
 	WzWidget l_b = wz_label(wzrd_str_create("Label"), window);
 	//WzWidget w = wz_widget(window);
@@ -198,6 +198,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	WzWidget files_panel = wz_widget(window);
 	wz_widget_set_color_old(files_panel, WZ_BLUE);
 	wz_widget_set_flex(files_panel);
+#endif
 #endif
 
 	{
@@ -210,6 +211,8 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		wz_widget_set_child_gap(files_panel, 10);
 		wz_widget_set_pad_top(files_panel, 5);
 		wz_widget_set_pad_bottom(files_panel, 5);
+		wz_center_horizontal(files_panel);
+		wz_center_vertical(files_panel);
 
 		bool b1 = false, b2 = false;
 		wzrd_label_button(wzrd_str_create("View"), &b1, files_panel);

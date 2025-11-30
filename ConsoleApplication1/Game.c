@@ -926,7 +926,7 @@ void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, int scale, 
 		game_entity_gui_do(scale, gui, background_box);
 	}
 
-	wzrd_end(debug_str);
+	//wzrd_end(debug_str);
 }
 
 void game_run(v2 window_size, bool enable, unsigned int scale) {

@@ -81,6 +81,9 @@
     <ClCompile Include="WzGuiWidgets.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WzLayout.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Platform.h">
@@ -123,6 +126,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="WzGuiWidgets.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WzLayout.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

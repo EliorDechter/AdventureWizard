@@ -190,6 +190,7 @@
     <ClCompile Include="Textures.c" />
     <ClCompile Include="Timer.c" />
     <ClCompile Include="WzGuiWidgets.c" />
+    <ClCompile Include="WzLayout.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArrayList.h" />
@@ -206,6 +207,7 @@
     <ClInclude Include="Strings.h" />
     <ClInclude Include="Textures.h" />
     <ClInclude Include="WzGuiWidgets.h" />
+    <ClInclude Include="WzLayout.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
