@@ -119,10 +119,17 @@ void wz_do_layout(unsigned int index,
 			wz_assert(widget->constraint_max_h != WZ_UINT_MAX);
 			widget_rect->h = widget->constraint_max_h;
 
-			wz_assert(widget_rect->w);
-			wz_assert(widget_rect->h);
-			//wz_assert(widget_rect->w <= root_w);
-			//wz_assert(widget_rect->h <= root_h);
+			if (!widget_rect->w)
+			{
+				wz_log(log_messages, &log_messages_count, "Flex widget (%s, %d) width has no constraints\n",
+					widget->file, widget->line);
+			}
+			if (!widget_rect->h)
+			{
+				wz_log(log_messages, &log_messages_count, "Flex widget (%s, %d) height has no constraints\n",
+					widget->file, widget->line);
+			}
+
 			wz_assert(widget_rect->w <= widget->constraint_max_w);
 			wz_assert(widget_rect->h <= widget->constraint_max_h);
 
@@ -192,7 +199,6 @@ void wz_do_layout(unsigned int index,
 
 					wz_log(log_messages, &log_messages_count, "%s (%s, %d) with constraints (main %u, cross %u) begins constrains non-flex children\n",
 						widget_type, widget->file, widget->line,
-						//*constraint_min_main_axis, *constraint_min_cross_axis,
 						*constraint_max_main_axis, *constraint_max_cross_axis);
 
 					// Give constraints to non flex children
@@ -345,7 +351,7 @@ void wz_do_layout(unsigned int index,
 					{
 						available_size_main_axis = 0;
 					}
-
+					
 					if (children_flex_factor)
 					{
 						size_per_flex_factor = available_size_main_axis / children_flex_factor;
@@ -415,10 +421,26 @@ void wz_do_layout(unsigned int index,
 
 							if (widget->cross_axis_alignment == CROSS_AXIS_ALIGNMENT_STRETCH)
 							{
-								*child_constraint_max_cross_axis = *constraint_max_cross_axis - padding_cross_axis;
+								if (*constraint_max_cross_axis > padding_cross_axis)
+								{
+									*child_constraint_max_cross_axis = *constraint_max_cross_axis - padding_cross_axis;
+								}
+								else
+								{
+									*child_constraint_max_cross_axis = 0;
+									wz_log(log_messages, &log_messages_count, "ERROR: Flex widget (%s, %d) had no space available to it \n",
+										child->file, child->line);
+								}
 							}
 
-							wz_log(log_messages, &log_messages_count, "Flex widget (%s, %d) recieved constraints (%u, %u) \n", child->file, child->line,
+							if (child_constraint_max_main_axis == 0)
+							{
+								wz_log(log_messages, &log_messages_count, "ERROR: Flex widget (%s, %d) had no space available to it \n",
+									child->file, child->line);
+							}
+
+							wz_log(log_messages, &log_messages_count, "Flex widget (%s, %d) recieved constraints (%u, %u) \n",
+								child->file, child->line,
 								child->constraint_max_w, child->constraint_max_h);
 
 							widgets_stack[widgets_stack_count] = widget->children[i];
@@ -706,13 +728,14 @@ void wz_do_layout(unsigned int index,
 
 			if (widget->cross_axis_alignment == CROSS_AXIS_ALIGNMENT_CENTER)
 			{
-				if (widget->layout == WZ_LAYOUT_HORIZONTAL && parent_size_w > children_size)
-				{
-					child_rect->x += (parent_size_w - child_rect->w) / 2;
-				}
-				else if (widget->layout == WZ_LAYOUT_VERTICAL && parent_size_h > children_size)
+
+				if (widget->layout == WZ_LAYOUT_HORIZONTAL && parent_size_h > child_rect->h)
 				{
 					child_rect->y += (parent_size_h - child_rect->h) / 2;
+				}
+				else if (widget->layout == WZ_LAYOUT_VERTICAL && parent_size_w > child_rect->w)
+				{
+					child_rect->x += (parent_size_w - child_rect->w) / 2;
 				}
 			}
 			else if (widget->cross_axis_alignment == CROSS_AXIS_ALIGNMENT_START)
@@ -724,28 +747,29 @@ void wz_do_layout(unsigned int index,
 			child_rect->y = widget_rect->y + child_rect->y;
 
 			// Check the widgets size doesnt exceeds its parents
-			wz_assert(child_rect->x >= 0);
-			wz_assert(child_rect->y >= 0);
-			wz_assert(child_rect->y >= 0);
-			//wz_assert(child_rect->w);
-			//wz_assert(child_rect->h);
-
-			/*wz_assert(child_rect->x <= root_w);
-			wz_assert(child_rect->y <= root_h);
-			wz_assert(child_rect->x + child_rect->w <= parent_rect->x + parent_rect->w);
-			wz_assert(child_rect->y + child_rect->h <= parent_rect->y + parent_rect->h);*/
+			if (child_rect->x + child_rect->w >= widget_rect->x + widget_rect->w)
+			{
+				wz_log(log_messages, &log_messages_count, "ERROR: Widget (%s, %d) exceeds it's parents horizontally\n",
+					child->file, child->line);
+			}
+			if (child_rect->y + child_rect->h >= widget_rect->y + widget_rect->h)
+			{
+				wz_log(log_messages, &log_messages_count, "ERROR: Widget (%s, %d) exceeds it's parents vertically\n",
+					child->file, child->line);
+			}
 		}
 	}
 
 	wz_log(log_messages, &log_messages_count, "---------------------------\n");
 	wz_log(log_messages, &log_messages_count, "Final Layout:\n");
-	for (int i = 0; i < count; ++i)
+
+	for (unsigned int i = 0; i < count; ++i)
 	{
 		widget = &widgets[i];
 		widget_rect = &rects[i];
 
-		wz_log(log_messages, &log_messages_count, "(%s %u) : (%u %u %u %u)\n",
-			widget->file, widget->line, widget_rect->x, widget_rect->y, widget_rect->w, widget_rect->h);
+		wz_log(log_messages, &log_messages_count, "(%u %s %u) : (%u %u %u %u)\n",
+			i, widget->file, widget->line, widget_rect->x, widget_rect->y, widget_rect->w, widget_rect->h);
 	}
 	wz_log(log_messages, &log_messages_count, "---------------------------\n");
 

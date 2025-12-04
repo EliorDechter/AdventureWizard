@@ -36,7 +36,8 @@ typedef struct wzl_str
 typedef struct WzlRect
 {
 	//unsigned int index;
-	unsigned int x, y, w, h;
+	int x, y;
+	unsigned int w, h;
 } WzLayoutRect;
 
 enum

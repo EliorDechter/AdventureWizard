@@ -65,7 +65,6 @@ void wz_widget_set_pad_top(WzWidget widget, unsigned int pad)
 {
 	WzWidgetData* d = wz_widget_get(widget);
 	wz_assert(pad);
-	wz_assert(pad <= canvas->window.h);
 
 	wz_widget_get(widget)->pad_top = pad;
 }
@@ -498,7 +497,6 @@ void wzrd_box_add_free_child(WzWidget parent, WzWidget child)
 
 	c->layer = p->layer;
 	c->clip_widget = p->clip_widget;
-
 }
 
 void wzrd_box_add_child(WzWidget parent, WzWidget child)
@@ -1493,20 +1491,19 @@ void wz_draw(int* boxes_indices)
 					clip_rect.w = clip_box->actual_w;
 					clip_rect.h = clip_box->actual_h;
 
-					wz_assert(clip_rect.w);
-					wz_assert(clip_rect.h);
-
-					//if (clip_box->actual_w > 4)
+					if (!clip_rect.w ||
+						!clip_rect.h ||
+						!(clip_rect.w > (widget.pad_left + widget.pad_right)) ||
+						!(clip_rect.h > (widget.pad_top + widget.pad_bottom)))
 					{
-						clip_rect.x = clip_rect.x + widget.pad_left;
-						clip_rect.w = clip_rect.w - (widget.pad_left + widget.pad_right);
+						printf("clip space too small for widget (%s %u)\n", widget.file, widget.line);
+						continue;
 					}
 
-					//if (clip_box->actual_h > 4)
-					{
-						clip_rect.y = clip_rect.y + widget.pad_top;
-						clip_rect.h = clip_rect.h - (widget.pad_top + widget.pad_bottom);
-					}
+					clip_rect.x = clip_rect.x + widget.pad_left;
+					clip_rect.w = clip_rect.w - (widget.pad_left + widget.pad_right);
+					clip_rect.y = clip_rect.y + widget.pad_top;
+					clip_rect.h = clip_rect.h - (widget.pad_top + widget.pad_bottom);
 
 					buffer->commands[buffer->count++] = (WzDrawCommand){
 						.type = DrawCommandType_Clip,
@@ -1805,14 +1802,22 @@ void wz_end(wzrd_str* debug_str)
 			content_h += canvas->widgets[content_panel->children[i]].actual_h;
 		}
 
-		wz_assert(content_h);
+		if (!content_h)
+		{
+			continue;
+		}
+
 		wz_assert(content_panel_h);
+		if (content_panel_h < 2 * SCROLLBAR_SIZE)
+		{
+			continue;
+		}
 		float ratio = (float)content_panel_h / (float)content_h;
 		if (ratio > 1)
 		{
 			ratio = 1;
 		}
-		unsigned int scrollbar_h = ratio * (float)(content_panel_h - 2 * SCROLLBAR_SIZE);
+		unsigned int scrollbar_h = (unsigned int)(ratio * (float)(content_panel_h - 2 * SCROLLBAR_SIZE));
 		WzWidgetData* scrollbar_data = wz_widget_get(canvas->scrollbars[i].scrollbar);
 		scrollbar_data->actual_h = scrollbar_h;
 
@@ -2219,7 +2224,7 @@ void wz_widget_set_color(WzWidget widget, unsigned int color)
 	wz_assert((color & 0x000000ff) != 0);
 	WzColor c = (WzColor){ (color & 0xff000000) >> 24, (color & 0x00ff0000) >> 16, (color & 0x0000ff00) >> 8, (color & 0x000000ff) >> 0 };
 	wz_widget_set_color_old(widget, c);
-} 
+}
 
 void wz_widget_set_cross_axis_alignment(WzWidget widget, unsigned int cross_axis_alignment)
 {

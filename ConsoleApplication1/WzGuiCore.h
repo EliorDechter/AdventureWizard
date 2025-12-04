@@ -275,10 +275,7 @@ typedef struct {
 	unsigned int index;
 	bool is_selected;
 	
-	//int x, y;
-	//unsigned int w, h;
 	float percentage_w, percentage_h;
-	//bool w_strech, h_strech;
 	unsigned int flex_factor;
 
 	//wzrd_structure structure;
@@ -286,7 +283,6 @@ typedef struct {
 
 	int child_gap;
 	bool fit_h, fit_w;
-	//WzAlignment alignment;
 	bool best_fit;
 	unsigned int cross_axis_alignment;
 

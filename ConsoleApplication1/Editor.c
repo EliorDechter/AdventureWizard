@@ -170,7 +170,6 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		editor_seperator_horizontal(window);
 		{
 			WzWidget panel = editor_hpanel(window);
-			//wz_widget_set_max_constraint_h(panel, 40);
 			wz_widget_set_pad(panel, 10);
 			wz_widget_set_child_gap(panel, 15);
 			wz_widget_set_color(panel, 0xffff00ff);
@@ -185,9 +184,6 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			}
 
 			wz_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
-			//wzrd_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
-
-			//editor_seperator_vertical(panel);
 
 			//bool delete_toggle;
 			//wzrd_button_icon(icons.delete, &delete_toggle, buttons_panel);
