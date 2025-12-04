@@ -2010,8 +2010,8 @@ WzWidget wz_label_raw(wzrd_str str, WzWidget handle, const char* file, unsigned 
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	w += 20;
-	h += 20;
+	w += 10;
+	h += 100;
 
 	WzWidget parent = wz_widget_raw(handle, file, line);
 

@@ -22,10 +22,10 @@
 
 #define WZ_LOG_MESSAGE_MAX_SIZE 128
 
-typedef enum {
-	WzAlignVCenter = 1 << 0,
-	WzAlignHCenter = 1 << 1,
-} WzAlignment;
+//typedef enum {
+//	WzAlignVCenter = 1 << 0,
+//	WzAlignHCenter = 1 << 1,
+//} WzAlignment;
 
 typedef struct wzl_str
 {
@@ -35,9 +35,19 @@ typedef struct wzl_str
 
 typedef struct WzlRect
 {
-	unsigned int index;
+	//unsigned int index;
 	unsigned int x, y, w, h;
 } WzLayoutRect;
+
+enum
+{
+	CROSS_AXIS_ALIGNMENT_START,
+	CROSS_AXIS_ALIGNMENT_END,
+	CROSS_AXIS_ALIGNMENT_CENTER,
+	CROSS_AXIS_ALIGNMENT_STRETCH,
+	CROSS_AXIS_ALIGNMENT_BASELINE,
+	CROSS_AXIS_ALIGNMENT_TOTAL,
+};
 
 typedef struct WzWidgetDescriptor
 {
@@ -54,6 +64,8 @@ typedef struct WzWidgetDescriptor
 	unsigned char flex_fit;
 	unsigned char main_axis_size_type;
 	unsigned int alignment;
+	unsigned int cross_axis_alignment;
+	int x, y;
 } WzWidgetDescriptor;
 
 typedef struct WzDebugInfo

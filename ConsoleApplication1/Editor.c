@@ -3,6 +3,32 @@
 #include "Textures.h"
 #include "Game.h"
 
+
+#define editor_vpanel(parent) wz_vpanel_raw(parent, __FILE__, __LINE__)
+#define editor_hpanel(parent) wz_hpanel_raw(parent, __FILE__, __LINE__)
+
+WzWidget wz_vpanel_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget widget = wz_vbox_raw(parent, file, line);
+	wz_widget_set_pad(widget, 5);
+	wz_widget_set_child_gap(widget, 5);
+	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_cross_axis_alignment(widget, CROSS_AXIS_ALIGNMENT_CENTER);
+
+	return widget;
+}
+
+WzWidget wz_hpanel_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget widget = wz_hbox_raw(parent, file, line);
+	wz_widget_set_pad(widget, 5);
+	wz_widget_set_child_gap(widget, 5);
+	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_cross_axis_alignment(widget, CROSS_AXIS_ALIGNMENT_CENTER);
+
+	return widget;
+}
+
 wzrd_str wzrd_str_from_str128(str128* str)
 {
 	wzrd_str result = { .str = str->val, .len = str->len };
@@ -13,14 +39,14 @@ wzrd_str wzrd_str_from_str128(str128* str)
 void editor_seperator_horizontal(WzWidget parent)
 {
 	WzWidget w = wz_widget(parent);
-	wz_widget_set_constraint_h(w, 2);
+	wz_widget_set_max_constraint_h(w, 2);
 	wz_widget_set_border(w, BorderType_BottomLine);
 }
 
 void editor_seperator_vertical(WzWidget parent)
 {
 	WzWidget w = wz_widget(parent);
-	wz_widget_set_constraint_w(w, 2);
+	wz_widget_set_max_constraint_w(w, 2);
 }
 
 WzWidget editor_horizontal_panel_bordered(wzrd_v2 size, WzWidget parent)
@@ -47,95 +73,17 @@ WzWidget editor_add_row(WzWidget form, wzrd_str label, WzWidget widget)
 	const int h = 30;
 
 	WzWidget row = wz_hbox(form);
-	wz_widget_set_constraint_h(row, h);
+	wz_widget_set_max_constraint_h(row, h);
 	wz_label(label, row);
 	wzrd_box_add_child(row, widget);
 
 	return row;
 }
 
-WzWidget wzrd_scroll_panel(wzrd_v2 size, int* scroll, WzWidget parent, const char* tag)
-{
-	const int scroll_bar_width = 20;
-
-	WzWidget panel = wz_hbox(parent);
-	wz_widget_set_tight_constraints(panel, size.x, size.y);
-	wz_widget_set_color_old(panel, EGUI_BEIGE);
-
-	WzWidget clip_panel = wz_vbox(panel);
-	wz_widget_get(clip_panel)->color = WZ_YELLOW;
-	wz_widget_clip(clip_panel);
-	wzrd_widget_tag(clip_panel, tag);
-
-	WzWidget user_panel = wz_hbox(clip_panel);
-	wz_widget_set_y(panel, -*scroll);
-	wz_widget_set_constraint_h(panel, 1500);
-
-	WzWidget scrollbar_panel = wz_hbox(panel);
-	wz_widget_set_constraint_w(scrollbar_panel, scroll_bar_width + 4);
-
-	WzWidget top_button = wz_hbox(scrollbar_panel);
-	wz_widget_set_constraint_w(top_button, scroll_bar_width);
-	wz_widget_set_constraint_h(top_button, scroll_bar_width);
-
-	WzWidget middle_panel = wz_hbox(scrollbar_panel);
-	wz_widget_set_constraint_w(middle_panel, scroll_bar_width);
-	wz_widget_get(middle_panel)->color = EGUI_GRAY;
-	wz_widget_get(middle_panel)->tag = tag;
-	wz_widget_get(middle_panel)->secondary_tag = "scrollbar_middle";
-
-	WzWidget bottom_button = wz_hbox(scrollbar_panel);
-	wz_widget_set_tight_constraints(bottom_button, scroll_bar_width, scroll_bar_width);
-
-	WzWidgetData b = wzrd_widget_get_cached_box(tag);
-	WzWidget scrollbar = (WzWidget){ 0 };
-	if (wz_handle_is_valid(b.handle))
-	{
-		WzWidgetData* box = &b;
-		float ratio = (float)b.actual_h / (float)b.content_h;
-		if (ratio > 1)
-			ratio = 1;
-
-		scrollbar = wz_hbox(middle_panel);
-		wz_widget_get(scrollbar)->percentage_h = ratio;
-		wz_widget_get(scrollbar)->y = *scroll;
-
-		wz_widget_get(scrollbar)->tag = tag;
-		wz_widget_get(scrollbar)->secondary_tag = "scrollbar";
-	}
-
-	WzWidgetData scrollbar_middle_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar_middle");
-	WzWidgetData scrollbar_box = wzrd_widget_get_cached_box_with_secondary_tag(tag, "scrollbar");
-
-	if (wzrd_widget_is_active(top_button))
-	{
-		if (*scroll > 0)
-			*scroll -= 1;
-	}
-
-	if (wzrd_widget_is_active(bottom_button))
-	{
-		if (*scroll + scrollbar_box.actual_h < scrollbar_middle_box.actual_h - 2)
-			*scroll += 1;
-	}
-
-	if (wzrd_widget_is_active(scrollbar))
-	{
-		int scroll_temp = *scroll + wzrd_canvas_get()->mouse_delta.y;
-
-		if (scroll_temp + scrollbar_box.actual_h < scrollbar_middle_box.actual_h - 2 && scroll_temp > 0)
-		{
-			*scroll = scroll_temp;
-		}
-	}
-
-	printf("%d %d\n", wzrd_canvas_get()->mouse_pos.x, wzrd_canvas_get()->mouse_pos.y);
-
-	return user_panel;
-}
 
 void editor_debug_panel(WzWidget parent, wzrd_str str)
 {
+#if 0
 	static int scroll;
 
 	WzWidget main_panel = wz_widget(parent);
@@ -145,19 +93,20 @@ void editor_debug_panel(WzWidget parent, wzrd_str str)
 	wz_widget_set_tight_constraints(main_panel, 295, 500);
 	wz_widget_set_pos(main_panel, (int)g_platform.window_width - 300, 10);
 
-	WzWidget panel = wzrd_scroll_panel((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
+	WzWidget panel = wz_scroll_box((wzrd_v2) { 0 }, & scroll, main_panel, "debug_panel");
 
 	//static float scrollbar_x, scrollbar_y;
 	//wzrd_box_get_last()->clip = true;
 	//wzrd_box_get_last()->scrollbar_x = &scrollbar_x;
 	//wzrd_box_get_last()->scrollbar_y = &scrollbar_y;
 	wz_label(str, panel);
-	WzWidget some_panel = wz_vbox(panel);
+	WzWidget some_panel = editor_vpanel(panel);
 	wz_widget_set_constraint_w(some_panel, 20);
 	wz_widget_set_constraint_w(some_panel, 2000);
 	wz_widget_get(some_panel)->color = WZ_RED;
+#endif
 }
-
+#
 void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icons icons, wzrd_str* debug_str) {
 	(void)icons;
 	static bool finish;
@@ -179,14 +128,21 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	
 	
 #if 1
+
+#if 0
 	WzWidget window = wz_vbox(window0);
 	wz_widget_set_constraint_size(window, g_platform.window_width, g_platform.window_height);
 	wz_widget_set_color_old(window, WZ_RED);
-	wz_widget_set_pad_left(window, 10);
-	wz_widget_set_pad_right(window, 10);
-	wz_widget_set_pad_top(window, 10);
-	wz_widget_set_pad_bottom(window, 10);
+	//wz_widget_set_pad(window, 10);
 	wz_widget_set_child_gap(window, 10);
+	wz_widget_set_border(window, BorderType_Default);
+#else
+	WzWidget window = editor_vpanel(window0);
+	wz_widget_set_constraint_size(window, g_platform.window_width, g_platform.window_height);
+	wz_widget_set_color(window, 0xFFFF00FF);
+	wz_widget_clip(window);
+	wz_widget_set_cross_axis_alignment(window, CROSS_AXIS_ALIGNMENT_STRETCH);
+#endif
 
 #if 0
 	WzWidget l_a = wz_label(wzrd_str_create("Label2"), window);
@@ -204,38 +160,31 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 	{
 #if 1
 
-		WzWidget files_panel = wz_hbox(window);
-		wz_widget_set_constraint_h(files_panel, 30);
-		wz_widget_set_border(files_panel, BorderType_None);
+		WzWidget files_panel = editor_hpanel(window);
 		wz_widget_set_color_old(files_panel, WZ_BLUE);
-		wz_widget_set_child_gap(files_panel, 10);
-		wz_widget_set_pad_top(files_panel, 5);
-		wz_widget_set_pad_bottom(files_panel, 5);
-		wz_center_horizontal(files_panel);
-		wz_center_vertical(files_panel);
 
 		bool b1 = false, b2 = false;
-		wzrd_label_button(wzrd_str_create("View"), &b1, files_panel);
-		wzrd_label_button(wzrd_str_create("Help"), &b2, files_panel);
+		wz_label_button(wzrd_str_create("View"), &b1, files_panel);
+		wz_label_button(wzrd_str_create("Help"), &b2, files_panel);
 
 		editor_seperator_horizontal(window);
 		{
-			WzWidget panel = wz_hbox(window);
-			wz_widget_set_constraint_h(panel, 40);
-			wz_widget_set_child_gap(panel, 15);
+			WzWidget panel = editor_hpanel(window);
+			//wz_widget_set_max_constraint_h(panel, 40);
 			wz_widget_set_pad(panel, 10);
-			wz_widget_set_color(panel, 0x00ff00ff);
+			wz_widget_set_child_gap(panel, 15);
+			wz_widget_set_color(panel, 0xffff00ff);
 			wz_widget_clip(panel);
 
 			bool b = false;
-			WzWidget button = wzrd_command_button(wzrd_str_create("Add Object"), &b, panel);
+			WzWidget button = wz_command_button(wzrd_str_create("Add Object"), &b, panel);
 
 			if (b)
 			{
 				g_editor.create_object_dialog_active = true;
 			}
 
-			wzrd_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
+			wz_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
 			//wzrd_command_toggle(wzrd_str_create("Add Polygon"), &g_game.polygon_adding_active, panel);
 
 			//editor_seperator_vertical(panel);
@@ -277,23 +226,23 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 			//editor_seperator_vertical(panel);
 		}
 
-		WzWidget bottom_panel = wz_hbox(window);
+		WzWidget bottom_panel = editor_hpanel(window);
 		wz_widget_set_expanded(bottom_panel);
 		wz_widget_clip(bottom_panel);
+		wz_widget_set_cross_axis_alignment(bottom_panel, CROSS_AXIS_ALIGNMENT_STRETCH);
 
 #if 1
-
 		//editor_left_panel(bottom_panel);
 		{
-			WzWidget outer_panel = wz_vbox(bottom_panel);
+			WzWidget outer_panel = editor_vpanel(bottom_panel);
 			wz_widget_set_expanded(outer_panel);
-			wz_widget_set_constraint_w(outer_panel, 200);
+			wz_widget_set_max_constraint_w(outer_panel, 200);
 
 			//wzrd_str texts[] = { wzrd_str_create("Entities"), wzrd_str_create("Textures"), wzrd_str_create("Actions") };
 			//static bool active;
 			//wzrd_dropdown(&selected_category, texts, 3, 100, &active);
 
-			WzWidget inner_panel = wz_vbox(outer_panel);
+			WzWidget inner_panel = editor_vpanel(outer_panel);
 			wz_widget_set_expanded(inner_panel);
 
 			if (selected_category == 0) {
@@ -327,18 +276,24 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 		}
 #endif
 
+		{
+			static unsigned int scroll;
+			wz_scroll_box((wzrd_v2){100, 100}, &scroll, bottom_panel, "asd");
+		}
+
+
 #if 1
 
 		//editor_right_panel(bottom_panel, *(wzrd_texture*)&target_texture);
 		{
 #if 0
-			WzWidget panel = wz_hbox(bottom_panel);
+			WzWidget panel = editor_hpanel(bottom_panel);
 			wz_widget_set_constraint_h(panel, 100);
 			wz_widget_set_expanded(panel);
 
 			wz_widget_get(panel)->disable_input = true;
 
-			WzWidget target_panel = wz_hbox(panel);
+			WzWidget target_panel = editor_hpanel(panel);
 			wz_widget_set_expanded(target_panel);
 
 			wz_widget_set_tight_constraints(target_panel, 1920 / 6, 1080 / 6);
@@ -355,10 +310,10 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 
 		//editor_debug_panel(window, *debug_str);
 		{
-			/*WzWidget bar = wz_hbox(window);
+			/*WzWidget bar = editor_hpanel(window);
 			wz_widget_set_constraint_h(bar, 40);
 
-			WzWidget b = wz_hbox(bar);
+			WzWidget b = editor_hpanel(bar);
 			wz_widget_set_expanded(b);
 			wz_widget_set_constraint_h(b, 30);*/
 		}
@@ -376,7 +331,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 				//if (*active) {
 				if (1)
 				{
-					WzWidget panel = wz_hbox(dialog);
+					WzWidget panel = editor_hpanel(dialog);
 
 					if (1)
 					{
@@ -387,7 +342,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 							0, &selected, &is_selected, panel);
 
 #if 0
-						WzWidget form = wz_vbox(panel);
+						WzWidget form = editor_vpanel(panel);
 						wz_widget_set_constraint_w(form, 50);
 						wz_widget_set_constraint_h(form, 50);
 						wz_widget_set_main_axis_size_min(form);
@@ -396,10 +351,10 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 					}
 #if 0
 
-					WzWidget bottom_panel = wz_hbox(dialog);
+					WzWidget bottom_panel = editor_hpanel(dialog);
 					wz_widget_set_constraint_h(bottom_panel, 50);
 					{
-						WzWidget buttons_panel = wz_hbox(bottom_panel);
+						WzWidget buttons_panel = editor_hpanel(bottom_panel);
 						{
 							bool b1;
 
@@ -446,7 +401,7 @@ void do_editor(wzrd_canvas* gui, PlatformTargetTexture target_texture, wzrd_icon
 #endif
 #endif
 	}
-	wzrd_end(debug_str);
+	wz_end(debug_str);
 }
 
 char multi_line_text[1024 * 10];
