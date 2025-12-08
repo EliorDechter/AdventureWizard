@@ -32,10 +32,6 @@ typedef struct v2i {
 	int x, y;
 } v2i;
 
-typedef struct v2 {
-	float x, y;
-} v2;
-
 typedef struct PixelPos {
 	v2i pos;
 } PixelPos;
@@ -71,7 +67,7 @@ typedef struct Entity {
 	WzColor color;
 	EntityType type;
 	PixelPos pixel_pos;
-	v2 size;
+	v2i size;
 	int rendering_order;
 	Entity_handle handle;
 } Entity;
@@ -122,7 +118,7 @@ typedef struct Game {
 
 	PlatformTargetTexture target_texture;
 
-	v2 mouse_pos, mouse_delta;
+	v2i mouse_pos, mouse_delta;
 
 	Entity_handle hot_entity, active_entity;
 
@@ -147,8 +143,8 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, int scale,  wzrd_str* debug_str);
-void game_run(v2 window_size, bool enable, unsigned int scale);
+void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, wzrd_str* debug_str);
+void game_run(v2i window_size, bool enable, unsigned int scale);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);
 Entity* game_entity_get(Entity_handle handle);

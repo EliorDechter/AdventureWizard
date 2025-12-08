@@ -11,8 +11,8 @@
 #include <stdint.h>
 
 #if 1
-#define GAME_WIDTH 1920 / 6
-#define GAME_HEIGHT 1080 / 6
+#define GAME_WIDTH 1920 / 2
+#define GAME_HEIGHT 1080 / 2
 #else
 #define GAME_WIDTH 1920 / 1
 #define GAME_HEIGHT 1080 / 1
@@ -108,9 +108,9 @@ typedef struct KeysPressed {
 typedef struct PlatformSystem {
 	State keyboard[128];
 	State mouse_left, mouse_right;
-	float mouse_delta_x, mouse_delta_y;
-	float mouse_x, mouse_y;
-	float previous_mouse_x, previous_mouse_y;
+	int mouse_delta_x, mouse_delta_y;
+	int mouse_x, mouse_y;
+	int previous_mouse_x, previous_mouse_y;
 	int window_width, window_height;
 	State keyboard_states[128];
 	KeysPressed keys_pressed;

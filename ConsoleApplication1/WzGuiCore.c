@@ -21,7 +21,6 @@ void wzrd_text_add(wzrd_str str, WzWidget box);
 void wzrd_crate_end();
 WzWidgetData* wz_widget_get(WzWidget str);
 void wzrd_drag(bool* drag);
-WzWidgetData* wzrd_box_get_last();
 bool wzrd_box_is_dragged(WzWidgetData* box);
 bool wzrd_box_is_hot_using_canvas(wzrd_canvas* canvas, WzWidgetData* box);
 WzWidgetData* wzrd_box_get_released();
@@ -109,6 +108,15 @@ WzWidgetData* wz_widget_get(WzWidget handle) {
 	return result;
 }
 
+void wz_widget_get_actual_rect(WzWidget widget, int* x, int* y, unsigned* w, unsigned* h)
+{
+	WzWidgetData *data = wz_widget_get(widget);
+	*x = data->actual_x;
+	*y = data->actual_y;
+	*w = data->actual_w;
+	*h = data->actual_h;
+}
+
 void wz_widget_set_tight_constraints(WzWidget handle, unsigned int w, unsigned int h)
 {
 	WzWidgetData* b = wz_widget_get(handle);
@@ -122,21 +130,6 @@ WzWidget wzrd_handle_create()
 	WzWidget handle = { canvas->widgets_count };
 
 	return handle;
-}
-
-unsigned int wzrd_hash(wzrd_str str)
-{
-	unsigned int hash = 0;
-	for (size_t i = 0; i < str.len; ++i)
-	{
-		hash = 65599 * hash + str.str[i];
-	}
-
-	hash = hash ^ (hash >> 16);
-
-	hash += MAX_NUM_BOXES;
-
-	return hash;
 }
 
 bool wzrd_is_rect_inside_rect(WzRect a, WzRect b) {
@@ -169,13 +162,13 @@ void wz_widget_set_min_constraint_w(WzWidget w, int width)
 	b->constraint_min_w = width;
 }
 
-void wz_widget_set_x(WzWidget w, unsigned int x)
+void wz_widget_set_x(WzWidget w, int x)
 {
 	WzWidgetData* widget = wz_widget_get(w);
 	widget->x = x;
 }
 
-void wz_widget_set_y(WzWidget w, unsigned int y)
+void wz_widget_set_y(WzWidget w, int y)
 {
 	WzWidgetData* widget = wz_widget_get(w);
 	widget->y = y;
@@ -210,20 +203,6 @@ void wz_widget_set_pos(WzWidget handle, int x, int y)
 void wz_widget_set_color_old(WzWidget widget, WzColor color)
 {
 	wz_widget_get(widget)->color = color;
-}
-
-
-int wzrd_v2_is_inside_rect(wzrd_v2 v, WzRect rect) {
-	bool result = false;
-	if (v.x >= rect.x &&
-		v.y >= rect.y &&
-		v.x <= rect.x + rect.w &&
-		v.y <= rect.y + rect.h) {
-
-		result = true;
-	}
-
-	return result;
 }
 
 Crate* EguiGetCurrentWindow() {
@@ -288,15 +267,9 @@ int wzrd_box_get_current_index() {
 	return result;
 }
 
-WzWidgetData* wzrd_box_get_last() {
-	WzWidgetData* result = canvas->widgets + (canvas->widgets_count - 1);
-
-	return result;
-}
-
 void wzrd_text_add(wzrd_str str, WzWidget parent)
 {
-	wzrd_item_add((Item) { .type = wzrd_item_type_str, .val = { .str = str }, .color = EGUI_BLACK }, parent);
+	wzrd_item_add((Item) { .type = wzrd_item_type_str, .val = { .str = str }, .color = WZ_BLACK }, parent);
 }
 
 void goo(WzWidgetData* box, void* data)
@@ -488,17 +461,6 @@ int wzrd_float_compare(float a, float b)
 	return 0;
 }
 
-void wzrd_box_add_free_child(WzWidget parent, WzWidget child)
-{
-	WzWidgetData* p = wz_widget_get(parent);
-	WzWidgetData* c = wz_widget_get(child);
-	wz_assert(p->free_children_count < MAX_NUM_CHILDREN - 1);
-	p->free_children[p->free_children_count++] = c->index;
-
-	c->layer = p->layer;
-	c->clip_widget = p->clip_widget;
-}
-
 void wzrd_box_add_child(WzWidget parent, WzWidget child)
 {
 	WzWidgetData* p = wz_widget_get(parent);
@@ -543,7 +505,7 @@ WzWidgetData* wz_widget_create()
 	box.free_children_count = 0;
 	box.items_count = 0;
 	box.color = WZ_WHITE;
-	box.font_color = EGUI_BLACK;
+	box.font_color = WZ_BLACK;
 	box.percentage_h = 0;
 	box.percentage_w = 0;
 	box.cross_axis_alignment = 0;
@@ -567,7 +529,8 @@ WzWidgetData* wz_widget_create()
 	box.constraint_min_w = box.constraint_min_h = 0;
 	box.constraint_max_w = box.constraint_max_h = UINT_MAX;
 	box.x = box.y = 0;
-	box.free_from_parent_horizontally = box.free_from_parent_vertically = 0;
+	box.free_from_parent = 0;
+	box.cull = false;
 
 	box.handle = wzrd_handle_create();
 
@@ -583,15 +546,11 @@ WzWidgetData* wz_widget_create()
 	return &canvas->widgets[canvas->widgets_count - 1];
 }
 
-void wz_widget_set_free_from_parent_horizontally(WzWidget w)
+void wz_widget_set_free_from_parent(WzWidget w)
 {
-	wz_widget_get(w)->free_from_parent_horizontally = true;
+	wz_widget_get(w)->free_from_parent = true;
 }
 
-void wz_widget_set_free_from_parent_vertically(WzWidget w)
-{
-	wz_widget_get(w)->free_from_parent_horizontally = true;
-}
 
 WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
 {
@@ -702,6 +661,23 @@ void wzrd_crate(int window_id, WzWidgetData box) {
 
 #define MAX_NUM_SCROLLBARS 32
 
+wzrd_canvas wz_init()
+{
+	wzrd_canvas canvas;
+	// TODO: FREE
+	canvas.scrollbars = malloc(sizeof(*canvas.scrollbars) * MAX_NUM_SCROLLBARS);
+	canvas.widgets = malloc(sizeof(*canvas.widgets) * MAX_NUM_WIDGETS);
+	canvas.rects = malloc(sizeof(*canvas.rects) *  MAX_NUM_WIDGETS);
+	canvas.boxes_indices = malloc(sizeof(*canvas.boxes_indices) * MAX_NUM_BOXES);
+	canvas.hovered_items_list = malloc(sizeof(*canvas.hovered_items_list) * MAX_NUM_HOVERED_ITEMS);
+	canvas.hovered_items_list = malloc(sizeof(*canvas.hovered_boxes) * MAX_NUM_HOVERED_ITEMS);
+
+	canvas.cached_boxes = malloc(sizeof(*canvas.cached_boxes) * MAX_NUM_HOVERED_ITEMS);
+
+
+	return canvas;
+}
+
 WzWidget wz_begin(wzrd_canvas* gui,
 	WzRect window,
 	void (*get_string_size)(char*, int*, int*),
@@ -722,16 +698,13 @@ WzWidget wz_begin(wzrd_canvas* gui,
 	gui->enable_input = enable_input;
 	canvas->styles_count = 0;
 
-	canvas->scrollbars = malloc(sizeof(*canvas->scrollbars) * MAX_NUM_SCROLLBARS);
-
 	WZRD_UNUSED(gui);
 
 	canvas->widgets_count = 0;
 	canvas->input_box_timer += 16.7f;
 
-	canvas->clip_boxes_count = 1;
-
 	// Empty box
+
 	canvas->widgets[canvas->widgets_count++] = (WzWidgetData){ 0 };
 
 	// Window
@@ -747,12 +720,11 @@ WzWidget wz_begin(wzrd_canvas* gui,
 	return window_widget;
 }
 
-void EguiRectDraw(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color,
+void wz_draw_rect(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color,
 	int z, unsigned int widget_line_number, const char* file)
 {
 	wz_assert(rect.w > 0);
 	wz_assert(rect.h > 0);
-	wz_assert(color.a);
 
 	WzDrawCommand command = (WzDrawCommand){
 		.type = DrawCommandType_Rect,
@@ -772,23 +744,6 @@ void EguiRectDraw(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color,
 	wz_assert(buffer->count < MAX_NUM_DRAW_COMMANDS - 1);
 	buffer->commands[buffer->count++] = command;
 }
-
-WzWidgetData* wzrd_box_find(wzrd_canvas* c, wzrd_str name)
-{
-	// TODO: optimize	
-	unsigned int hash = wzrd_hash(name);
-
-	for (int i = 0; i < c->widgets_count; ++i)
-	{
-		if (hash == c->widgets[i].handle.handle)
-		{
-			return c->widgets + i;
-		}
-	}
-
-	return &c->widgets[0];
-}
-
 
 WzWidgetData* wzrd_box_get_previous() {
 	WzWidgetData* result = &canvas->widgets[canvas->widgets_count - 1];
@@ -868,19 +823,19 @@ void wzrd_handle_border_resize()
 
 			if (wz_widget_is_equal(canvas->active_item, child->handle)) {
 				if (is_inside_bottom_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = EGUI_PURPLE;
 					canvas->bottom_resized_item = child->handle;
 				}
 				else if (is_inside_top_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = EGUI_PURPLE;
 					canvas->top_resized_item = child->handle;
 				}
 				else if (is_inside_left_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = EGUI_PURPLE;
 					canvas->left_resized_item = child->handle;
 				}
 				else if (is_inside_right_border) {
-					child->color = EGUI_PURPLE;
+					//child->color = EGUI_PURPLE;
 					canvas->right_resized_item = child->handle;
 				}
 			}
@@ -939,6 +894,13 @@ bool wzrd_handle_is_interacting(WzWidget handle) {
 
 void wzrd_handle_input(int* indices, int count)
 {
+
+	// For Debugging
+	{
+		/*canvas->mouse_pos.x = 312;
+		canvas->mouse_pos.y = 204;*/
+	}
+
 	WzWidgetData* hovered_box = canvas->widgets;
 	unsigned int max_layer = 0;
 	canvas->hovered_items_list_count = 0;
@@ -976,14 +938,42 @@ void wzrd_handle_input(int* indices, int count)
 		}
 #endif
 
-		bool is_hover = wzrd_v2_is_inside_rect((wzrd_v2) { canvas->mouse_pos.x, canvas->mouse_pos.y },
-			scaled_rect);
+		bool is_hover = false;
+		{
+			// Clamp rect size to some arbitrary number in case it's uint_max
+			int w, h;
+			if (scaled_rect.w < 8000)
+			{
+				w = scaled_rect.w;
+			}
+			else
+			{
+				w = 8000;
+			}
+
+			if (scaled_rect.h < 8000)
+			{
+				h = scaled_rect.h;
+			}
+			else
+			{
+				h = 8000;
+			}
+
+			if (canvas->mouse_pos.x >= scaled_rect.x &&
+				canvas->mouse_pos.x <= scaled_rect.x + w &&
+				canvas->mouse_pos.y >= scaled_rect.y &&
+				canvas->mouse_pos.y <= scaled_rect.y + h)
+			{
+				is_hover = true;
+			}
+		}
 
 		if (is_hover && !box->disable_hover)
 		{
 			assert(canvas->hovered_items_list_count < MAX_NUM_HOVERED_ITEMS);
 			canvas->hovered_items_list[canvas->hovered_items_list_count++] = box->handle;
-			canvas->hovered_boxes[canvas->hovered_boxes_count++] = *box;
+			//canvas->hovered_boxes[canvas->hovered_boxes_count++] = *box;
 
 			if (box->layer >= max_layer)
 			{
@@ -1032,9 +1022,6 @@ void wzrd_handle_input(int* indices, int count)
 	WzWidgetData* hot_box = wz_widget_get(canvas->hovered_item);
 	WzWidgetData* active_box = wz_widget_get(canvas->active_item);
 
-	hot_box->color = EGUI_DARKGREEN;
-
-
 	if (wz_handle_is_valid(active_box->handle)) {
 
 		if (canvas->mouse_left == WZRD_DEACTIVATING) {
@@ -1047,7 +1034,6 @@ void wzrd_handle_input(int* indices, int count)
 				}
 
 				canvas->deactivating_item = canvas->active_item;
-				wz_widget_get(canvas->deactivating_item)->color = WZ_GREEN;
 				canvas->active_item = (WzWidget){ 0 };
 			}
 		}
@@ -1103,7 +1089,7 @@ void wzrd_handle_input(int* indices, int count)
 	}
 }
 
-bool wzrd_widget_is_activating(WzWidget handle) {
+bool wz_widget_is_activating(WzWidget handle) {
 	if (wz_widget_is_equal(handle, canvas->activating_item)) {
 		return true;
 	}
@@ -1153,7 +1139,24 @@ void wz_widget_set_layout(WzWidget handle, unsigned int layout)
 	d->main_axis_size_type = MAIN_AXIS_SIZE_TYPE_MAX;
 }
 
-void wz_widget_set_constraint_size(WzWidget widget, unsigned int w, unsigned int h)
+void wz_draw_string(const char* string, WzRect rect)
+{
+	int w, h;
+	canvas->get_string_size(string, &w, &h);
+
+	WzDrawCommand command = (WzDrawCommand){
+		.type = DrawCommandType_String,
+			.str = string,
+			.dest_rect = rect,
+			.color = WZ_BLACK,
+			.z = 3
+	};
+
+	wz_assert(canvas->commands_buffer.count < MAX_NUM_DRAW_COMMANDS - 1);
+	canvas->commands_buffer.commands[canvas->commands_buffer.count++] = command;
+}
+
+void wz_widget_set_max_constraints(WzWidget widget, unsigned int w, unsigned int h)
 {
 	WzWidgetData* d = wz_widget_get(widget);
 	d->constraint_max_w = w;
@@ -1174,7 +1177,7 @@ void wz_draw(int* boxes_indices)
 {
 	WzWidgetData widget;
 	WzDrawCommand command;
-	WzDrawCommandBuffer* buffer = &canvas->command_buffer;
+	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 	buffer->count = 0;
 	unsigned int line_size;
 	WzWidget current_clip_widget;
@@ -1187,6 +1190,10 @@ void wz_draw(int* boxes_indices)
 	{
 		widget = canvas->widgets[boxes_indices[i]];
 
+		if (widget.cull)
+		{
+			//continue;
+		}
 #if 1
 
 		if (widget.actual_w <= 2 || widget.actual_h <= 2)
@@ -1195,7 +1202,7 @@ void wz_draw(int* boxes_indices)
 		}
 
 		// Draw Widget
-		EguiRectDraw(buffer, (WzRect) {
+		wz_draw_rect(buffer, (WzRect) {
 			.x = widget.actual_x,
 				.y = widget.actual_y,
 				.w = widget.actual_w,
@@ -1238,63 +1245,63 @@ void wz_draw(int* boxes_indices)
 
 			if (widget.border_type == WZ_BORDER_TYPE_DEFAULT) {
 				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, top1, EGUI_LIGHTGRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left1, EGUI_LIGHTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top1, EGUI_LIGHTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left1, EGUI_LIGHTGRAY, widget.layer, widget.line, widget.file);
 
 				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, bottom1, EGUI_GRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right1, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom1, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right1, EGUI_GRAY, widget.layer, widget.line, widget.file);
 			}
 			else if (widget.border_type == WZ_BORDER_TYPE_CLICKED) {
 				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, top1, EGUI_GRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left1, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top1, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left1, EGUI_GRAY, widget.layer, widget.line, widget.file);
 
 				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
 			}
 			else if (widget.border_type == BorderType_InputBox) {
 				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_GRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left0, EGUI_GRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, top1, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left1, EGUI_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top0, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left0, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top1, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left1, WZ_BLACK, widget.layer, widget.line, widget.file);
 
 				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, bottom1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right1, EGUI_LIGHTESTGRAY, widget.layer, widget.line, widget.file);
 			}
 			else if (widget.border_type == BorderType_Black) {
 				// Draw top and left lines
-				EguiRectDraw(buffer, top0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, top1, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left1, EGUI_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, top1, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left1, WZ_BLACK, widget.layer, widget.line, widget.file);
 
 				// Draw bottom and right lines
-				EguiRectDraw(buffer, bottom0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right0, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, bottom1, EGUI_BLACK, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, right1, EGUI_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right0, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom1, WZ_BLACK, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, right1, WZ_BLACK, widget.layer, widget.line, widget.file);
 			}
 			else if (widget.border_type == BorderType_BottomLine) {
-				EguiRectDraw(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, bottom1, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom0, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, bottom1, EGUI_GRAY, widget.layer, widget.line, widget.file);
 			}
 			else if (widget.border_type == BorderType_LeftLine) {
-				EguiRectDraw(buffer, left0, EGUI_GRAY, widget.layer, widget.line, widget.file);
-				EguiRectDraw(buffer, left1, EGUI_WHITE2, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left0, EGUI_GRAY, widget.layer, widget.line, widget.file);
+				wz_draw_rect(buffer, left1, EGUI_WHITE2, widget.layer, widget.line, widget.file);
 			}
 		}
 
@@ -1338,7 +1345,7 @@ void wz_draw(int* boxes_indices)
 			if (item.type == ItemType_Texture) {
 				command = (WzDrawCommand){
 					.type = DrawCommandType_Texture,
-					.dest_rect = (WzRect){widget.actual_w, widget.actual_y, widget.actual_w, widget.actual_h},
+					.dest_rect = (WzRect){widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h},
 					.src_rect = (WzRect) {0, 0, (int)item.val.texture.w, (int)item.val.texture.h},
 					.texture = item.val.texture,
 					.z = widget.layer
@@ -1574,10 +1581,9 @@ void wzrd_widget_tag(WzWidget parent, const char* str)
 	wz_widget_get(parent)->tag = str;
 }
 
-WzWidgetData wz_widget_get_parent(WzWidget parent)
+WzWidgetData* wz_widget_get_parent(WzWidget widget)
 {
-	//return wz_widget_get(wz_widget_get(widget)->parent);
-	return (WzWidgetData) { 0 };
+	return wz_widget_get(wz_widget_get(widget)->parent);
 }
 
 void wz_widget_resize(WzWidget handle, int* w_offset, int* h_offset)
@@ -1733,7 +1739,6 @@ void wz_end(wzrd_str* debug_str)
 	unsigned int widgets_stack[MAX_NUM_BOXES];
 	unsigned int widgets_visits[MAX_NUM_BOXES];
 	unsigned int widgets_children[MAX_NUM_BOXES];
-	WzRect rects[MAX_NUM_BOXES];
 	unsigned int widgets_children_count = 0;
 	WzWidgetDescriptor descriptors[MAX_NUM_BOXES];
 
@@ -1758,8 +1763,7 @@ void wz_end(wzrd_str* debug_str)
 		descriptors[i].pad_left = canvas->widgets[i].pad_left;
 		descriptors[i].pad_right = canvas->widgets[i].pad_right;
 		descriptors[i].flex_factor = canvas->widgets[i].flex_factor;
-		descriptors[i].free_from_parent_horizontally = canvas->widgets[i].free_from_parent_horizontally;
-		descriptors[i].free_from_parent_vertically = canvas->widgets[i].free_from_parent_vertically;
+		descriptors[i].free_from_parent = canvas->widgets[i].free_from_parent;
 		descriptors[i].flex_fit = canvas->widgets[i].flex_fit;
 		descriptors[i].main_axis_size_type = canvas->widgets[i].main_axis_size_type;
 		descriptors[i].layout = canvas->widgets[i].layout;
@@ -1771,14 +1775,17 @@ void wz_end(wzrd_str* debug_str)
 	}
 
 	unsigned int layout_failed = 0;
-	wz_do_layout(1, descriptors, rects, canvas->widgets_count, &layout_failed);
+	wz_do_layout(1, descriptors, canvas->rects, canvas->widgets_count, &layout_failed);
 
 	if (!layout_failed)
 	{
-		for (unsigned int i = 0; i < canvas->widgets_count; ++i)
+		/*for (unsigned int i = 0; i < canvas->widgets_count; ++i)
 		{
-			canvas->rects[i] = rects[i];
-		}
+			canvas->rects[i].x = canvas->rects[i].x;
+			canvas->rects[i].y = canvas->rects[i].y;
+			canvas->rects[i].w = canvas->rects[i].w;
+			canvas->rects[i].h = canvas->rects[i].h;
+		}*/
 	}
 
 	for (unsigned int i = 0; i < canvas->widgets_count; ++i)
@@ -1834,6 +1841,33 @@ void wz_end(wzrd_str* debug_str)
 		wz_widget_add_offset(content_panel->handle, 0, -1 * *scrollbar.scroll);
 	}
 
+	// Cull
+	for (unsigned int i = 1; i < canvas->widgets_count; ++i)
+	{
+		WzWidgetData* widget = &canvas->widgets[i];
+		WzWidgetData* parent = wz_widget_get_parent(canvas->widgets[i].handle);
+		if (parent->actual_h < parent->pad_bottom + parent->pad_top || parent->actual_w < parent->pad_left + parent->pad_right)
+		{
+			widget->cull = true;
+		}
+		if (!widget->actual_w || !widget->actual_h)
+		{
+			widget->cull = true;
+		}
+		if (widget->actual_x > parent->actual_x + parent->actual_w - parent->pad_right - parent->pad_left)
+		{
+			widget->cull = true;
+		}
+		if (widget->actual_y > parent->actual_y + parent->actual_h - parent->pad_bottom - parent->pad_top)
+		{
+			widget->cull = true;
+		}
+		if (parent->cull)
+		{
+			widget->cull = true;
+		}
+	}
+
 	// Cache tagged elements
 	canvas->cached_boxes_count = 0;
 	for (int i = 1; i < canvas->widgets_count; ++i)
@@ -1857,6 +1891,31 @@ void wz_end(wzrd_str* debug_str)
 	wz_handle_input();
 
 	wz_draw(canvas->boxes_indices);
+
+
+	// Debug string
+	{
+		WzWidgetData* widget = wz_widget_get(canvas->hovered_item);
+		char line_str[128];
+		sprintf(line_str, "%d %d %d", widget->index, widget->line, canvas->mouse_pos.x, canvas->mouse_pos.y);
+		int w, h;
+		canvas->get_string_size(line_str, &w, &h);
+
+		WzRect rect = {
+			.x = canvas->mouse_pos.x + 20,
+				.y = canvas->mouse_pos.y + 20,
+				.w = (unsigned int)w,
+				.h = (unsigned int)h,
+		};
+
+		wz_draw_rect(&canvas->commands_buffer, rect,
+			(WzColor) {
+			255, 0, 0, 100
+		},
+			3, 0, 0);
+
+		wz_draw_string(line_str, rect);
+	}
 }
 
 void wzrd_box_set_type(WzWidget handle, wzrd_box_type type)
@@ -1921,7 +1980,7 @@ return h1;
 
 WzWidget wz_command_toggle_raw(wzrd_str str, bool* active, WzWidget parent, const char* file_name, unsigned int line)
 {
-	WzWidget widget = wz_label_raw(str, parent, file_name, line);
+	WzWidget widget = wz_label_raw(parent, str, file_name, line);
 	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
 
 	if (wz_widget_is_deactivating(widget))
@@ -1954,7 +2013,7 @@ WzWidget egui_button_raw_begin_on_half_click(bool* b, WzWidget parent, const cha
 
 WzWidget wzrd_label_button_activating(wzrd_str str, bool* active, WzWidget parent, const char* file, unsigned int line)
 {
-	WzWidget h = wz_label_raw(str, parent, file, line);
+	WzWidget h = wz_label_raw(parent, str, file, line);
 
 	//if (wzrd_handle_is_valid(h))
 	if (wz_widget_is_equal(h, canvas->activating_item)) {
@@ -2011,7 +2070,7 @@ void wzrd_item_add(Item item, WzWidget box) {
 	b->items[b->items_count++] = item;
 }
 
-WzWidget wz_label_raw(wzrd_str str, WzWidget handle, const char* file, unsigned int line) {
+WzWidget wz_label_raw(WzWidget handle, wzrd_str str, const char* file, unsigned int line) {
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
@@ -2021,6 +2080,7 @@ WzWidget wz_label_raw(wzrd_str str, WzWidget handle, const char* file, unsigned 
 	WzWidget parent = wz_widget_raw(handle, file, line);
 
 	wz_widget_set_tight_constraints(parent, w, h);
+	wz_widget_set_color_old(parent, EGUI_LIGHTGRAY);
 
 	wzrd_text_add(str, parent);
 
@@ -2033,7 +2093,6 @@ WzWidget wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzWidget hand
 	WzWidgetData* box = wz_widget_get(parent);
 	wz_widget_set_max_constraint_w(box->handle, 50);
 	wz_widget_set_max_constraint_h(box->handle, 30);
-	box->color = WZ_GREEN;
 
 	//wzrd_box_set_type(p1, wzrd_box_type_input_box);
 
@@ -2108,14 +2167,12 @@ WzWidget wzrd_label_button_raw(wzrd_str str, bool* result, WzWidget handle, cons
 	int w = 0, h = 0;
 	canvas->get_string_size(str.str, &w, &h);
 
-	WzWidget parent = wz_widget_raw(handle, file, line);
+	WzWidget parent = wz_label_raw(handle, str, file, line);
 
 	wz_widget_set_max_constraint_w(parent, w);
 	wz_widget_set_max_constraint_h(parent, h);
 
-	wzrd_text_add(str, parent);
-
-	if (wzrd_box_is_activating(wzrd_box_get_last()))
+	if (wz_widget_is_activating(parent))
 	{
 		*result = true;
 	}
@@ -2128,23 +2185,18 @@ WzWidget wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
 	WzWidget parent, const char* file, unsigned int line) {
 	WZRD_UNUSED(name);
 
-	if (!*active) return (WzWidget) { 0 };
+	//if (!*active) return (WzWidget) { 0 };
+	*active = true;
 
-	WzWidget window = wz_vbox(parent);
-	wz_widget_set_free_from_parent_horizontally(window);
-	wz_widget_set_free_from_parent_vertically(window);
+	WzWidget window = wz_vbox_raw(parent, file, line);
+	wz_widget_set_free_from_parent(window);
 	wz_widget_set_max_constraint_w(window, size.x);
 	wz_widget_set_max_constraint_h(window, size.y);
 	wz_widget_set_layer(window, layer);
 
-	/*WzWidget top_panel = wz_widget_raw(window, file, line);
-	wz_widget_set_constraint_h(top_panel, 28);
-	wz_widget_set_constraint_w(top_panel, 28);*/
-
 	WzWidget bar = wz_widget_raw(window, file, line);
 	wz_widget_set_color_old(bar, (WzColor) { 57, 77, 205, 255 });
 	wz_widget_set_max_constraint_h(bar, 28);
-	//wz_widget_set_constraint_w(bar, 28);
 
 	if (wz_widget_is_equal(bar, canvas->active_item))
 	{
@@ -2152,18 +2204,11 @@ WzWidget wzrd_dialog_begin_raw(wzrd_v2* pos, wzrd_v2 size,
 		pos->y += canvas->mouse_pos.y - canvas->previous_mouse_pos.y;
 	}
 
-	wz_widget_set_x(window, pos->x);
-	wz_widget_set_y(window, pos->y);
+	wz_widget_set_pos(window, pos->x, pos->y);
 
 	return window;
 }
 
-void wzrd_dialog_end(bool active) {
-	if (active)
-	{
-		wzrd_crate_end();
-	}
-}
 
 WzWidget wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_count, int w, bool* active, WzWidget handle, const char* file, unsigned int line)
 {
@@ -2221,7 +2266,6 @@ WzWidget wzrd_dropdown_raw(int* selected_text, const wzrd_str* texts, int texts_
 
 void wz_widget_set_color(WzWidget widget, unsigned int color)
 {
-	wz_assert((color & 0x000000ff) != 0);
 	WzColor c = (WzColor){ (color & 0xff000000) >> 24, (color & 0x00ff0000) >> 16, (color & 0x0000ff00) >> 8, (color & 0x000000ff) >> 0 };
 	wz_widget_set_color_old(widget, c);
 }
@@ -2254,8 +2298,6 @@ void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count,
 
 	for (unsigned int i = 0; i < count; ++i)
 	{
-		char str[32];
-		sprintf_s(str, 32, "%d label list %d", wzrd_box_get_last()->handle.handle, i);
 
 		bool is_label_clicked = false;
 		WzWidget wdg = wzrd_label_button_activating(item_names[i], &is_label_clicked, panel, file, line);
@@ -2289,8 +2331,9 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 
 	WzWidget handles[MAX_NUM_LABELS] = { 0 };
 
-	wzrd_label_list_raw(item_names, count, width, height, color, handles, selected, is_selected, parent, file_name, line);
-
+	wzrd_label_list_raw(item_names, count, width, height,
+		color, handles, selected, is_selected, parent, file_name, line);
+	
 	// Ordering
 	{
 		assert(items);
@@ -2344,7 +2387,6 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 			// Label grabbed and hovering over another one
 			if (wz_handle_is_valid(active_label) && wz_handle_is_valid(hovered_label) && !wz_widget_is_equal(hovered_label, active_label))
 			{
-
 				WzWidgetData* p = wz_widget_get(hovered_label);
 				WzWidgetData* c = 0;
 				if (is_bottom)
@@ -2353,7 +2395,8 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 					wz_widget_add_source(c->handle, __FILE__, __LINE__);
 					wz_widget_set_y(c->handle, hovered_parent->actual_h - 2);
 					wz_widget_set_max_constraint_h(c->handle, 2);
-					wzrd_box_add_free_child(p->handle, c->handle);
+					wzrd_box_add_child(p->handle, c->handle);
+					wz_widget_set_free_from_parent(c->handle);
 				}
 				else
 				{
@@ -2401,12 +2444,12 @@ WzWidget wzrd_handle_button_raw(bool* active, WzRect rect,
 	WzColor color, wzrd_str name, WzWidget handle, const char* file_name, unsigned int line) {
 
 	WzWidget parent = wz_widget(handle);
-	wz_widget_set_free_from_parent_horizontally(parent);
-	wz_widget_set_free_from_parent_vertically(parent);
+	wz_widget_set_free_from_parent(parent);
 	wz_widget_add_source(parent, file_name, line);
 	wz_widget_set_pos(parent, rect.x, rect.y);
 	wz_widget_set_tight_constraints(parent, rect.w, rect.h);
 	wzrd_box_set_type(parent, wzrd_box_type_button);
+	wz_widget_set_color_old(parent, color);
 	*active = wzrd_box_is_active(wz_widget_get(parent));
 
 	return parent;
@@ -2504,12 +2547,12 @@ bool wzrd_v2_is_inside_polygon(wzrd_v2 point, wzrd_polygon polygon) {
 
 WzWidget wz_command_button_raw(wzrd_str str, bool* released, WzWidget parent, const char* file_name, unsigned int line)
 {
-	WzWidget button = wz_label_raw(str, parent, file_name, line);
+	WzWidget button = wz_label_raw(parent, str, file_name, line);
 	wz_widget_set_border(button, WZ_BORDER_TYPE_DEFAULT);
 
 	*released = wz_widget_is_deactivating(button);
 
-	if (wz_widget_is_active(button) || wzrd_widget_is_activating(button))
+	if (wz_widget_is_active(button) || wz_widget_is_activating(button))
 	{
 		wz_widget_set_border(button, WZ_BORDER_TYPE_CLICKED);
 	}

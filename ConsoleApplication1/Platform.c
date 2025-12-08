@@ -8,6 +8,11 @@
 
 PlatformSystem g_platform;
 
+
+// TODO: make it not global!
+wzrd_canvas editor_gui, game_gui;
+
+
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
 	//int w = 11, h = 22;
@@ -145,7 +150,7 @@ SDL_Texture* g_texture;
 
 void platform_draw_wzrd(wzrd_canvas *canvas) {
 
-	WzDrawCommandBuffer* buffer = &canvas->command_buffer;
+	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
 		WzDrawCommand command = buffer->commands[i];
@@ -200,6 +205,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
+	game_gui = wz_init();
+	editor_gui = wz_init();
+
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
 	/* Create the window */
@@ -244,6 +252,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	g_sdl.cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
 	g_sdl.cursor_horizontal_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
 	g_sdl.cursor_vertical_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+
 
 #endif
 	return SDL_APP_CONTINUE;
@@ -389,7 +398,6 @@ void platform_end()
 		SDL_Delay((int)(spf * 1000.0f - g_platform.last_frame_time_in_seconds * 1000.0f));
 		//SDL_Delay(2000);
 	}
-
 }
 
 void platform_begin()
@@ -397,7 +405,11 @@ void platform_begin()
 
 	g_platform.time = SDL_GetTicks() / 1000.0f;
 
-	SDL_GetMouseState(&g_platform.mouse_x, &g_platform.mouse_y);
+	float sdl_mouse_x, sdl_mouse_y;
+	SDL_GetMouseState(&sdl_mouse_x, &sdl_mouse_y);
+
+	g_platform.mouse_x = (int)sdl_mouse_x;
+	g_platform.mouse_y = (int)sdl_mouse_y;
 
 	g_platform.mouse_delta_x = g_platform.mouse_x - g_platform.previous_mouse_x;
 	g_platform.mouse_delta_y = g_platform.mouse_y - g_platform.previous_mouse_y;
@@ -440,9 +452,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	platform_begin();
 	{
 
-		static wzrd_canvas editor_gui, game_gui;
 		static WzRect game_screen_rect;
-
+		WzWidget target_panel;
 		// Editor
 		const bool enable_editor = true;
 
@@ -452,7 +463,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		if (enable_editor) {
 			wzrd_icons icons = game_icons_get();
 			unsigned int time_a = SDL_GetTicksNS();
-			do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str);
+			do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
 			unsigned int time_b = SDL_GetTicksNS();
 
 			platform_draw_wzrd(&editor_gui);
@@ -474,10 +485,11 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		}
 
 		// Game ui and stuff
-		WzWidgetData* box = wzrd_box_find(&editor_gui, wzrd_str_create("Target"));
-		game_screen_rect = (WzRect){ box->actual_w, box->actual_y, box->actual_w, box->actual_h };
+		WzWidgetData* target_panel_data = wz_widget_get(target_panel);
+		game_screen_rect = (WzRect){ target_panel_data->actual_x, target_panel_data->actual_y,
+			target_panel_data->actual_w, target_panel_data->actual_h };
 		bool enable_game_input = false;
-		if (wzrd_box_is_hot_using_canvas(&editor_gui, box))
+		if (wzrd_box_is_hot_using_canvas(&editor_gui, target_panel_data))
 		{
 			enable_game_input = true;
 		}
@@ -489,10 +501,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				SDL_RenderClear(g_sdl.renderer);
 			}
 			PlatformTextureEndTarget();
-
+			
 			float mouse_x = g_platform.mouse_x - game_screen_rect.x;
 			float mouse_y = g_platform.mouse_y - game_screen_rect.y;
-			g_game.mouse_delta = (v2){ mouse_x - g_game.mouse_pos.x, mouse_y - g_game.mouse_pos.y };
+			g_game.mouse_delta = (v2i){ mouse_x - g_game.mouse_pos.x, mouse_y - g_game.mouse_pos.y };
 			g_game.mouse_pos.x = mouse_x;
 			g_game.mouse_pos.y = mouse_y;
 
@@ -505,8 +517,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			// Inside game editing gui
 			if (!g_game.run)
 			{
-				unsigned int scale = (unsigned int)(game_screen_rect.w / game_target_texture_get().w);
-				game_gui_do(&game_gui, (WzRect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h}, enable_game_input, scale, &debug_str);
+				unsigned int game_texture_width = game_target_texture_get().w;
+				unsigned int game_texture_height = game_target_texture_get().h;
+				unsigned int scale_w = (unsigned int)(game_screen_rect.w / game_texture_width);
+				unsigned int scale_h = (unsigned int)(game_screen_rect.h / game_texture_height);
+				game_gui_do(&game_gui, 
+					(WzRect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h},
+					enable_game_input, scale_w, scale_h, &debug_str);
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui);
 				PlatformTextureEndTarget();

@@ -20,7 +20,7 @@
 
 #define WZ_UINT_MAX 4294967295
 
-#define WZ_LOG_MESSAGE_MAX_SIZE 128
+#define WZ_LOG_MESSAGE_MAX_SIZE 256
 
 //typedef enum {
 //	WzAlignVCenter = 1 << 0,
@@ -52,6 +52,8 @@ enum
 
 typedef struct WzWidgetDescriptor
 {
+	const char* file;
+	unsigned int line;
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_w, constraint_max_h;
 	unsigned int layout;
 	unsigned int pad_left, pad_right, pad_top, pad_bottom;
@@ -59,9 +61,7 @@ typedef struct WzWidgetDescriptor
 	unsigned int* children;
 	unsigned int children_count;
 	unsigned int flex_factor;
-	const char *file;
-	unsigned int line;
-	unsigned char free_from_parent_horizontally, free_from_parent_vertically;
+	unsigned char free_from_parent;
 	unsigned char flex_fit;
 	unsigned char main_axis_size_type;
 	unsigned int alignment;

@@ -83,7 +83,7 @@ typedef struct WzColor {
 
 #define WZ_WHITE     (WzColor){ 255, 255, 255, 255 }   // White
 #define EGUI_WHITE2     (WzColor){ 230, 230, 230, 255 }   // White2
-#define EGUI_BLACK     (WzColor){ 0, 0, 0, 255 }         // Black
+#define WZ_BLACK     (WzColor){ 0, 0, 0, 255 }         // Black
 #define EGUI_BLANK     (WzColor){ 0, 0, 0, 0 }           // Blank (Transparent)
 #define EGUI_MAGENTA   (WzColor){ 255, 0, 255, 255 }     // Magenta
 #define EGUI_RAYWHITE  (WzColor){ 245, 245, 245, 255 }   // My own White (raylib logo)
@@ -298,8 +298,8 @@ typedef struct {
 
 	unsigned int x, y;
 
-	bool free_from_parent_horizontally, free_from_parent_vertically;
-
+	bool free_from_parent;
+	bool cull;
 } WzWidgetData;
 
 typedef struct CachedBox
@@ -340,15 +340,17 @@ typedef struct WzScrollbar
 	unsigned int *scroll;
 } WzScrollbar;
 
+#define MAX_NUM_CACHED_BOXES 128
+
 typedef struct wzrd_canvas {
 
 	// Persistent
 	WzWidget hovered_item, hot_item_previous, active_item, clicked_item, activating_item, deactivating_item, dragged_item;
 	WzWidget right_resized_item, left_resized_item, bottom_resized_item, top_resized_item;
 	WzWidget active_input_box;
-	WzWidget hovered_items_list[MAX_NUM_HOVERED_ITEMS];
+	WzWidget *hovered_items_list;
 	int hovered_items_list_count;
-	WzWidgetData hovered_boxes[MAX_NUM_HOVERED_ITEMS];
+	WzWidgetData *hovered_boxes;
 	int hovered_boxes_count;
 
 	WzRect window;
@@ -363,7 +365,7 @@ typedef struct wzrd_canvas {
 	wzrd_state mouse_left, mouse_right;
 
 	// Frame ?
-	WzWidgetData widgets[MAX_NUM_BOXES];
+	WzWidgetData *widgets;
 	int widgets_count;
 
 	int boxes_in_stack_count, total_num_windows;
@@ -375,30 +377,19 @@ typedef struct wzrd_canvas {
 
 	int styles_count;
 	wzrd_cursor cursor;
-	WzDrawCommandBuffer command_buffer;
+	WzDrawCommandBuffer commands_buffer;
 
-	//wzrd_skin panel_skin, panel_border_skin, panel_border_click_skin, command_button_skin, label_item_skin, label_item_selected_skin, label_skin, input_box_skin, command_button_on_skin, list_skin;
-	//wzrd_structure panel_structure, command_button_structure, label_structure, input_box_structure;
-	//wzrd_layout v_panel_layout, h_panel_layout, command_button_layout, input_box_layout, top_label_panel_layout;
-	//wzrd_space command_button_space, toggle_icon_space, input_box_space;
-
-#define MAX_NUM_CACHED_BOXES 128
-	WzWidgetData cached_boxes[MAX_NUM_CACHED_BOXES];
+	WzWidgetData *cached_boxes;
 	int cached_boxes_count;
-
-#define MAX_NUM_CLIP_BOXES 128
-	WzRect clip_boxes[MAX_NUM_CLIP_BOXES];
-	int clip_boxes_count;
 
 	wzrd_stylesheet stylesheet;
 
-	WzRect rects[MAX_NUM_WIDGETS]; // aka Final Layout
+	WzRect *rects; // aka Final Layout
 
 	WzScrollbar* scrollbars;
 	unsigned int scrollbars_count;
 
-	unsigned int boxes_indices[MAX_NUM_BOXES];
-
+	unsigned int *boxes_indices;
 
 } wzrd_canvas;
 
@@ -444,6 +435,7 @@ typedef struct wzrd_polygon {
 } wzrd_polygon;
 
 // CORE
+wzrd_canvas wz_init();
 WzWidget wz_begin(wzrd_canvas* gui, WzRect window,
 	void (*get_string_size)(char*, int*, int*),
 	wzrd_v2 mouse_pos, wzrd_state mouse_left, wzrd_keyboard_keys keys, bool enable_input);
@@ -457,7 +449,7 @@ void wz_widget_set_pad_bottom(WzWidget widget, unsigned int pad);
 void wz_widget_set_pad_top(WzWidget widget, unsigned int pad);
 void wz_widget_set_pad_left(WzWidget widget, unsigned int pad);
 void wz_widget_set_pad_right(WzWidget widget, unsigned int pad);
-void wz_widget_set_constraint_size(WzWidget widget, unsigned int w, unsigned int h);
+void wz_widget_set_max_constraints(WzWidget widget, unsigned int w, unsigned int h);
 void wz_widget_set_main_axis_size_min(WzWidget w);
 void wz_widget_set_layer(WzWidget handle, unsigned int layer);
 void wz_widget_set_fixed_size(WzWidget widget, unsigned int w, unsigned int h);
@@ -489,8 +481,8 @@ WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, cons
 void wz_widget_set_color_old(WzWidget widget, WzColor color);
 void wz_widget_set_max_constraint_w(WzWidget w, int width);
 void wz_widget_set_max_constraint_h(WzWidget h, int height);
-void wz_widget_set_x(WzWidget w, unsigned int width);
-void wz_widget_set_y(WzWidget h, unsigned int height);
+void wz_widget_set_x(WzWidget w, int x);
+void wz_widget_set_y(WzWidget h, int y);
 void wz_widget_set_pos(WzWidget handle, int x, int y);
 bool wz_handle_is_valid(WzWidget handle);
 void wz_widget_set_tight_constraints(WzWidget handle, int w, int h);
@@ -500,7 +492,7 @@ void wz_widget_set_flex_factor(WzWidget widget, unsigned int flex_factor);
 void wz_widget_set_expanded(WzWidget widget);
 void wz_widget_set_flex(WzWidget widget);
 void wz_widget_set_size(WzWidget c, unsigned int w, unsigned int h);
-void wz_widget_set_free_from_parent_horizontally(WzWidget w);
+void wz_widget_set_free_from_parent(WzWidget w);
 void wz_widget_set_free_from_parent_vertically(WzWidget w);
 void wz_widget_set_color(WzWidget widget, unsigned int color);
 void wz_widget_set_cross_axis_alignment(WzWidget widget, unsigned int cross_axis_alignment);
@@ -518,7 +510,7 @@ void wzrd_label_list_sorted_raw(wzrd_str* item_names, unsigned int count, int* i
 void wzrd_label_list_raw(wzrd_str* item_names, unsigned int count, unsigned int width, unsigned int height, unsigned int color, WzWidget* handles, unsigned int* selected, bool* is_selected, WzWidget parent, const char *file, unsigned int line);
 WzWidget wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzWidget parent, const char *file, unsigned int line);
 WzWidget wzrd_handle_button_raw(bool* active, WzRect rect, WzColor color, wzrd_str name, WzWidget parent, const char *file, unsigned int line);
-WzWidget wz_label_raw(wzrd_str str, WzWidget parent, const char *file, unsigned int line);
+WzWidget wz_label_raw(WzWidget parent, wzrd_str str, const char *file, unsigned int line);
 WzWidget wzrd_vbox_border_raw(wzrd_v2 size, WzWidget parent, const char *file, unsigned int line);
 WzWidget wz_hbox_raw(WzWidget parent, const char *file, unsigned int line);
 WzWidget wz_vbox_raw(WzWidget parent, const char *file, unsigned int line);
@@ -534,7 +526,7 @@ WzWidget wz_vbox_raw(WzWidget parent, const char *file, unsigned int line);
 #define wzrd_label_list(item_names, count, width, height, color, handles, selected, is_selected, parent) wzrd_label_list_raw(item_names, count, width, height, color, handles, selected, is_selected, parent, __FILE__, __LINE__)
 #define wzrd_input_box(str, len, max_num_keys, parent) wzrd_input_box_raw(str, len, max_num_keys, parent, __FILE__, __LINE__)
 #define wzrd_handle_button(active, rect, color, name, parent) wzrd_handle_button_raw(active, rect, color, name, parent, __FILE__, __LINE__)
-#define wz_label(str, parent) wz_label_raw(str, parent, __FILE__, __LINE__)
+#define wz_label(parent, str) wz_label_raw(parent, str, __FILE__, __LINE__)
 #define wzrd_vbox_border(size, parent) wzrd_vbox_border_raw(size, parent, __FILE__, __LINE__)
 #define wz_hbox(parent) wz_hbox_raw(parent,  __FILE__, __LINE__)
 #define wz_vbox(parent) wz_vbox_raw(parent,  __FILE__, __LINE__)

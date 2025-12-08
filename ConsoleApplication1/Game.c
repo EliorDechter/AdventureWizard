@@ -335,26 +335,26 @@ v2i v2i_add(v2i v0, v2i v1) {
 	return result;
 }
 
-v2 v2_sub(v2 v0, v2 v1) {
-	v2 result = { v0.x - v1.x, v0.y - v1.y };
+v2i v2_sub(v2i v0, v2i v1) {
+	v2i result = { v0.x - v1.x, v0.y - v1.y };
 
 	return result;
 }
 
-v2 v2_add(v2 v0, v2 v1) {
-	v2 result = { v0.x + v1.x, v0.y + v1.y };
+v2i v2_add(v2i v0, v2i v1) {
+	v2i result = { v0.x + v1.x, v0.y + v1.y };
 
 	return result;
 }
 
-v2 v2_normalize(v2 v) {
+v2i v2_normalize(v2i v) {
 	float size = (float)sqrt(pow((v.x), 2) + pow((v.y), 2));
-	v2 result = { v.x / size, v.y / size };
+	v2i result = { v.x / size, v.y / size };
 
 	return result;
 }
 
-v2 v2_lerp(v2 pos, v2 end_pos) {
+v2i v2_lerp(v2i pos, v2i end_pos) {
 	float lerp_amount = 0.05f;
 	float delta = 5;
 	if (fabs(end_pos.x - pos.x) > delta) {
@@ -377,11 +377,11 @@ int GetSign(int n) {
 #define MAX_NUM_VERTICES_IN_POLYGON 32
 
 typedef struct Polygon {
-	v2 vertices[MAX_NUM_VERTICES_IN_POLYGON];
+	v2i vertices[MAX_NUM_VERTICES_IN_POLYGON];
 	int count;
 } Polygon;
 
-bool v2_is_inside_polygon(v2 point, Polygon polygon) {
+bool v2_is_inside_polygon(v2i point, Polygon polygon) {
 
 	bool inside = false;
 	int i, j;
@@ -396,7 +396,7 @@ bool v2_is_inside_polygon(v2 point, Polygon polygon) {
 }
 
 
-bool v2_is_inside_rect(v2 point, Rect rect) {
+bool v2_is_inside_rect(v2i point, Rect rect) {
 	bool result = false;
 
 	if (point.x >= rect.x && point.y >= rect.y && point.x < rect.x + rect.w && point.y < rect.y + rect.h) {
@@ -533,7 +533,7 @@ void ResetEntitySystem() {
 }
 
 bool IsRectHovered(Rect r) {
-	v2 mouse_pos = (v2){ g_platform.mouse_x, g_platform.mouse_y };
+	v2i mouse_pos = (v2i){ g_platform.mouse_x, g_platform.mouse_y };
 
 	if (mouse_pos.x < r.x + r.w &&
 		mouse_pos.x > r.x &&
@@ -559,8 +559,8 @@ PixelPos MovePos(PixelPos current_pos, PixelPos dest) {
 	// Multiply by delta_time
 	float speed = 1;
 
-	v2 distance = v2_sub((v2) { (float)dest.pos.x, (float)dest.pos.y }, (v2) { (float)current_pos.pos.x, (float)current_pos.pos.y });
-	v2 direction = v2_normalize(distance);
+	v2i distance = v2_sub((v2i) { (float)dest.pos.x, (float)dest.pos.y }, (v2i) { (float)current_pos.pos.x, (float)current_pos.pos.y });
+	v2i direction = v2_normalize(distance);
 
 	current_pos.pos.x += (int)(direction.x * speed);
 	current_pos.pos.y += (int)(direction.y * speed);
@@ -597,7 +597,7 @@ EntityId CreateEntityOriginal(Entity entity) {
 	return (EntityId) { 0 };
 }
 
-Entity CreateEntityRaw(char* name, EntityType type, PixelPos pixel_pos, v2 size, Texture sprite) {
+Entity CreateEntityRaw(char* name, EntityType type, PixelPos pixel_pos, v2i size, Texture sprite) {
 	(void)sprite;
 	//TODO: input santiizing
 	Entity entity = {
@@ -613,7 +613,7 @@ Entity CreateEntityRaw(char* name, EntityType type, PixelPos pixel_pos, v2 size,
 
 #define WZRD_UNUSED(x) (void)(x)
 
-EntityId CreateEntity(const char* name, EntityType type, v2i pixel_pos, v2 size, Texture sprite) {
+EntityId CreateEntity(const char* name, EntityType type, v2i pixel_pos, v2i size, Texture sprite) {
 	WZRD_UNUSED(name);
 	WZRD_UNUSED(type);
 	WZRD_UNUSED(pixel_pos);
@@ -644,8 +644,8 @@ EntityId CreateEntity(const char* name, EntityType type, v2i pixel_pos, v2 size,
 #endif
 }
 
-v2 ScreenPosToCenterPos(v2 pos, v2 size) {
-	v2 result = { pos.x + size.x / 2, pos.y + size.y / 2 };
+v2i ScreenPosToCenterPos(v2i pos, v2i size) {
+	v2i result = { pos.x + size.x / 2, pos.y + size.y / 2 };
 
 	return result;
 }
@@ -654,9 +654,9 @@ bool IsIdEqual(EntityId id0, EntityId id1) {
 	return id0.index == id1.index;
 }
 
-EntityId CreateCharacter(const char* name, v2 pos, v2 size) {
+EntityId CreateCharacter(const char* name, v2i pos, v2i size) {
 
-	EntityId id = CreateEntity(name, EntityType_Character, (v2i) { (int)pos.x, (int)pos.y }, (v2) { size.x, size.y }, texture_get_by_name(str128_create(name)));
+	EntityId id = CreateEntity(name, EntityType_Character, (v2i) { (int)pos.x, (int)pos.y }, (v2i) { size.x, size.y }, texture_get_by_name(str128_create(name)));
 
 	return id;
 }
@@ -690,9 +690,10 @@ typedef struct array_list_node
 	int next_node;
 } array_list_node;
 
-void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window, int scale, WzWidget parent)
+void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window,
+	unsigned int scale_w, unsigned int scale_h, WzWidget parent)
 {
-	static v2 nodes[32];
+	static v2i nodes[32];
 	static ArrayList32 list;
 
 	if (g_game.polygon_adding_active)
@@ -702,7 +703,7 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window, int scale, WzWidget p
 			if (mouse_pos.x >= 0 && mouse_pos.y >= 0 && mouse_pos.x < window.w && mouse_pos.y < window.h)
 			{
 				int index = array_list_32_add(&list);
-				nodes[index] = (v2){ (float)mouse_pos.x, (float)mouse_pos.y };
+				nodes[index] = (v2i){ (float)mouse_pos.x, (float)mouse_pos.y };
 			}
 		}
 	}
@@ -729,14 +730,17 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window, int scale, WzWidget p
 		wzrd_str str = (wzrd_str){
 			.str = name.val, .len = name.len
 		};
+
 		WzWidget w = wzrd_handle_button(&active, rect, WZ_RED, str, parent);
 		wz_widget_set_layer(w, game_editor_layer_handle);
+
 		if (active)
 		{
-			nodes[index].x += g_platform.mouse_delta_x / scale;
-			nodes[index].y += g_platform.mouse_delta_y / scale;
+			nodes[index].x += g_platform.mouse_delta_x / scale_w;
+			nodes[index].y += g_platform.mouse_delta_y / scale_h;
 		}
 
+#if 0
 		if (1)
 		{
 			//wzrd_box_get_last()->color = (wzrd_color){ 0, 0, 255, 255 };
@@ -753,6 +757,7 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window, int scale, WzWidget p
 		else {
 			//wzrd_box_get_last()->color = (wzrd_color){ 255, 0, 0, 255 };
 		}
+#endif
 	}
 }
 
@@ -787,15 +792,15 @@ void game_draw_screen_dots()
 	}
 }
 
-void game_entity_gui_do(int scale, wzrd_canvas* gui, WzWidgetData* background_box)
+void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas* gui, WzWidgetData* background_box)
 {
 	(void)gui;
 	WzWidget selected_entity_handle = { 0 };
+#if 0
 
 	for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
 	{
 		Entity* entity = game_entity_get(g_game.sorted_entities[i]);
-
 		// Entity gui rect
 		WzWidget handle = { 0 };
 		{
@@ -817,7 +822,6 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, WzWidgetData* background_bo
 				selected_entity_handle = wzrd_box_get_last()->handle;
 			}
 		}
-
 		// Entity dragging and scaling gui
 		if (wz_widget_is_equal(selected_entity_handle, handle))
 		{
@@ -903,39 +907,50 @@ void game_entity_gui_do(int scale, wzrd_canvas* gui, WzWidgetData* background_bo
 		g_game.selected_entity_index_to_sorted_entities = 0;
 		g_game.is_entity_selected = false;
 	}
+#endif
+
 }
 
-void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, int scale, wzrd_str* debug_str)
+void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, wzrd_str* debug_str)
 {
-	if (!scale) return;
+	assert(scale_w && scale_h);
 
-	wzrd_v2 mouse_pos = (wzrd_v2){ (int)g_game.mouse_pos.x / scale, (int)g_game.mouse_pos.y / scale };
+	wzrd_v2 mouse_pos = (wzrd_v2){ g_game.mouse_pos.x / (int)scale_w,
+		g_game.mouse_pos.y / (int)scale_h };
 
 	WZRD_UNUSED(enable_input);
 
-	wz_begin(gui, window, platform_string_get_size, mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed, enable_input);
+	WzWidget window_widget = wz_begin(gui, window, platform_string_get_size,
+		mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed,
+		enable_input);
 	{
-		WzWidgetData* background_box = wzrd_box_get_last();
-
+		wz_widget_set_color(window_widget, 0);
+#if 0
+		WzWidget t = wz_widget(window_widget);
+		wz_widget_set_tight_constraints(t, 50, 50);
+		wz_widget_set_pos(t, mouse_pos.x, mouse_pos.y);
+		wz_widget_set_free_from_parent(t);
+#endif	
 		PlatformTextureBeginTarget(g_game.target_texture);
 		{
-			game_polygon_gui_do(mouse_pos, window, scale, background_box->handle);
+			game_polygon_gui_do(mouse_pos, window, scale_w, scale_h, window_widget);
 		}
 		PlatformTextureEndTarget();
 
-		game_entity_gui_do(scale, gui, background_box);
+		game_entity_gui_do(scale_w, scale_h, gui, wz_widget_get(window_widget));
 	}
 
-	//wzrd_end(debug_str);
+	wz_end(debug_str);
 }
 
-void game_run(v2 window_size, bool enable, unsigned int scale) {
+void game_run(v2i window_size, bool enable, unsigned int scale) {
 
 	// entity mouse interaction 
 	(void)scale;
 	if (enable)
 	{
-		if (g_game.mouse_pos.x >= 0 && g_game.mouse_pos.y >= 0 && g_game.mouse_pos.x <= window_size.x && g_game.mouse_pos.y <= window_size.y) {
+		if (g_game.mouse_pos.x >= 0 && g_game.mouse_pos.y >= 0 &&
+			g_game.mouse_pos.x <= window_size.x && g_game.mouse_pos.y <= window_size.y) {
 			Entity_handle hovered_entity = { 0 };
 
 			int iterator_index = 1;
@@ -945,7 +960,7 @@ void game_run(v2 window_size, bool enable, unsigned int scale) {
 
 				Rect scaled_rect = (Rect){ entity->rect.x * scale, entity->rect.y * scale, entity->rect.w * scale, entity->rect.h * scale };
 
-				bool is_hover = v2_is_inside_rect((v2) { g_game.mouse_pos.x, g_game.mouse_pos.y }, scaled_rect);
+				bool is_hover = v2_is_inside_rect((v2i) { g_game.mouse_pos.x, g_game.mouse_pos.y }, scaled_rect);
 				if (is_hover) {
 					hovered_entity = entity_handle;
 				}
