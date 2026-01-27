@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
-
+#include <string.h>
 #define WZL_LOG(...) (void)0;
 
 #define WZ_FLEX_FIT_LOOSE 0
@@ -45,15 +45,22 @@ enum
 	CROSS_AXIS_ALIGNMENT_START,
 	CROSS_AXIS_ALIGNMENT_END,
 	CROSS_AXIS_ALIGNMENT_CENTER,
-	CROSS_AXIS_ALIGNMENT_STRETCH,
+	WZ_CROSS_AXIS_ALIGNMENT_STRETCH,
 	CROSS_AXIS_ALIGNMENT_BASELINE,
 	CROSS_AXIS_ALIGNMENT_TOTAL,
 };
 
+#define WZ_LAYOUT_MAX_NUM_SOURCES 8
+
+typedef struct WzLayoutSource
+{
+	char* file;
+	unsigned int line;
+} WzLayoutSource;
+
 typedef struct WzWidgetDescriptor
 {
-	const char* file;
-	unsigned int line;
+	char* source;
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_w, constraint_max_h;
 	unsigned int layout;
 	unsigned int pad_left, pad_right, pad_top, pad_bottom;
@@ -67,7 +74,17 @@ typedef struct WzWidgetDescriptor
 	unsigned int alignment;
 	unsigned int cross_axis_alignment;
 	int x, y;
+	unsigned margin_left, margin_right, margin_top, margin_bottom;
 } WzWidgetDescriptor;
+
+
+enum
+{
+	WZ_LAYOUT_STAGE_NON_FLEX_CHILDREN,
+	WZ_LAYOUT_STAGE_FLEX_CHILDREN,
+	WZ_LAYOUT_STAGE_PARENT,
+};
+
 
 typedef struct WzDebugInfo
 {

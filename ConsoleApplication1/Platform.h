@@ -167,8 +167,8 @@ void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsign
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect);
 PlatformTexture PlatformTextureLoad(const char* path);
 PlatformV2i PlatformTextGetSize(const char* str);
-void PlatformLineDrawVertical(float x0, float y0, float y1);
-void PlatformLineDrawHorizontal(float x0, float y0, float x1);
+void platform_draw_vertical_line(float x0, float y0, float y1);
+void platform_draw_horizontal_line(float x0, float y0, float x1);
 void PlatformLineDraw(float x0, float y0, float x1, float y1, unsigned char r, unsigned char g, unsigned char b);
 void PlatformTextureBeginTarget(PlatformTargetTexture texture);
 void PlatformTextureEndTarget();
@@ -176,7 +176,7 @@ PlatformTargetTexture PlatformTargetTextureCreate();
 void platform_cursor_set(PlatformCursor cursor);
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a);
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color);
-void platform_draw_wzrd(wzrd_canvas *canvas);
+void platform_draw_wzrd(WzGui *canvas);
 void platform_time_begin();
 void platform_time_end();
 

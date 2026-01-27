@@ -4,14 +4,78 @@
 #include "Game.h"
 #include "Editor.h"
 
+typedef struct Test
+{
+	unsigned x[32];
+	unsigned y[32];
+} Test;
+
+WzTree wz_tree_create()
+{
+	WzTree result;
+	result.children_indices = malloc(1024);
+	result.children_count = 0;
+	result.nodes = malloc(1024);
+	result.nodes_count = 0;
+	result.selected_row = (WzWidget){ 0 };
+
+	return result;
+}
+
+WzTreeNode wz_tree_node_create(WzTree* tree, const char* name, WzTexture texture, bool expanded)
+{
+	WzTreeNodeData node;
+	node.name = name;
+	node.texture = texture;
+	node.expand = expanded;
+	node.depth = 0;
+	node.children_count = 0;
+	node.visible = false;
+
+	tree->nodes[tree->nodes_count] = node;
+	tree->nodes_count++;
+	WzTreeNode result;
+	result.index = tree->nodes_count - 1;
+
+	return result;
+}
+
+void wz_tree_node_add_children(WzTree* tree, WzTreeNode node,
+	WzTreeNode* children, unsigned children_count)
+{
+	unsigned child_depth = tree->nodes[node.index].depth + 1;
+	for (unsigned i = 0; i < children_count; ++i)
+	{
+		tree->children_indices[i + tree->children_count] = children[i];
+		tree->nodes[children[i].index].depth = child_depth;
+	}
+	tree->children_count += children_count;
+	tree->nodes[node.index].children_index = tree->children_count - children_count;
+	tree->nodes[node.index].children_count = children_count;
+}
+
+WzTree g_tree;
+
+void load_tree()
+{
+	g_tree = wz_tree_create();
+	PlatformTexture icon = PlatformTextureLoad("C:\\Users\\Elior\\Desktop\\Folder.png");
+	WzTexture texture = *((WzTexture*)&icon);
+
+	WzTreeNode node_a = wz_tree_node_create(&g_tree, "a", texture, false);
+	g_tree.nodes[node_a.index].visible = true;
+	WzTreeNode node_b = wz_tree_node_create(&g_tree, "b", texture, false);
+	WzTreeNode node_c = wz_tree_node_create(&g_tree, "c", texture, false);
+	WzTreeNode children[] = { node_b, node_c };
+	wz_tree_node_add_children(&g_tree, node_a, children, 2);
+}
+
 #define WZRD_UNUSED(x) (void)x;
 
 PlatformSystem g_platform;
 
-
 // TODO: make it not global!
-wzrd_canvas editor_gui, game_gui;
-
+WzGui editor_gui, game_gui;
 
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
@@ -115,21 +179,36 @@ void PlatformLineDraw(float x0, float y0, float x1, float y1, unsigned char r, u
 	SDL_RenderLine(g_sdl.renderer, x0, y0, x1, y1);
 }
 
-void PlatformLineDrawHorizontal(float x0, float y0, float x1) {
+void platform_draw_points(float* x, float* y, unsigned count)
+{
+	SDL_FPoint *points = malloc(sizeof(*points) * count);
+	for (unsigned i = 0; i < count; ++i)
+	{
+		SDL_FPoint point;
+		point.x = x[i];
+		point.y = y[i];
+		points[i] = point;
+	}
+
+	SDL_RenderPoints(g_sdl.renderer, points, (int)count);
+	free(points);
+}
+
+void platform_draw_horizontal_line(int x, int y, unsigned w) {
 	SDL_SetRenderDrawColor(g_sdl.renderer, 125, 125, 125, 255);
 
-	for (int i = (int)x0; i < x1; ++i) {
+	for (int i = x; i < x + w; ++i) {
 		if (i % 2 == 1) continue;
-		SDL_RenderPoint(g_sdl.renderer, (float)i, y0);
+		SDL_RenderPoint(g_sdl.renderer, (float)i, (float)y);
 	}
 }
 
-void PlatformLineDrawVertical(float x0, float y0, float y1) {
+void platform_draw_vertical_line(int x, int y, unsigned h) {
 	SDL_SetRenderDrawColor(g_sdl.renderer, 125, 125, 125, 255);
 
-	for (int i = (int)y0; i < y1; ++i) {
+	for (int i = y; i < y + h; ++i) {
 		if (i % 2 == 1) continue;
-		SDL_RenderPoint(g_sdl.renderer, x0, (float)i);
+		SDL_RenderPoint(g_sdl.renderer, (float)x, (float)i);
 	}
 }
 
@@ -137,6 +216,10 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 	float w, h;
 	SDL_Surface* surface = IMG_Load(path);
 	SDL_Texture* texture = SDL_CreateTextureFromSurface(g_sdl.renderer, surface);
+
+	const char* error = SDL_GetError();
+	printf("%s\n", error);
+
 	SDL_GetTextureSize(texture, &w, &h);
 	PlatformTexture result = (PlatformTexture){ .data = texture, .w = w, .h = h };
 
@@ -148,7 +231,7 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
-void platform_draw_wzrd(wzrd_canvas *canvas) {
+void platform_draw_wzrd(WzGui* canvas) {
 
 	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 
@@ -156,9 +239,9 @@ void platform_draw_wzrd(wzrd_canvas *canvas) {
 		WzDrawCommand command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Rect) {
-				SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
-				SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
-				SDL_RenderFillRect(g_sdl.renderer, &rect);
+			SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
+			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
+			SDL_RenderFillRect(g_sdl.renderer, &rect);
 		}
 		else if (command.type == DrawCommandType_Texture) {
 			PlatformTextureDrawFromSource((PlatformTexture) { command.texture.data, .h = command.texture.h, .w = command.texture.w },
@@ -170,18 +253,23 @@ void platform_draw_wzrd(wzrd_canvas *canvas) {
 			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
 				command.color.r, command.color.g, command.color.b, command.color.a);
 		}
-		else if (command.type == DrawCommandType_Line) 
+		else if (command.type == DrawCommandType_Line)
 		{
-			PlatformLineDraw((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h,
+			PlatformLineDraw((float)command.line.x0, (float)command.line.y0,
+				(float)command.line.x1, (float)command.line.y1,
 				command.color.r, command.color.g, command.color.b);
 		}
-		else if (command.type == DrawCommandType_VerticalLine) 
+		else if (command.type == DrawCommandType_LineDotted)
 		{
-			PlatformLineDrawVertical((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.h);
+			
+		}
+		else if (command.type == DrawCommandType_VerticalLine)
+		{
+			platform_draw_vertical_line((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.h);
 		}
 		else if (command.type == DrawCommandType_HorizontalLine)
 		{
-			PlatformLineDrawHorizontal((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w);
+			platform_draw_horizontal_line((float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w);
 		}
 		else if (command.type == DrawCommandType_Clip)
 		{
@@ -205,8 +293,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
-	game_gui = wz_init();
-	editor_gui = wz_init();
+	game_gui = wz_gui_init();
+	editor_gui = wz_gui_init();
+
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
@@ -215,6 +304,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 		SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
+
+	load_tree();
+
+
 
 #if DELETE_ME
 	SDL_SetRenderDrawColor(g_sdl.renderer, 0xc3, 0xc3, 0xc3, 255);
@@ -426,7 +519,6 @@ void platform_begin()
 	SDL_SetRenderDrawColor(g_sdl.renderer, color.r, color.g, color.b, color.a);
 	SDL_RenderClear(g_sdl.renderer);
 	SDL_GetWindowSize(g_sdl.window, &g_platform.window_width, &g_platform.window_height);
-
 }
 
 uint64_t g_time;
@@ -444,10 +536,87 @@ void platform_time_end()
 	g_time = g_time_b - g_time_a;
 }
 
+void test_gui(WzGui* gui)
+{
+	WzWidget window0 = wz_gui_begin(gui,
+		g_platform.window_width, g_platform.window_height,
+		g_platform.mouse_x, g_platform.mouse_y,
+		platform_string_get_size,
+		(WzState)g_platform.mouse_left,
+		*(WzKeyboardKeys*)&g_platform.keys_pressed, true);
+
+	WzWidget window = wz_vbox(window0);
+	WzWidget menu = wz_vbox(window);
+	wz_widget_set_border(menu, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_tight_constraints(menu, 200, 800);
+	wz_widget_set_color(menu, 0xffffffff);
+
+	bool expand = false, selected = false;
+	WzTreeNodeData* nodes_stack[1024];
+	unsigned nodes_stack_count = 0;
+	g_tree.menu = menu;
+
+	// Root Node
+	WzTreeNodeData* current_node = &g_tree.nodes[0];
+
+	WzWidget row = wz_tree_add_row(&g_tree, wz_str_create(current_node->name), current_node->texture,
+		current_node->depth, &current_node->expand, &selected, current_node);
+
+	if (selected)
+	{
+		g_tree.selected_row = row;
+	}
+
+	nodes_stack_count++;
+
+	while (1)
+	{
+		for (unsigned i = 0; i < current_node->children_count; ++i)
+		{
+			unsigned* children = g_tree.children_indices + current_node->children_index;
+			WzTreeNodeData* child = &g_tree.nodes[children[i]];
+			if (current_node->expand)
+			{
+				selected = false;
+				row = wz_tree_add_row(&g_tree, wz_str_create(child->name),
+					child->texture,
+					child->depth, &child->expand, &selected, child);
+
+				if (selected)
+				{
+					g_tree.selected_row = row;
+				}
+
+				child->visible = true;
+				nodes_stack[nodes_stack_count++] = child;
+			}
+			else
+			{
+				child->visible = false;
+			}
+		}
+
+		current_node = nodes_stack[nodes_stack_count - 1];
+		nodes_stack_count--;
+
+		if (!nodes_stack_count)
+		{
+			break;
+		}
+
+	}
+	gui->trees[0] = g_tree;
+
+	wz_gui_end(0);
+
+	platform_draw_wzrd(gui);
+}
+
+WzGui test_gui_obj;
+
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-	(void)appstate;
 
 	platform_begin();
 	{
@@ -457,13 +626,15 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		// Editor
 		const bool enable_editor = true;
 
-		wzrd_str debug_str =
+		WzStr debug_str =
 		{ g_debug_text.val, g_debug_text.len };
+
+		test_gui(&editor_gui);
 
 		if (enable_editor) {
 			wzrd_icons icons = game_icons_get();
 			unsigned int time_a = SDL_GetTicksNS();
-			do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
+			//do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
 			unsigned int time_b = SDL_GetTicksNS();
 
 			platform_draw_wzrd(&editor_gui);
@@ -471,7 +642,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 			static uint64_t samples[32];
 			static size_t samples_count;
-			
+
 			samples[samples_count] = (time_b - time_a);
 			samples_count = (samples_count + 1) % 32;
 			float average_time = 0;
@@ -485,14 +656,18 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		}
 
 		// Game ui and stuff
+		bool enable_game_input = false;
+
+#if 0 
 		WzWidgetData* target_panel_data = wz_widget_get(target_panel);
 		game_screen_rect = (WzRect){ target_panel_data->actual_x, target_panel_data->actual_y,
 			target_panel_data->actual_w, target_panel_data->actual_h };
-		bool enable_game_input = false;
+
 		if (wzrd_box_is_hot_using_canvas(&editor_gui, target_panel_data))
 		{
 			enable_game_input = true;
 		}
+#endif
 		{
 			// Clear target
 			PlatformTextureBeginTarget(game_target_texture_get());
@@ -501,7 +676,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				SDL_RenderClear(g_sdl.renderer);
 			}
 			PlatformTextureEndTarget();
-			
+
 			float mouse_x = g_platform.mouse_x - game_screen_rect.x;
 			float mouse_y = g_platform.mouse_y - game_screen_rect.y;
 			g_game.mouse_delta = (v2i){ mouse_x - g_game.mouse_pos.x, mouse_y - g_game.mouse_pos.y };
@@ -521,9 +696,13 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 				unsigned int game_texture_height = game_target_texture_get().h;
 				unsigned int scale_w = (unsigned int)(game_screen_rect.w / game_texture_width);
 				unsigned int scale_h = (unsigned int)(game_screen_rect.h / game_texture_height);
-				game_gui_do(&game_gui, 
-					(WzRect){0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h},
-					enable_game_input, scale_w, scale_h, &debug_str);
+#if 0
+				game_gui_do(&game_gui,
+					(WzRect) {
+					0, 0, (int)game_target_texture_get().w, (int)game_target_texture_get().h
+				},
+					enable_game_input, scale_w, scale_h, & debug_str);
+#endif
 				PlatformTextureBeginTarget(g_game.target_texture);
 				platform_draw_wzrd(&game_gui);
 				PlatformTextureEndTarget();
@@ -535,7 +714,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		str1024_concat(&g_debug_text, str1024_create("frame time: %f ms", g_platform.average_spf * 1000.0f));
 
-		
+
 		// Cursor
 		if (enable_game_input) {
 			platform_cursor_set(*(PlatformCursor*)&game_gui.cursor);

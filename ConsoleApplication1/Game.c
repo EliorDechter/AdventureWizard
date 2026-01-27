@@ -39,11 +39,6 @@ WzRect EguiRectScale(WzRect rect, int scale) {
 
 bool f;
 
-typedef struct EguiMenuNode {
-	str128 str;
-	int depth;
-	bool expandable;
-} EguiMenuNode;
 
 #if 0
 void nodes() {
@@ -727,12 +722,13 @@ void game_polygon_gui_do(wzrd_v2 mouse_pos, WzRect window,
 		name.len = (int)strlen(name.val);
 		WzRect rect = { (int)nodes[index].x, (int)nodes[index].y, 8, 8 };
 		bool active = false;
-		wzrd_str str = (wzrd_str){
+		WzStr str = (WzStr){
 			.str = name.val, .len = name.len
 		};
 
 		WzWidget w = wzrd_handle_button(&active, rect, WZ_RED, str, parent);
 		wz_widget_set_layer(w, game_editor_layer_handle);
+		wz_widget_add_tag(w, &nodes[index]);
 
 		if (active)
 		{
@@ -792,11 +788,11 @@ void game_draw_screen_dots()
 	}
 }
 
-void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas* gui, WzWidgetData* background_box)
+void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, WzGui* gui, WzWidgetData* background_box)
 {
 	(void)gui;
 	WzWidget selected_entity_handle = { 0 };
-#if 0
+#if 1
 
 	for (unsigned int i = 0; i < g_game.sorted_entities_count; ++i)
 	{
@@ -804,22 +800,24 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 		// Entity gui rect
 		WzWidget handle = { 0 };
 		{
-#if 0
-			handle = wzrd_rect_unique((WzRect){.x = (int)entity->rect.x,
-				.y = (int)entity->rect.y,
-				.w = (int)entity->rect.w,
-				.h = (int)entity->rect.h
-		}, (wzrd_str) { .str = entity->name.val, .len = entity->name.len }, background_box->handle);
+#if		1
+			handle = wz_widget(background_box->handle);
+			wz_widget_set_max_constraint_w(handle, entity->rect.w);
+			wz_widget_set_max_constraint_h(handle, entity->rect.h);
+			wz_widget_set_x(handle, entity->rect.x);
+			wz_widget_set_y(handle, entity->rect.y);
+			wz_widget_set_color(handle, 0);
+			wz_widget_add_tag(handle, entity);
 #endif
-			if (wzrd_box_is_active(wzrd_box_get_last()))
+			if (wz_widget_is_active(handle))
 			{
-				selected_entity_handle = wzrd_box_get_last()->handle;
+				selected_entity_handle = handle;
 				g_game.selected_entity_index_to_sorted_entities = i;
 				g_game.is_entity_selected = true;
 			}
 			else if (g_game.is_entity_selected && g_game.selected_entity_index_to_sorted_entities == i)
 			{
-				selected_entity_handle = wzrd_box_get_last()->handle;
+				selected_entity_handle = handle;
 			}
 		}
 		// Entity dragging and scaling gui
@@ -828,7 +826,7 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 			str128 button_name = str128_create("blue button %s", entity->name);
 			WzRect rect = (WzRect){ (int)entity->rect.x + (int)entity->rect.w / 2 - 5, (int)entity->rect.y + (int)entity->rect.h / 2 - 5, 10, 10 };
 			bool blue_button = false;
-			wzrd_str str = (wzrd_str){
+			WzStr str = (WzStr){
 				.str = button_name.val, .len = button_name.len,
 			};
 			WzWidget blue_handle = wzrd_handle_button(&blue_button, rect, WZ_BLUE, str, background_box->handle);
@@ -840,19 +838,19 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 			if (blue_button)
 			{
 				if (entity) {
-					offset_x += g_game.mouse_delta.x / (float)scale;
-					offset_y += g_game.mouse_delta.y / (float)scale;
+					offset_x += g_game.mouse_delta.x / (float)scale_h;
+					offset_y += g_game.mouse_delta.y / (float)scale_h;
 
 					printf("%f %f\n", offset_x, offset_y);
 
 					if (g_game.mouse_delta.x)
 					{
-						entity->rect.x += g_game.mouse_delta.x / (float)scale;
+						entity->rect.x += g_game.mouse_delta.x / (float)scale_h;
 					}
 
 					if (g_game.mouse_delta.y)
 					{
-						entity->rect.y += g_game.mouse_delta.y / (float)scale;
+						entity->rect.y += g_game.mouse_delta.y / (float)scale_h;
 					}
 				}
 			}
@@ -865,7 +863,7 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 			WzColor color = (WzColor){
 				0, 255, 0, 255
 			};
-			wzrd_str name = (wzrd_str){
+			WzStr name = (WzStr){
 				.str = button_name.val, .len = button_name.len
 			};
 			WzWidget green_handle = wzrd_handle_button(&green_button,
@@ -879,23 +877,23 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 			{
 				if (g_game.mouse_delta.x < 0)
 				{
-					entity->rect.x += g_game.mouse_delta.x / (float)scale;
-					entity->rect.w += (float)fabs(g_game.mouse_delta.x) / (float)scale;
+					entity->rect.x += g_game.mouse_delta.x / (float)scale_h;
+					entity->rect.w += (float)fabs(g_game.mouse_delta.x) / (float)scale_h;
 				}
 				else {
-					entity->rect.x += g_game.mouse_delta.x / (float)scale;
-					entity->rect.w += -(float)fabs(g_game.mouse_delta.x) / (float)scale;
+					entity->rect.x += g_game.mouse_delta.x / (float)scale_h;
+					entity->rect.w += -(float)fabs(g_game.mouse_delta.x) / (float)scale_h;
 				}
 
 				if (g_game.mouse_delta.y < 0)
 				{
-					entity->rect.y += g_game.mouse_delta.y / (float)scale;
-					entity->rect.h += (float)fabs(g_game.mouse_delta.y) / (float)scale;
+					entity->rect.y += g_game.mouse_delta.y / (float)scale_h;
+					entity->rect.h += (float)fabs(g_game.mouse_delta.y) / (float)scale_h;
 				}
 				else
 				{
-					entity->rect.y += g_game.mouse_delta.y / (float)scale;
-					entity->rect.h += -(float)fabs(g_game.mouse_delta.y) / (float)scale;
+					entity->rect.y += g_game.mouse_delta.y / (float)scale_h;
+					entity->rect.h += -(float)fabs(g_game.mouse_delta.y) / (float)scale_h;
 				}
 			}
 		}
@@ -911,7 +909,7 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, wzrd_canvas*
 
 }
 
-void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, wzrd_str* debug_str)
+void game_gui_do(WzGui* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, WzStr* debug_str)
 {
 	assert(scale_w && scale_h);
 
@@ -920,8 +918,9 @@ void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, unsigned in
 
 	WZRD_UNUSED(enable_input);
 
-	WzWidget window_widget = wz_begin(gui, window, platform_string_get_size,
-		mouse_pos, (wzrd_state)g_platform.mouse_left, * (wzrd_keyboard_keys*)&g_platform.keys_pressed,
+	WzWidget window_widget = wz_gui_begin(gui, window.w, window.h, mouse_pos.x, mouse_pos.y,
+		platform_string_get_size,
+		(WzState)g_platform.mouse_left, *(WzKeyboardKeys*)&g_platform.keys_pressed,
 		enable_input);
 	{
 		wz_widget_set_color(window_widget, 0);
@@ -940,7 +939,7 @@ void game_gui_do(wzrd_canvas* gui, WzRect window, bool enable_input, unsigned in
 		game_entity_gui_do(scale_w, scale_h, gui, wz_widget_get(window_widget));
 	}
 
-	wz_end(debug_str);
+	wz_gui_end(debug_str);
 }
 
 void game_run(v2i window_size, bool enable, unsigned int scale) {
@@ -1049,13 +1048,13 @@ void game_init() {
 	PlatformTexture close_icon = PlatformTextureLoad("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\x.png");
 
 	g_game.icons = (wzrd_icons){
-		.close = *(wzrd_texture*)&close_icon,
-		.delete = *(wzrd_texture*)&icon_delete,
-		.entity = *(wzrd_texture*)&icon_entity,
-		.play = *(wzrd_texture*)&icon_play,
-		.pause = *(wzrd_texture*)&icon_pause,
-		.stop = *(wzrd_texture*)&icon_stop,
-		.dropdown = *(wzrd_texture*)&icon_dropdown,
+		.close = *(WzTexture*)&close_icon,
+		.delete = *(WzTexture*)&icon_delete,
+		.entity = *(WzTexture*)&icon_entity,
+		.play = *(WzTexture*)&icon_play,
+		.pause = *(WzTexture*)&icon_pause,
+		.stop = *(WzTexture*)&icon_stop,
+		.dropdown = *(WzTexture*)&icon_dropdown,
 	};
 
 	// Empty texture

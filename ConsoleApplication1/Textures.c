@@ -37,6 +37,9 @@ SDL_EnumerationResult enumerate_directory(void* userdata, const char* dirname, c
 }
 
 void textures_load() {
-	const char* path = "C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\";
-	SDL_EnumerateDirectory(path, enumerate_directory, 0);
+	const char* path = "C:\\Users\\Elior\\source\\repos\\AdventureWizard\\Resoruces\\Textures\\";
+	//SDL_PathInfo info;
+	//bool result = SDL_GetPathInfo(path, &info);
+	//assert(result);
+	//SDL_EnumerateDirectory(path, enumerate_directory, 0);
 }
