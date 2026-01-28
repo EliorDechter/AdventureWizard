@@ -17,7 +17,7 @@ void wz_log(WzLogMessage* arr, unsigned int* count, const char* fmt, ...)
 	arr[*count] = message;
 	*count = *count + 1;
 
-	printf("%s", message.str);
+	//printf("%s", message.str);
 }
 
 WzWidgetDescriptor wz_widget_descriptor_create(
@@ -713,6 +713,7 @@ void wz_do_layout(unsigned int index,
 			}
 			else if (widget->layout == WZ_LAYOUT_NONE)
 			{
+#if 1
 				if (widgets_visits[parent_index] == 0)
 				{
 					for (int i = 0; i < widget->children_count; ++i)
@@ -762,11 +763,13 @@ void wz_do_layout(unsigned int index,
 
 					widgets_stack_count--;
 				}
+#endif
 			}
 			else
 			{
 				wz_assert(0);
 			}
+
 		}
 	}
 

@@ -255,13 +255,61 @@ void platform_draw_wzrd(WzGui* canvas) {
 		}
 		else if (command.type == DrawCommandType_Line)
 		{
+			SDL_SetRenderDrawColor(g_sdl.renderer, 0, 0, 0, 255);
+
 			PlatformLineDraw((float)command.line.x0, (float)command.line.y0,
 				(float)command.line.x1, (float)command.line.y1,
 				command.color.r, command.color.g, command.color.b);
 		}
 		else if (command.type == DrawCommandType_LineDotted)
 		{
-			
+			SDL_SetRenderDrawColor(g_sdl.renderer, 0, 0, 0, 255);
+
+			// Bresenheim
+			int dx = abs(command.line.x1 - command.line.x0);
+			int sx = command.line.x0 < command.line.x1 ? 1 : -1;
+			int dy = -abs(command.line.y1 - command.line.y0);
+			int sy = command.line.y0 < command.line.y1 ? 1 : -1;
+			int error = dx + dy;
+			int x0 = command.line.x0;
+			int y0 = command.line.y0;
+			int x1 = command.line.x1;
+			int y1 = command.line.y1;
+
+			bool draw = true;
+
+			while (1)
+			{
+				if (draw)
+				{
+					SDL_RenderPoint(g_sdl.renderer, x0, y0);
+				}
+				draw = !draw;
+
+				int e2 = 2 * error;
+
+				if (e2 >= dy)
+				{
+					if (x0 == x1)
+					{
+						break;
+					}
+
+					error = error + dy;
+					x0 = x0 + sx;
+				}
+
+				if (e2 <= dx)
+				{
+					if (y0 == y1)
+					{
+						break;
+					}
+
+					error = error + dx;
+					y0 = y0 + sy;
+				}
+			}
 		}
 		else if (command.type == DrawCommandType_VerticalLine)
 		{
@@ -293,8 +341,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
-	game_gui = wz_gui_init();
-	editor_gui = wz_gui_init();
+	wz_gui_init(&game_gui);
+	wz_gui_init(&editor_gui);
 
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
@@ -305,30 +353,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 		return SDL_APP_FAILURE;
 	}
 
+	PlatformTexture icon = PlatformTextureLoad("C:\\Users\\Elior\\Desktop\\Folder.png");
+	editor_textures[EditorTextureButton] = *((WzTexture*)&icon);
+
 	load_tree();
 
-
-
-#if DELETE_ME
-	SDL_SetRenderDrawColor(g_sdl.renderer, 0xc3, 0xc3, 0xc3, 255);
-	SDL_RenderClear(g_sdl.renderer);
-
-	g_target = SDL_CreateTexture(g_sdl.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, GAME_WIDTH, GAME_HEIGHT);
-	SDL_SetTextureScaleMode(g_target, SDL_SCALEMODE_NEAREST);
-
-	SDL_Surface* surface = IMG_Load("C:\\Users\\elior\\OneDrive\\Desktop\\ConsoleApplication1\\Resoruces\\Textures\\clouds.jpeg");
-	g_texture = SDL_CreateTextureFromSurface(g_sdl.renderer, surface);
-
-	SDL_SetRenderTarget(g_sdl.renderer, g_target);
-	{
-		SDL_SetRenderDrawColor(g_sdl.renderer, 0xFF, 0xFF, 0xFF, 255);
-		SDL_RenderClear(g_sdl.renderer);
-
-		SDL_RenderTexture(g_sdl.renderer, g_texture, 0, 0);
-	}
-	SDL_SetRenderTarget(g_sdl.renderer, 0);
-
-#else
 	TTF_Init();
 
 	g_sdl.font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", 16);
@@ -346,8 +375,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	g_sdl.cursor_horizontal_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
 	g_sdl.cursor_vertical_arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
 
-
-#endif
 	return SDL_APP_CONTINUE;
 }
 
@@ -629,12 +656,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		WzStr debug_str =
 		{ g_debug_text.val, g_debug_text.len };
 
-		test_gui(&editor_gui);
+		//test_gui(&editor_gui);
 
 		if (enable_editor) {
 			wzrd_icons icons = game_icons_get();
 			unsigned int time_a = SDL_GetTicksNS();
-			//do_editor(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
+			editor_run(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
 			unsigned int time_b = SDL_GetTicksNS();
 
 			platform_draw_wzrd(&editor_gui);

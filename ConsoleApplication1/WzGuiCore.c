@@ -10,7 +10,7 @@ static WzGui* gui;
 
 bool wz_widget_is_equal(WzWidget a, WzWidget b);
 bool wz_handle_is_valid(WzWidget handle);
-WzWidget wzrd_handle_create();
+WzWidget wz_create_handle();
 WzWidgetData* wzrd_box_get_parent();
 WzWidgetData* wzrd_box_get_previous();
 void wzrd_crate_begin(int window_id, WzWidgetData box);
@@ -132,17 +132,33 @@ void wz_widget_get_actual_rect(WzWidget widget, int* x, int* y, unsigned* w, uns
 	*h = data->actual_h;
 }
 
-void wz_widget_set_tight_constraints(WzWidget handle, unsigned int w, unsigned int h)
+void wz_widget_data_set_tight_constraints(WzWidgetData *b, unsigned int w, unsigned int h)
 {
-	WzWidgetData* b = wz_widget_get(handle);
 	b->constraint_min_w = b->constraint_max_w = w;
 	b->constraint_min_h = b->constraint_max_h = h;
 }
 
-WzWidget wzrd_handle_create()
+void wz_widget_set_tight_constraints(WzWidget handle, unsigned  w, unsigned  h)
+{
+	WzWidgetData* b = wz_widget_get(handle);
+	wz_widget_data_set_tight_constraints(b, w, h);
+}
+
+WzWidget wz_create_handle()
 {
 	assert(gui);
-	WzWidget handle = { gui->widgets_count };
+	WzWidget handle = { 0 };
+	for (unsigned i = 1; i < MAX_NUM_WIDGETS; ++i)
+	{
+		if (gui->free_widgets[i])
+		{
+			handle.handle = i;
+			gui->free_widgets[i] = false;
+			return handle;
+		}
+	}
+
+	wz_assert(0);
 
 	return handle;
 }
@@ -177,16 +193,26 @@ void wz_widget_set_min_constraint_w(WzWidget w, int width)
 	b->constraint_min_w = width;
 }
 
+void wz_widget_data_set_x(WzWidgetData *widget, int x)
+{
+	widget->x = x;
+}
+
+void wz_widget_data_set_y(WzWidgetData *widget, int y)
+{
+	widget->y = y;
+}
+
 void wz_widget_set_x(WzWidget w, int x)
 {
 	WzWidgetData* widget = wz_widget_get(w);
-	widget->x = x;
+	wz_widget_data_set_x(widget, x);
 }
 
 void wz_widget_set_y(WzWidget w, int y)
 {
 	WzWidgetData* widget = wz_widget_get(w);
-	widget->y = y;
+	wz_widget_data_set_y(widget, y);
 }
 
 void wz_widget_set_pad(WzWidget w, unsigned int pad)
@@ -197,15 +223,20 @@ void wz_widget_set_pad(WzWidget w, unsigned int pad)
 	wz_widget_set_pad_right(w, pad);
 }
 
-void wz_widget_set_border(WzWidget w, WzBorderType border_type)
+void wz_widget_data_set_border(WzWidgetData *d, WzBorderType border_type)
 {
-	WzWidgetData* d = wz_widget_get(w);
 	d->border_type = border_type;
 
 	d->pad_top += 2;
 	d->pad_bottom += 2;
 	d->pad_left += 2;
 	d->pad_right += 2;
+}
+
+void wz_widget_set_border(WzWidget w, WzBorderType border_type)
+{
+	WzWidgetData* d = wz_widget_get(w);
+	wz_widget_data_set_border(d, border_type);
 }
 
 void wz_widget_set_pos(WzWidget handle, int x, int y)
@@ -251,7 +282,7 @@ bool wzrd_handle_is_child_of_handle(WzWidget a, WzWidget b)
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wz_widget_get(a)->index;
+	stack[count++] = wz_widget_get(a)->handle.handle;
 
 	while (ptr != count)
 	{
@@ -328,7 +359,7 @@ bool wzrd_handle_is_active_tree(WzWidget handle)
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wz_widget_get(handle)->index;
+	stack[count++] = wz_widget_get(handle)->handle.handle;
 
 	while (ptr != count)
 	{
@@ -356,7 +387,7 @@ void wz_widget_add_offset(WzWidget handle, int x, int y)
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wz_widget_get(handle)->index;
+	stack[count++] = wz_widget_get(handle)->handle.handle;
 
 	while (ptr != count)
 	{
@@ -398,7 +429,7 @@ bool wzrd_handle_is_released_tree(WzWidget handle)
 	int count = 0;
 	int ptr = 0;
 
-	stack[count++] = wz_widget_get(handle)->index;
+	stack[count++] = wz_widget_get(handle)->handle.handle;
 
 	while (ptr != count)
 	{
@@ -481,24 +512,6 @@ int wzrd_float_compare(float a, float b)
 	return 0;
 }
 
-void wz_widget_add_child(WzWidget parent, WzWidget child)
-{
-	WzWidgetData* p = wz_widget_get(parent);
-	WzWidgetData* c = wz_widget_get(child);
-	wz_assert(p->children_count < MAX_NUM_CHILDREN - 1);
-	p->children[p->children_count++] = c->index;
-
-	c->layer = p->layer;
-	c->clip_widget = p->clip_widget;
-	c->parent = parent;
-}
-
-void wzrd_box_add_child_using_pointer(WzWidgetData* parent, WzWidgetData* child)
-{
-	wz_assert(parent->children_count < MAX_NUM_CHILDREN - 1);
-	parent->children[parent->children_count++] = child->index;
-}
-
 void wz_widget_set_flex_factor(WzWidget widget, unsigned int flex_factor)
 {
 	wz_widget_get(widget)->flex_factor = flex_factor;
@@ -523,9 +536,22 @@ void wz_widget_set_free_from_parent(WzWidget w)
 	wz_widget_get(w)->free_from_parent = true;
 }
 
-WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
+void wz_widget_add_child(WzWidget parent, WzWidget child)
 {
-	WzWidgetData box;
+	if (!child.handle) return;
+
+	WzWidgetData* p = wz_widget_get(parent);
+	WzWidgetData* c = wz_widget_get(child);
+	wz_assert(p->children_count < MAX_NUM_CHILDREN - 1);
+	p->children[p->children_count++] = c->handle.handle;
+	c->layer = p->layer;
+	c->clip_widget = p->clip_widget;
+	c->parent = parent;
+}
+
+WzWidgetData wz_widget_create(WzWidget parent)
+{
+	WzWidgetData box = { 0 };
 	box.children_count = 0;
 	box.free_children_count = 0;
 	box.items_count = 0;
@@ -555,22 +581,44 @@ WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
 	box.free_from_parent = 0;
 	box.cull = false;
 	box.source[0] = 0;
-	box.handle = wzrd_handle_create();
 	box.tag = 0;
+	box.layer = EguiGetCurrentWindow()->layer;
+	//box.index = gui->widgets_count;
+
+	return box;
+}
+
+WzWidget wz_widget_add_to_frame(WzWidget parent, WzWidgetData box)
+{
+	box.handle = wz_create_handle();
+
+	WzWidgetData* p = wz_widget_get(parent);
+	wz_assert(p->children_count < MAX_NUM_CHILDREN - 1);
+	p->children[p->children_count++] = box.handle.handle;
+	box.layer = p->layer;
+	box.clip_widget = p->clip_widget;
+	box.parent = parent;
 
 	wz_assert(gui->widgets_count < MAX_NUM_BOXES - 1);
-
-	box.layer = EguiGetCurrentWindow()->layer;
-
-	wz_assert(gui->widgets_count < 256);
-
-	box.index = gui->widgets_count;
 	gui->widgets[gui->widgets_count++] = box;
 
-	wz_widget_add_source(box.handle, file, line);
-	wz_widget_add_child(parent, box.handle);
-
 	return box.handle;
+}
+
+WzWidget wz_widget_persistent(WzWidget parent, WzWidgetData widget_data)
+{
+	WzWidget widget = wz_widget_add_to_frame(parent, widget_data);
+
+	return widget;
+}
+
+WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidgetData box = wz_widget_create(parent);
+	WzWidget widget = wz_widget_add_to_frame(parent, box);
+	wz_widget_add_source(widget, file, line);
+		
+	return widget;
 }
 
 WzWidget wz_vbox_raw(WzWidget parent, const char* file, unsigned int line)
@@ -666,29 +714,21 @@ void wzrd_crate(int window_id, WzWidgetData box) {
 	wzrd_crate_begin(window_id, box);
 }
 
-//void wz_widget_set_fixed_size(WzWidget widget, unsigned int w, unsigned int h)
-//{
-//	WzWidgetData* wd = wz_widget_get(widget);
-//	wd->size_hint_w = w;
-//	wd->size_hint_h = h;
-//}
-
 #define MAX_NUM_SCROLLBARS 32
 
-WzGui wz_gui_init()
+void wz_gui_init(WzGui* gui)
 {
 	// TODO: initialize each member individually
-	WzGui canvas = (WzGui){ 0 };
-	// TODO: FREE
-	canvas.scrollbars = malloc(sizeof(*canvas.scrollbars) * MAX_NUM_SCROLLBARS);
-	canvas.widgets = malloc(sizeof(*canvas.widgets) * MAX_NUM_WIDGETS);
-	canvas.rects = malloc(sizeof(*canvas.rects) * MAX_NUM_WIDGETS);
-	canvas.boxes_indices = malloc(sizeof(*canvas.boxes_indices) * MAX_NUM_BOXES);
-	canvas.hovered_items_list = malloc(sizeof(*canvas.hovered_items_list) * MAX_NUM_HOVERED_ITEMS);
-	canvas.hovered_boxes = malloc(sizeof(*canvas.hovered_boxes) * MAX_NUM_HOVERED_ITEMS);
-	canvas.cached_boxes = malloc(sizeof(*canvas.cached_boxes) * MAX_NUM_HOVERED_ITEMS);
+	//// TODO: FREE
+	gui->scrollbars = malloc(sizeof(*gui->scrollbars) * MAX_NUM_SCROLLBARS);
+	gui->widgets = malloc(sizeof(*gui->widgets) * MAX_NUM_WIDGETS);
+	gui->rects = malloc(sizeof(*gui->rects) * MAX_NUM_WIDGETS);
+	gui->boxes_indices = malloc(sizeof(*gui->boxes_indices) * MAX_NUM_BOXES);
+	gui->hovered_items_list = malloc(sizeof(*gui->hovered_items_list) * MAX_NUM_HOVERED_ITEMS);
+	gui->hovered_boxes = malloc(sizeof(*gui->hovered_boxes) * MAX_NUM_HOVERED_ITEMS);
+	gui->cached_boxes = malloc(sizeof(*gui->cached_boxes) * MAX_NUM_HOVERED_ITEMS);
 
-	return canvas;
+	gui->free_widgets = malloc(sizeof(*gui->free_widgets) * MAX_NUM_WIDGETS);
 }
 
 WzWidget wz_gui_begin(WzGui* gui_in,
@@ -700,6 +740,9 @@ WzWidget wz_gui_begin(WzGui* gui_in,
 	bool enable_input)
 {
 	gui = gui_in;
+
+	memset(gui->free_widgets, 1, sizeof(*gui->free_widgets) * MAX_NUM_WIDGETS);
+
 
 	gui->keyboard_keys = keys;
 	gui->mouse_left = left_mouse_state;
@@ -736,8 +779,8 @@ WzWidget wz_gui_begin(WzGui* gui_in,
 void wz_draw_rect(WzDrawCommandBuffer* buffer, WzRect rect, WzColor color,
 	int z, char* source)
 {
-	wz_assert(rect.w > 0);
-	wz_assert(rect.h > 0);
+	//wz_assert(rect.w > 0);
+	//wz_assert(rect.h > 0);
 
 	WzDrawCommand command = (WzDrawCommand){
 		.type = DrawCommandType_Rect,
@@ -1118,14 +1161,6 @@ bool wz_widget_is_active(WzWidget handle) {
 	return false;
 }
 
-bool wzrd_box_is_activating(WzWidgetData* box) {
-	if (wz_widget_is_equal(box->handle, gui->activating_item)) {
-		return true;
-	}
-
-	return false;
-}
-
 void wzrd_box_bring_to_front(WzWidgetData* box, void* data)
 {
 	(void)data;
@@ -1364,7 +1399,8 @@ void wz_draw(int* boxes_indices)
 			}
 
 			// Texture item
-			if (item.type == ItemType_Texture) {
+			if (item.type == ItemType_Texture)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_Texture,
 					.dest_rect = (WzRect){widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h},
@@ -1375,7 +1411,8 @@ void wz_draw(int* boxes_indices)
 			}
 
 			// Rect item
-			if (item.type == ItemType_Rect) {
+			if (item.type == ItemType_Rect)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_Rect,
 					.dest_rect = item_dest_rect,
@@ -1387,7 +1424,8 @@ void wz_draw(int* boxes_indices)
 				wz_assert(command.dest_rect.h > 0);
 			}
 
-			if (item.type == ItemType_RectAbsolute) {
+			if (item.type == ItemType_RectAbsolute)
+			{
 
 				item_dest_rect.x = item.x;
 				item_dest_rect.y = item.y;
@@ -1420,14 +1458,16 @@ void wz_draw(int* boxes_indices)
 
 				};
 			}
-			else if (item.type == ItemType_HorizontalDottedLine) {
+			else if (item.type == ItemType_HorizontalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
 						.dest_rect = item_dest_rect,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_LeftHorizontalDottedLine) {
+			else if (item.type == ItemType_LeftHorizontalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
 						.dest_rect = (WzRect){
@@ -1440,7 +1480,8 @@ void wz_draw(int* boxes_indices)
 
 				};
 			}
-			else if (item.type == ItemType_RightHorizontalDottedLine) {
+			else if (item.type == ItemType_RightHorizontalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
 						.dest_rect = (WzRect){
@@ -1453,42 +1494,48 @@ void wz_draw(int* boxes_indices)
 
 				};
 			}
-			else if (item.type == ItemType_VerticalDottedLine) {
+			else if (item.type == ItemType_VerticalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
 						.dest_rect = item_dest_rect,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_VerticalLine) {
+			else if (item.type == ItemType_VerticalLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
 						.dest_rect = item_dest_rect,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_LineAbsolute) {
+			else if (item.type == ItemType_LineAbsolute)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_Line,
 					.line = item.val.line,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_LineAbsoluteDotted) {
-				command = (WzDrawCommand) {
+			else if (item.type == ItemType_DottedLineAbsolute)
+			{
+				command = (WzDrawCommand){
 					.type = DrawCommandType_LineDotted,
 					.line = item.val.line,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_HorizontalLine) {
+			else if (item.type == ItemType_HorizontalLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
 						.dest_rect = item_dest_rect,
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_TopVerticalDottedLine) {
+			else if (item.type == ItemType_TopVerticalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
 						.dest_rect = (WzRect){
@@ -1500,7 +1547,8 @@ void wz_draw(int* boxes_indices)
 					.z = widget.layer
 				};
 			}
-			else if (item.type == ItemType_BottomVerticalDottedLine) {
+			else if (item.type == ItemType_BottomVerticalDottedLine)
+			{
 				command = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
 						.dest_rect = (WzRect){
@@ -1845,6 +1893,19 @@ void wz_widget_add_line_absolute(WzWidget widget, int x0, int y0, int x1, int y1
 	wz_widget_add_item(widget, item);
 }
 
+void wz_widget_add_dotted_line_absolute(WzWidget widget, int x0, int y0, int x1, int y1)
+{
+	WzWidgetItem item;
+	item.type = ItemType_DottedLineAbsolute;
+	item.pad_bottom = item.pad_top = item.pad_left = item.pad_right = 0;
+	item.center_h = item.center_w = true;
+	item.val.line.x0 = x0;
+	item.val.line.y0 = y0;
+	item.val.line.x1 = x1;
+	item.val.line.y1 = y1;
+	wz_widget_add_item(widget, item);
+}
+
 void wz_widget_add_horizontal_line_absolute(WzWidget widget, unsigned h)
 {
 	WzWidgetItem item;
@@ -1974,32 +2035,15 @@ void wz_tree_node_get_children(WzTree* tree, WzTreeNode node, WzTreeNodeData** c
 	*children_count = tree->children_count;
 }
 
-void wz_gui_end(WzStr* debug_str)
+void wz_do_layout_refactor_me()
 {
-	unsigned int widgets_stack[MAX_NUM_BOXES];
-	unsigned int widgets_visits[MAX_NUM_BOXES];
+	WzWidgetDescriptor descriptors[MAX_NUM_BOXES];
 	unsigned int widgets_children[MAX_NUM_BOXES];
 	unsigned int widgets_children_count = 0;
-	WzWidgetDescriptor descriptors[MAX_NUM_BOXES];
-
-	// Check all ids are unique
-	// WARNING O(N^2)
-	for (unsigned int i = 0; i < gui->widgets_count; ++i)
-	{
-		for (unsigned int j = 0; j < gui->widgets_count; ++j)
-		{
-			if (i != j)
-			{
-				if (!gui->widgets[j].ignore_unique_id)
-				{
-					wz_assert(!wz_widget_is_equal(gui->widgets[i].handle, gui->widgets[j].handle));
-				}
-			}
-		}
-	}
 
 	for (unsigned int i = 0; i < gui->widgets_count; ++i)
 	{
+		descriptors[i].handle = gui->widgets[i].handle.handle;
 		descriptors[i].children = widgets_children + widgets_children_count;
 		descriptors[i].children_count = gui->widgets[i].children_count;
 
@@ -2030,18 +2074,17 @@ void wz_gui_end(WzStr* debug_str)
 	}
 
 	unsigned int layout_failed = 0;
-	wz_do_layout(1, descriptors, gui->rects, gui->widgets_count, &layout_failed);
 
-	if (!layout_failed)
+	// This has to be clean or else the rects accumulate values
+	for (unsigned i = 0; i < MAX_NUM_WIDGETS; ++i)
 	{
-		/*for (unsigned int i = 0; i < canvas->widgets_count; ++i)
-		{
-			canvas->rects[i].x = canvas->rects[i].x;
-			canvas->rects[i].y = canvas->rects[i].y;
-			canvas->rects[i].w = canvas->rects[i].w;
-			canvas->rects[i].h = canvas->rects[i].h;
-		}*/
+		gui->rects[i].x = 0;
+		gui->rects[i].y = 0;
+		gui->rects[i].w = 0;
+		gui->rects[i].h = 0;
 	}
+
+	wz_do_layout(1, descriptors, gui->rects, gui->widgets_count, &layout_failed);
 
 	for (unsigned int i = 0; i < gui->widgets_count; ++i)
 	{
@@ -2049,6 +2092,48 @@ void wz_gui_end(WzStr* debug_str)
 		gui->widgets[i].actual_y = gui->rects[i].y;
 		gui->widgets[i].actual_w = gui->rects[i].w;
 		gui->widgets[i].actual_h = gui->rects[i].h;
+	}
+}
+
+void wz_add_persistent_widget(WzWidgetData widget)
+{
+	persistent_widgets[persistent_widgets_count++] = widget;
+}
+
+void wz_draw_persistent_widgets()
+{
+	for (unsigned i = 0; i < persistent_widgets_count; ++i)
+	{
+		persistent_widgets[i].actual_x = 0;
+		persistent_widgets[i].actual_y = 0;
+		persistent_widgets[i].actual_w = 0;
+		persistent_widgets[i].actual_h = 0;
+		gui->widgets[gui->widgets_count++] = persistent_widgets[i];
+	}
+}
+
+void wz_gui_end(WzStr* debug_str)
+{
+	unsigned int widgets_stack[MAX_NUM_BOXES];
+	unsigned int widgets_visits[MAX_NUM_BOXES];
+
+	//wz_draw_persistent_widgets();
+	wz_do_layout_refactor_me();
+
+	// Check all ids are unique
+	// WARNING O(N^2)
+	for (unsigned int i = 0; i < gui->widgets_count; ++i)
+	{
+		for (unsigned int j = 0; j < gui->widgets_count; ++j)
+		{
+			if (i != j)
+			{
+				if (!gui->widgets[j].ignore_unique_id)
+				{
+					wz_assert(!wz_widget_is_equal(gui->widgets[i].handle, gui->widgets[j].handle));
+				}
+			}
+		}
 	}
 
 	// Second pass: handle scrollbars
@@ -2174,7 +2259,7 @@ void wz_gui_end(WzStr* debug_str)
 			int x1 = expand_widget->actual_x + expand_widget->actual_w / 2;
 			int y1 = expand_widget->actual_y + expand_widget->actual_h / 2;
 
-			wz_widget_add_line_absolute(tree->menu, x0, y0, x1, y1);
+			wz_widget_add_dotted_line_absolute(tree->menu, x0, y0, x1, y1);
 
 			unsigned children_count = node->children_count;
 
@@ -2191,7 +2276,7 @@ void wz_gui_end(WzStr* debug_str)
 					x1 = child_expand_widget->actual_x + child_expand_widget->actual_w / 2;
 					y1 = child_expand_widget->actual_y + child_expand_widget->actual_h / 2;
 
-					wz_widget_add_line_absolute(tree->menu, x0, y0, x1, y1);
+					wz_widget_add_dotted_line_absolute(tree->menu, x0, y0, x1, y1);
 				}
 
 				unsigned size = expand_widget->actual_w / 2;
@@ -2217,6 +2302,8 @@ void wz_gui_end(WzStr* debug_str)
 
 	// Debug string
 	{
+#if 1
+
 		WzWidgetData* widget = wz_widget_get(gui->hovered_item);
 		char line_str[128];
 		sprintf(line_str, "%s %d", widget->source, gui->mouse_pos.x, gui->mouse_pos.y);
@@ -2237,19 +2324,8 @@ void wz_gui_end(WzStr* debug_str)
 			3, widget->source);
 
 		wz_draw_string(line_str, rect);
+#endif
 	}
-}
-
-void wzrd_box_set_type(WzWidget handle, wzrd_box_type type)
-{
-	wz_widget_get(handle)->layout = type;
-}
-
-WzWidget egui_button_raw_begin(bool* released, WzWidget parent, const char* file, unsigned int line) {
-
-	WzWidget handle = wz_widget_raw(parent, file, line);
-
-	return handle;
 }
 
 WzGui* wzrd_canvas_get()
@@ -2261,7 +2337,8 @@ WzWidget wz_toggle_raw(WzWidget parent, unsigned w, unsigned h, WzColor color,
 	bool* active, const char* file_name, unsigned int line)
 {
 	bool b = false;
-	WzWidget handle = egui_button_raw_begin(&b, parent, file_name, line);
+	WzWidget handle = wz_widget_raw(parent, file_name, line);
+
 	wz_widget_add_source(handle, file_name, line);
 	wz_widget_set_max_constraints(handle, w, h);
 	wz_widget_set_color_old(handle, color);
@@ -2281,8 +2358,7 @@ WzWidget wz_toggle_raw(WzWidget parent, unsigned w, unsigned h, WzColor color,
 
 WzWidget wz_icon_toggle_raw(WzWidget parent, WzTexture texture, unsigned w, unsigned h, bool* active,
 	const char* file_name, unsigned int line) {
-	bool b = false;
-	WzWidget handle = egui_button_raw_begin(&b, parent, file_name, line);
+	WzWidget handle = wz_widget(parent, file_name, line);
 	wz_widget_add_source(handle, file_name, line);
 	wz_widget_set_max_constraints(handle, w, h);
 	wz_widget_add_texture(handle, texture, w, h);
@@ -2304,8 +2380,7 @@ WzWidget wz_icon_toggle_raw(WzWidget parent, WzTexture texture, unsigned w, unsi
 WzWidget wz_texture_raw(WzWidget parent, WzTexture texture,
 	unsigned w, unsigned h, const char* file_name, unsigned int line)
 {
-	bool b = false;
-	WzWidget handle = egui_button_raw_begin(&b, parent, file_name, line);
+	WzWidget handle = wz_widget(parent, file_name, line);
 	wz_widget_add_source(handle, file_name, line);
 	wz_widget_set_max_constraints(handle, w, h);
 	wz_widget_add_texture(handle, texture, w, h);
@@ -2313,7 +2388,8 @@ WzWidget wz_texture_raw(WzWidget parent, WzTexture texture,
 	return handle;
 }
 
-WzWidget wzrd_button_icon_raw(WzTexture texture, bool* result, WzWidget handle, const char* file, unsigned int line) {
+WzWidget wz_button_icon_raw(WzWidget parent, bool* result, WzTexture texture,
+	const char* file, unsigned int line) {
 #if 0
 	bool active = false;
 	wzrd_handle h1, h2;
@@ -2341,8 +2417,17 @@ wzrd_item_add((Item) {
 
 return h1;
 #else
+	const int icon_size = 32;
+	WzWidget icon = wz_texture(parent, texture, icon_size, icon_size);
+	wz_widget_add_source(icon, file, line);
+	wz_widget_set_border(icon, WZ_BORDER_TYPE_DEFAULT);
 
-	WzWidget parent = wz_widget_raw(handle, file, line);
+	*result = wz_widget_is_deactivating(icon);
+
+	if (wz_widget_is_active(icon) || wz_widget_is_activating(icon))
+	{
+		wz_widget_set_border(icon, WZ_BORDER_TYPE_CLICKED);
+	}
 
 	return parent;
 #endif
@@ -2435,8 +2520,9 @@ bool EguiButton2(wzrd_box box, wzrd_str str, wzrd_color color) {
 }
 #endif
 
-void wz_widget_add_item(WzWidget box, WzWidgetItem item) {
-	WzWidgetData* b = wz_widget_get(box);
+void wz_widget_add_item(WzWidget widget, WzWidgetItem item)
+{
+	WzWidgetData* b = wz_widget_get(widget);
 	wz_assert(b->items_count < MAX_NUM_ITEMS - 1);
 	b->items[b->items_count++] = item;
 }
@@ -2657,7 +2743,7 @@ void wzrd_label_list_raw(WzStr* item_names, unsigned int count,
 	wz_widget_set_main_axis_size_min(panel);
 	wz_widget_add_source(panel, file, line);
 
-	if (wzrd_box_is_activating(wz_widget_get(panel)))
+	if (wz_widget_is_activating(panel))
 	{
 		*selected = 0;
 		*is_selected = false;
@@ -2691,6 +2777,40 @@ void wzrd_label_list_raw(WzStr* item_names, unsigned int count,
 			wz_widget_get(wdg)->color = gui->stylesheet.label_item_selected_color;
 		}
 	}
+}
+
+WzWidget wz_vpanel_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget widget = wz_vbox_raw(parent, file, line);
+	wz_widget_set_pad(widget, 5);
+	wz_widget_set_child_gap(widget, 5);
+	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_cross_axis_alignment(widget, CROSS_AXIS_ALIGNMENT_CENTER);
+	wz_widget_set_color_old(widget, EGUI_LIGHTGRAY);
+
+	return widget;
+}
+
+WzWidget wz_hpanel_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget widget = wz_hbox_raw(parent, file, line);
+	wz_widget_set_pad(widget, 5);
+	wz_widget_set_child_gap(widget, 5);
+	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_cross_axis_alignment(widget, CROSS_AXIS_ALIGNMENT_CENTER);
+	wz_widget_set_color_old(widget, EGUI_LIGHTGRAY);
+
+	return widget;
+}
+
+WzWidget wz_panel_raw(WzWidget parent, const char* file, unsigned int line)
+{
+	WzWidget widget = wz_widget(parent, file, line);
+	wz_widget_set_border(widget, WZ_BORDER_TYPE_DEFAULT);
+	wz_widget_set_cross_axis_alignment(widget, CROSS_AXIS_ALIGNMENT_CENTER);
+	wz_widget_set_color_old(widget, EGUI_LIGHTGRAY);
+
+	return widget;
 }
 
 void wzrd_label_list_sorted_raw(WzStr* item_names, unsigned int count, int* items,
@@ -2765,7 +2885,6 @@ void wzrd_label_list_sorted_raw(WzStr* item_names, unsigned int count, int* item
 					wz_widget_add_source(c->handle, __FILE__, __LINE__);
 					wz_widget_set_y(c->handle, hovered_parent->actual_h - 2);
 					wz_widget_set_max_constraint_h(c->handle, 2);
-					//wz_widget_add_child(p->handle, c->handle);
 					wz_widget_set_free_from_parent(c->handle);
 				}
 				else
@@ -2818,7 +2937,6 @@ WzWidget wzrd_handle_button_raw(bool* active, WzRect rect,
 	wz_widget_add_source(parent, file_name, line);
 	wz_widget_set_pos(parent, rect.x, rect.y);
 	wz_widget_set_tight_constraints(parent, rect.w, rect.h);
-	wzrd_box_set_type(parent, wzrd_box_type_button);
 	wz_widget_set_color_old(parent, color);
 	*active = wzrd_box_is_active(wz_widget_get(parent));
 
@@ -2982,3 +3100,6 @@ void wz_widget_set_layer(WzWidget handle, unsigned int layer)
 
 		}
 #endif
+
+
+

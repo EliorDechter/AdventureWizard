@@ -61,6 +61,7 @@ typedef struct WzLayoutSource
 typedef struct WzWidgetDescriptor
 {
 	char* source;
+	unsigned handle;
 	unsigned int constraint_min_w, constraint_min_h, constraint_max_w, constraint_max_h;
 	unsigned int layout;
 	unsigned int pad_left, pad_right, pad_top, pad_bottom;

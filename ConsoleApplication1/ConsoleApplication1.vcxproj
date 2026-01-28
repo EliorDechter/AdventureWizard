@@ -100,7 +100,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Elior\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\include;C:\Users\Elior\Desktop\SDL-release-3.2.26\include;C:\Users\Elior\Desktop\SDL_image-release-3.2.4\SDL_image-release-3.2.4\include;C:\Users\elior\OneDrive\Desktop\SDL-release-3.2.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
@@ -119,7 +119,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Elior\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\include;C:\Users\Elior\Desktop\SDL-release-3.2.26\include;C:\Users\Elior\Desktop\SDL_image-release-3.2.4\SDL_image-release-3.2.4\include;C:\Users\elior\OneDrive\Desktop\SDL-release-3.2.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
@@ -135,7 +135,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
       <AdditionalIncludeDirectories>C:\Users\Elior\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\include;C:\Users\Elior\Desktop\SDL-release-3.2.26\include;C:\Users\Elior\Desktop\SDL_image-release-3.2.4\SDL_image-release-3.2.4\include;C:\Users\elior\OneDrive\Desktop\SDL-release-3.2.26\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -158,7 +158,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Elior\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\include;C:\Users\Elior\Desktop\SDL-release-3.2.26\include;C:\Users\Elior\Desktop\SDL_image-release-3.2.4\SDL_image-release-3.2.4\include;C:\Users\elior\OneDrive\Desktop\SDL-release-3.2.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
