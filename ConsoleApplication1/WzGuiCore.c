@@ -2039,65 +2039,11 @@ void wz_tree_node_get_children(WzTree* tree, WzTreeNode node, WzTreeNodeData** c
 
 void wz_do_layout_refactor_me()
 {
-	unsigned int widgets_children[MAX_NUM_BOXES];
-	unsigned int widgets_children_count = 0;
-
-	unsigned counter = 0;
-	for (unsigned int i = 0; i < MAX_NUM_WIDGETS; ++i)
-	{
-#if 0
-		if (gui->free_widgets[i])
-		{
-			continue;
-		}
-
-		WzWidgetData widget = gui->widgets[i];
-		descriptors[counter].handle = widget.handle.handle;
-		descriptors[counter].children = widgets_children + widgets_children_count;
-		descriptors[counter].children_count = widget.children_count;
-
-		for (unsigned int j = 0; j < widget.children_count; ++j)
-		{
-			widgets_children[widgets_children_count] = widget.children[j];
-			widgets_children_count++;
-		}
-
-		descriptors[counter].constraint_min_h = widget.constraint_min_h;
-		descriptors[counter].constraint_min_w = widget.constraint_min_w;
-		descriptors[counter].constraint_max_h = widget.constraint_max_h;
-		descriptors[counter].constraint_max_w = widget.constraint_max_w;
-		descriptors[counter].gap = widget.child_gap;
-		descriptors[counter].pad_bottom = widget.pad_bottom;
-		descriptors[counter].pad_top = widget.pad_top;
-		descriptors[counter].pad_left = widget.pad_left;
-		descriptors[counter].pad_right = widget.pad_right;
-		descriptors[counter].flex_factor = widget.flex_factor;
-		descriptors[counter].free_from_parent = widget.free_from_parent;
-		descriptors[counter].flex_fit = widget.flex_fit;
-		descriptors[counter].main_axis_size_type = widget.main_axis_size_type;
-		descriptors[counter].layout = widget.layout;
-		descriptors[counter].cross_axis_alignment = widget.cross_axis_alignment;
-		descriptors[counter].source = widget.source;
-		descriptors[counter].x = widget.x;
-		descriptors[counter].y = widget.y;
-
-		counter++;
-#endif
-	}
 
 	unsigned int layout_failed = 0;
 
-	wz_do_layout(1, gui->widgets, gui->rects, gui->widgets_count, &layout_failed);
+	wz_do_layout(1, gui->widgets, gui->rects, MAX_NUM_WIDGETS, &layout_failed);
 
-#if 1
-	for (unsigned int i = 0; i < gui->widgets_count; ++i)
-	{
-		gui->widgets[i].actual_x = gui->rects[i].x;
-		gui->widgets[i].actual_y = gui->rects[i].y;
-		gui->widgets[i].actual_w = gui->rects[i].w;
-		gui->widgets[i].actual_h = gui->rects[i].h;
-	}
-#endif
 }
 
 void wz_add_persistent_widget(WzWidgetData widget)

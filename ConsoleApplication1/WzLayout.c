@@ -76,21 +76,18 @@ void wz_do_layout(unsigned int index,
 	unsigned int parent_cross_axis_size;
 
 	unsigned int padding_cross_axis;
-	WzLayoutRect* child_rect, * widget_rect;
+	//WzLayoutRect* child_rect, * widget_rect;
 	unsigned int root_w, root_h;
 
 	root_w = widgets[index].constraint_max_w;
 	root_h = widgets[index].constraint_max_h;
-
-	rects[index].x = 0;
-	rects[index].y = 0;
 
 	// Constraints pass
 	while (widgets_stack_count)
 	{
 		parent_index = widgets_stack[widgets_stack_count - 1];
 		widget = &widgets[parent_index];
-		widget_rect = &rects[parent_index];
+		//widget_rect = &rects[parent_index];
 
 		//wz_assert(widget->constraint_max_w >= widget->constraint_min_w);
 		//wz_assert(widget->constraint_max_h >= widget->constraint_min_h);
@@ -112,32 +109,32 @@ void wz_do_layout(unsigned int index,
 					widget->source);
 			}
 
-			widget_rect->x = 0;
-			widget_rect->y = 0;
-			widget_rect->w = widget->constraint_max_w;
-			widget_rect->h = widget->constraint_max_h;
+			widget->actual_x = 0;
+			widget->actual_y = 0;
+			widget->actual_w = widget->constraint_max_w;
+			widget->actual_h = widget->constraint_max_h;
 
-			if (!widget_rect->w)
+			if (!widget->actual_w)
 			{
 				wz_log(log_messages, &log_messages_count, "(%s) ERROR: Widget  width has no constraints\n",
 					widget->source);
 			}
-			if (!widget_rect->h)
+			if (!widget->actual_h)
 			{
 				wz_log(log_messages, &log_messages_count,
 					"(%s) ERROR: Widget  height has no constraints\n",
 					widget->source);
 			}
 
-			wz_assert(widget_rect->w <= widget->constraint_max_w);
-			wz_assert(widget_rect->h <= widget->constraint_max_h);
+			wz_assert(widget->actual_w <= widget->constraint_max_w);
+			wz_assert(widget->actual_h <= widget->constraint_max_h);
 
 			wz_log(log_messages, &log_messages_count,
 				"(%s) LOG: Leaf widget with constraints (%u %u %u, %u) determined its size (%u, %u)\n",
 				widget->source,
 				widget->constraint_min_w, widget->constraint_min_h,
 				widget->constraint_max_w, widget->constraint_max_h,
-				widget_rect->w, widget_rect->h);
+				widget->actual_w, widget->actual_h);
 
 			widgets_stack_count--;
 		}
@@ -152,8 +149,8 @@ void wz_do_layout(unsigned int index,
 					constraint_max_main_axis = &widget->constraint_max_w;
 					constraint_min_cross_axis = &widget->constraint_min_h;
 					constraint_max_cross_axis = &widget->constraint_max_h;
-					actual_size_main_axis = &widget_rect->w;
-					actual_size_cross_axis = &widget_rect->h;
+					actual_size_main_axis = &widget->actual_w;
+					actual_size_cross_axis = &widget->actual_h;
 					screen_size_main_axis = root_w;
 					screen_size_cross_axis = root_h;
 					padding_cross_axis = widget->pad_top + widget->pad_bottom;
@@ -164,8 +161,8 @@ void wz_do_layout(unsigned int index,
 					constraint_max_main_axis = &widget->constraint_max_h;
 					constraint_min_cross_axis = &widget->constraint_min_w;
 					constraint_max_cross_axis = &widget->constraint_max_w;
-					actual_size_main_axis = &widget_rect->h;
-					actual_size_cross_axis = &widget_rect->w;
+					actual_size_main_axis = &widget->actual_h;
+					actual_size_cross_axis = &widget->actual_w;
 					screen_size_main_axis = root_h;
 					screen_size_cross_axis = root_w;
 					padding_cross_axis = widget->pad_left + widget->pad_right;
@@ -211,7 +208,7 @@ void wz_do_layout(unsigned int index,
 							for (int i = 0; i < widget->children_count; ++i)
 							{
 								child = &widgets[widget->children[i]];
-								child_rect = &rects[widget->children[i]];
+								//child_rect = &rects[widget->children[i]];
 
 								if (child->free_from_parent)
 								{
@@ -340,7 +337,7 @@ void wz_do_layout(unsigned int index,
 					for (i = 0; i < widget->children_count; ++i)
 					{
 						child = &widgets[widget->children[i]];
-						child_rect = &rects[widget->children[i]];
+						//child_rect = &rects[widget->children[i]];
 
 						if (child->free_from_parent)
 						{
@@ -349,11 +346,11 @@ void wz_do_layout(unsigned int index,
 
 						if (widget->layout == WZ_LAYOUT_HORIZONTAL)
 						{
-							child_actual_size_main_axis = &child_rect->w;
+							child_actual_size_main_axis = &child->actual_w;
 						}
 						else if (widget->layout == WZ_LAYOUT_VERTICAL)
 						{
-							child_actual_size_main_axis = &child_rect->h;
+							child_actual_size_main_axis = &child->actual_h;
 						}
 						else
 						{
@@ -529,15 +526,15 @@ void wz_do_layout(unsigned int index,
 						for (i = 0; i < widget->children_count; ++i)
 						{
 							child = &widgets[widget->children[i]];
-							child_rect = &rects[widget->children[i]];
+							//child_rect = &rects[widget->children[i]];
 
 							if (widget->layout == WZ_LAYOUT_HORIZONTAL)
 							{
-								child_actual_size_main_axis = &child_rect->w;
+								child_actual_size_main_axis = &child->actual_w;
 							}
 							else if (widget->layout == WZ_LAYOUT_VERTICAL)
 							{
-								child_actual_size_main_axis = &child_rect->h;
+								child_actual_size_main_axis = &child->actual_h;
 							}
 							else
 							{
@@ -580,20 +577,20 @@ void wz_do_layout(unsigned int index,
 					for (int i = 0; i < widget->children_count; ++i)
 					{
 						child = &widgets[widget->children[i]];
-						child_rect = &rects[widget->children[i]];
+						//child_rect = &rects[widget->children[i]];
 
 						if (widget->layout == WZ_LAYOUT_HORIZONTAL)
 						{
-							if (child_rect->h > parent_cross_axis_size)
+							if (child->actual_h > parent_cross_axis_size)
 							{
-								parent_cross_axis_size = child_rect->h;
+								parent_cross_axis_size = child->actual_h;
 							}
 						}
 						else if (widget->layout == WZ_LAYOUT_VERTICAL)
 						{
-							if (child_rect->w > parent_cross_axis_size)
+							if (child->actual_w > parent_cross_axis_size)
 							{
-								parent_cross_axis_size = child_rect->w;
+								parent_cross_axis_size = child->actual_w;
 							}
 						}
 					}
@@ -608,29 +605,29 @@ void wz_do_layout(unsigned int index,
 						*actual_size_cross_axis = parent_cross_axis_size;
 					}
 					
-					widget_rect->h += widget->pad_top + widget->pad_bottom;
-					widget_rect->w += widget->pad_left + widget->pad_right;
+					widget->actual_h += widget->pad_top + widget->pad_bottom;
+					widget->actual_w += widget->pad_left + widget->pad_right;
 
 
 					// Clamp
-					if (widget_rect->h < widget->constraint_min_h)
+					if (widget->actual_h < widget->constraint_min_h)
 					{
-						widget_rect->h = widget->constraint_min_h;
+						widget->actual_h = widget->constraint_min_h;
 					}
 
-					if (widget_rect->h > widget->constraint_max_h)
+					if (widget->actual_h > widget->constraint_max_h)
 					{
-						widget_rect->h = widget->constraint_max_h;
+						widget->actual_h = widget->constraint_max_h;
 					}
 
-					if (widget_rect->w < widget->constraint_min_w)
+					if (widget->actual_w < widget->constraint_min_w)
 					{
-						widget_rect->w = widget->constraint_min_w;
+						widget->actual_w = widget->constraint_min_w;
 					}
 
-					if (widget_rect->w > widget->constraint_max_w)
+					if (widget->actual_w > widget->constraint_max_w)
 					{
-						widget_rect->w = widget->constraint_max_w;
+						widget->actual_w = widget->constraint_max_w;
 					}
 
 					if (widget->layout == WZ_LAYOUT_HORIZONTAL)
@@ -638,14 +635,14 @@ void wz_do_layout(unsigned int index,
 						wz_log(log_messages, &log_messages_count,
 							"(%s) LOG: Row widget  with constraints (%u, %u) determined its size (%u, %u)\n",
 							widget->source,
-							widget->constraint_max_w, widget->constraint_max_h, widget_rect->w, widget_rect->h);
+							widget->constraint_max_w, widget->constraint_max_h, widget->actual_w, widget->actual_h);
 					}
 					else if (widget->layout == WZ_LAYOUT_VERTICAL)
 					{
 						wz_log(log_messages, &log_messages_count,
 							"(%s) LOG: Column widget  with constraints (%u, %u) determined its size (%u, %u)\n",
 							widget->source,
-							widget->constraint_max_w, widget->constraint_max_h, widget_rect->w, widget_rect->h);
+							widget->constraint_max_w, widget->constraint_max_h, widget->actual_w, widget->actual_h);
 					}
 
 					wz_assert(*actual_size_main_axis <= *constraint_max_main_axis);
@@ -653,12 +650,12 @@ void wz_do_layout(unsigned int index,
 
 					// Give positions to children
 					unsigned int offset = 0;
-					widget_rect->x = 0;
-					widget_rect->y = 0;
+					widget->actual_x = 0;
+					widget->actual_y = 0;
 					for (int i = 0; i < widget->children_count; ++i)
 					{
 						child = &widgets[widget->children[i]];
-						child_rect = &rects[widget->children[i]];
+						//child_rect = &rects[widget->children[i]];
 
 						if (child->free_from_parent)
 						{
@@ -667,15 +664,15 @@ void wz_do_layout(unsigned int index,
 
 						if (widget->layout == WZ_LAYOUT_HORIZONTAL)
 						{
-							child_actual_size_main_axis = &child_rect->w;
-							child_rect->x = offset;
-							child_rect->y = 0;
+							child_actual_size_main_axis = &child->actual_w;
+							child->actual_x= offset;
+							child->actual_y = 0;
 						}
 						else if (widget->layout == WZ_LAYOUT_VERTICAL)
 						{
-							child_actual_size_main_axis = &child_rect->h;
-							child_rect->y = offset;
-							child_rect->x = 0;
+							child_actual_size_main_axis = &child->actual_h;
+							child->actual_y = offset;
+							child->actual_x= 0;
 						}
 						else
 						{
@@ -684,8 +681,8 @@ void wz_do_layout(unsigned int index,
 						}
 
 						// Position padding
-						child_rect->x += widget->pad_left;
-						child_rect->y += widget->pad_top;
+						child->actual_x+= widget->pad_left;
+						child->actual_y += widget->pad_top;
 
 						offset += *child_actual_size_main_axis;
 						offset += widget->child_gap;
@@ -693,7 +690,7 @@ void wz_do_layout(unsigned int index,
 						wz_log(log_messages, &log_messages_count,
 							"(%s) LOG: Child widget (%u) will have the raltive position %u %u\n",
 							child->source, widget->children[i],
-							child_rect->x, child_rect->y);
+							child->actual_x, child->actual_y);
 					}
 
 					widgets_stack_count--;
@@ -711,7 +708,7 @@ void wz_do_layout(unsigned int index,
 					for (int i = 0; i < widget->children_count; ++i)
 					{
 						child = &widgets[widget->children[i]];
-						child_rect = &rects[widget->children[i]];
+						//child_rect = &rects[widget->children[i]];
 
 						constraint_max_w = widget->constraint_max_w - (widget->pad_left + widget->pad_right);
 						constraint_max_h = widget->constraint_max_h - (widget->pad_top + widget->pad_bottom);
@@ -725,33 +722,33 @@ void wz_do_layout(unsigned int index,
 							child->constraint_max_h = constraint_max_h;
 						}
 
-						child_rect->x = widget->pad_left;
-						child_rect->y = widget->pad_right;
+						child->actual_x = widget->pad_left;
+						child->actual_y = widget->pad_right;
 
 						widgets_stack[widgets_stack_count] = widget->children[i];
 						widgets_stack_count++;
 						widgets_visits[parent_index] = 1;
 						wz_log(log_messages, &log_messages_count, "(%s) LOG: Non-layout widget  passes to child constraints (%u, %u) and position (%u %u)\n",
 							child->source,
-							child->constraint_max_w, child->constraint_max_h, child_rect->x, child_rect->y);
+							child->constraint_max_w, child->constraint_max_h, child->actual_x, child->actual_y);
 					}
 				}
 				else if (widgets_visits[parent_index] == 1)
 				{
-					widget_rect->x = 0;
-					widget_rect->y = 0;
-					widget_rect->w = widget->constraint_max_w;
-					widget_rect->h = widget->constraint_max_h;
+					widget->actual_x = 0;
+					widget->actual_y = 0;
+					widget->actual_w = widget->constraint_max_w;
+					widget->actual_h = widget->constraint_max_h;
 
 					wz_log(log_messages, &log_messages_count,
 						"(%s) LOG: Non-layout widget  with constraints (%u, %u) determined its size (%u, %u)\n",
 						widget->source,
-						widget->constraint_max_w, widget->constraint_max_h, widget_rect->w, widget_rect->h);
+						widget->constraint_max_w, widget->constraint_max_h, widget->actual_w, widget->actual_h);
 
-					//wz_assert(widget_rect->w <= widget->constraint_max_w);
-					//wz_assert(widget_rect->h <= widget->constraint_max_h);
-					//wz_assert(widget_rect->w <= root_w);
-					//wz_assert(widget_rect->h <= root_h);
+					//wz_assert(widget->actual_w <= widget->constraint_max_w);
+					//wz_assert(widget->actual_h <= widget->constraint_max_h);
+					//wz_assert(widget->actual_w <= root_w);
+					//wz_assert(widget->actual_h <= root_h);
 
 					widgets_stack_count--;
 				}
@@ -769,25 +766,25 @@ void wz_do_layout(unsigned int index,
 	for (int i = 1; i < count; ++i)
 	{
 		widget = &widgets[i];
-		widget_rect = &rects[i];
+		//widget_rect = &rects[i];
 		unsigned int offset = 0;
 		unsigned int children_size = 0;
 
-		widget_rect->x += widget->x;
-		widget_rect->y += widget->y;
+		widget->actual_x += widget->x;
+		widget->actual_y += widget->y;
 
 		for (int j = 0; j < widget->children_count; ++j)
 		{
 			child = &widgets[widget->children[j]];
-			child_rect = &rects[widget->children[j]];
+			//child_rect = &rects[widget->children[j]];
 
 			if (widget->layout == WZ_LAYOUT_HORIZONTAL)
 			{
-				children_size += child_rect->w;
+				children_size += child->actual_w;
 			}
 			else if (widget->layout == WZ_LAYOUT_VERTICAL)
 			{
-				children_size += child_rect->h;
+				children_size += child->actual_h;
 			}
 		}
 
@@ -796,27 +793,27 @@ void wz_do_layout(unsigned int index,
 		for (int j = 0; j < widget->children_count; ++j)
 		{
 			child = &widgets[widget->children[j]];
-			child_rect = &rects[widget->children[j]];
+			//child_rect = &rects[widget->children[j]];
 
-			if (!widget_rect->w || !widget_rect->h)
+			if (!widget->actual_w || !widget->actual_h)
 			{
-				child_rect->w = 0;
-				child_rect->h = 0;
+				child->actual_w = 0;
+				child->actual_h = 0;
 				continue;
 			}
 
-			unsigned int parent_size_h = widget_rect->h - widget->pad_top - widget->pad_bottom;
-			unsigned int parent_size_w = widget_rect->w - widget->pad_left - widget->pad_right;
+			unsigned int parent_size_h = widget->actual_h - widget->pad_top - widget->pad_bottom;
+			unsigned int parent_size_w = widget->actual_w - widget->pad_left - widget->pad_right;
 
 			if (widget->cross_axis_alignment == CROSS_AXIS_ALIGNMENT_CENTER)
 			{
-				if (widget->layout == WZ_LAYOUT_HORIZONTAL && parent_size_h > child_rect->h)
+				if (widget->layout == WZ_LAYOUT_HORIZONTAL && parent_size_h > child->actual_h)
 				{
-					child_rect->y += (parent_size_h - child_rect->h) / 2;
+					child->actual_y += (parent_size_h - child->actual_h) / 2;
 				}
-				else if (widget->layout == WZ_LAYOUT_VERTICAL && parent_size_w > child_rect->w)
+				else if (widget->layout == WZ_LAYOUT_VERTICAL && parent_size_w > child->actual_w)
 				{
-					child_rect->x += (parent_size_w - child_rect->w) / 2;
+					child->actual_x+= (parent_size_w - child->actual_w) / 2;
 				}
 			}
 			else if (widget->cross_axis_alignment == CROSS_AXIS_ALIGNMENT_START)
@@ -824,16 +821,16 @@ void wz_do_layout(unsigned int index,
 				// Do nothing
 			}
 
-			child_rect->x = widget_rect->x + child_rect->x;
-			child_rect->y = widget_rect->y + child_rect->y;
+			child->actual_x = widget->actual_x + child->actual_x;
+			child->actual_y = widget->actual_y + child->actual_y;
 
 			// Check the widgets size doesnt exceeds its parents
-			if (child_rect->x + child_rect->w >= widget_rect->x + widget_rect->w)
+			if (child->actual_x+ child->actual_w >= widget->actual_x + widget->actual_w)
 			{
 				wz_log(log_messages, &log_messages_count, "(%s) ERROR: Widget exceeds it's parents horizontally\n",
 					child->source);
 			}
-			if (child_rect->y + child_rect->h >= widget_rect->y + widget_rect->h)
+			if (child->actual_y + child->actual_h >= widget->actual_y + widget->actual_h)
 			{
 				wz_log(log_messages, &log_messages_count, "(%s) ERROR: Widget exceeds it's parents vertically\n",
 					child->source);
@@ -847,10 +844,10 @@ void wz_do_layout(unsigned int index,
 	for (unsigned int i = 0; i < count; ++i)
 	{
 		widget = &widgets[i];
-		widget_rect = &rects[i];
+		//widget_rect = &rects[i];
 
 		wz_log(log_messages, &log_messages_count, "(%u %s %u) : (%d %d %u %u)\n",
-			i, widget->source, widget_rect->x, widget_rect->y, widget_rect->w, widget_rect->h);
+			i, widget->source, widget->actual_x, widget->actual_y, widget->actual_w, widget->actual_h);
 	}
 	wz_log(log_messages, &log_messages_count, "---------------------------\n");
 
