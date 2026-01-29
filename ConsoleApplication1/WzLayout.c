@@ -20,20 +20,6 @@ void wz_log(WzLogMessage* arr, unsigned int* count, const char* fmt, ...)
 	//printf("%s", message.str);
 }
 
-WzWidgetDescriptor wz_widget_descriptor_create(
-	unsigned int constraint_min_w, unsigned int constraint_min_h,
-	unsigned int constraint_max_w, unsigned int constraint_max_h,
-	unsigned int layout,
-	unsigned int pad_left, unsigned int pad_right, unsigned int pad_top, unsigned int pad_bottom,
-	unsigned int* children,
-	unsigned int children_count,
-	unsigned char free_from_parent_horizontally, unsigned char free_from_parent_vertically,
-	unsigned char flex_fit
-)
-{
-
-}
-
 void wz_assert(unsigned int b)
 {
 	if (!b)
@@ -44,16 +30,18 @@ void wz_assert(unsigned int b)
 }
 
 void wz_do_layout(unsigned int index,
-	WzWidgetDescriptor* widgets, WzLayoutRect* rects,
+	WzWidgetData* widgets, WzLayoutRect* rects,
 	unsigned int count, unsigned int* failed)
 {
+	wz_assert(count);
+
 	wz_layout_failed = 0;
 
 	unsigned int widgets_stack_count = 0;
 
 	unsigned int size_per_flex_factor;
-	WzWidgetDescriptor* widget;
-	WzWidgetDescriptor* child;
+	WzWidgetData* widget;
+	WzWidgetData* child;
 
 	unsigned int constraint_max_w, constraint_max_h;
 
@@ -423,9 +411,9 @@ void wz_do_layout(unsigned int index,
 						}
 					}
 
-					if (available_size_main_axis > widget->gap * (widget->children_count - 1))
+					if (available_size_main_axis > widget->child_gap * (widget->children_count - 1))
 					{
-						available_size_main_axis -= widget->gap * (widget->children_count - 1);
+						available_size_main_axis -= widget->child_gap * (widget->children_count - 1);
 					}
 					else
 					{
@@ -700,7 +688,7 @@ void wz_do_layout(unsigned int index,
 						child_rect->y += widget->pad_top;
 
 						offset += *child_actual_size_main_axis;
-						offset += widget->gap;
+						offset += widget->child_gap;
 
 						wz_log(log_messages, &log_messages_count,
 							"(%s) LOG: Child widget (%u) will have the raltive position %u %u\n",
@@ -710,6 +698,10 @@ void wz_do_layout(unsigned int index,
 
 					widgets_stack_count--;
 				}
+				else
+				{
+					wz_assert(0);
+					}
 			}
 			else if (widget->layout == WZ_LAYOUT_NONE)
 			{
@@ -799,7 +791,7 @@ void wz_do_layout(unsigned int index,
 			}
 		}
 
-		children_size += widget->gap * (widget->children_count - 1);
+		children_size += widget->child_gap * (widget->children_count - 1);
 
 		for (int j = 0; j < widget->children_count; ++j)
 		{

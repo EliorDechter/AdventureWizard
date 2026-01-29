@@ -292,7 +292,13 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 	{
 		for (unsigned i = 0; i < persistent_widgets_count; ++i)
 		{
-			wz_widget_persistent(draw_panel, persistent_widgets[i]);
+			WzWidgetData box = persistent_widgets[i];
+			WzWidgetData* p = wz_widget_get(draw_panel);
+			wz_assert(p->children_count < MAX_NUM_CHILDREN - 1);
+			p->children[p->children_count++] = box.handle.handle;
+			box.layer = p->layer;
+			box.clip_widget = p->clip_widget;
+			box.parent = draw_panel;
 		}
 	}
 
@@ -322,7 +328,18 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 		wz_widget_data_set_border(&widg, WZ_BORDER_TYPE_DEFAULT);
 		wz_widget_data_set_x(&widg, g_editor.drawing_widget_x - draw_panel_data->actual_x);
 		wz_widget_data_set_y(&widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
+
+		widg.handle = wz_create_handle();
+		wz_assert(gui->widgets_count < MAX_NUM_BOXES - 1);
+		gui->widgets[widg.handle.handle] = widg;
+		gui->widgets_count++;
+
 		persistent_widgets[persistent_widgets_count++] = widg;
+	}
+
+	if (wz_widget_is_active((WzWidget) { 22 }))
+	{
+		wz_widget_set_color((WzWidget) { 22 }, 0xFF0000FF);
 	}
 
 	wz_do_layout_refactor_me();

@@ -10,7 +10,6 @@ static WzGui* gui;
 
 bool wz_widget_is_equal(WzWidget a, WzWidget b);
 bool wz_handle_is_valid(WzWidget handle);
-WzWidget wz_create_handle();
 WzWidgetData* wzrd_box_get_parent();
 WzWidgetData* wzrd_box_get_previous();
 void wzrd_crate_begin(int window_id, WzWidgetData box);
@@ -742,7 +741,10 @@ WzWidget wz_gui_begin(WzGui* gui_in,
 	gui = gui_in;
 
 	memset(gui->free_widgets, 1, sizeof(*gui->free_widgets) * MAX_NUM_WIDGETS);
-
+	for (unsigned i = 0; i < persistent_widgets_count; ++i)
+	{
+		gui->free_widgets[persistent_widgets[i].handle.handle] = false;
+	}
 
 	gui->keyboard_keys = keys;
 	gui->mouse_left = left_mouse_state;
@@ -2037,55 +2039,57 @@ void wz_tree_node_get_children(WzTree* tree, WzTreeNode node, WzTreeNodeData** c
 
 void wz_do_layout_refactor_me()
 {
-	WzWidgetDescriptor descriptors[MAX_NUM_BOXES];
 	unsigned int widgets_children[MAX_NUM_BOXES];
 	unsigned int widgets_children_count = 0;
 
-	for (unsigned int i = 0; i < gui->widgets_count; ++i)
+	unsigned counter = 0;
+	for (unsigned int i = 0; i < MAX_NUM_WIDGETS; ++i)
 	{
-		descriptors[i].handle = gui->widgets[i].handle.handle;
-		descriptors[i].children = widgets_children + widgets_children_count;
-		descriptors[i].children_count = gui->widgets[i].children_count;
-
-		for (unsigned int j = 0; j < gui->widgets[i].children_count; ++j)
+#if 0
+		if (gui->free_widgets[i])
 		{
-			widgets_children[widgets_children_count] = gui->widgets[i].children[j];
+			continue;
+		}
+
+		WzWidgetData widget = gui->widgets[i];
+		descriptors[counter].handle = widget.handle.handle;
+		descriptors[counter].children = widgets_children + widgets_children_count;
+		descriptors[counter].children_count = widget.children_count;
+
+		for (unsigned int j = 0; j < widget.children_count; ++j)
+		{
+			widgets_children[widgets_children_count] = widget.children[j];
 			widgets_children_count++;
 		}
 
-		descriptors[i].constraint_min_h = gui->widgets[i].constraint_min_h;
-		descriptors[i].constraint_min_w = gui->widgets[i].constraint_min_w;
-		descriptors[i].constraint_max_h = gui->widgets[i].constraint_max_h;
-		descriptors[i].constraint_max_w = gui->widgets[i].constraint_max_w;
-		descriptors[i].gap = gui->widgets[i].child_gap;
-		descriptors[i].pad_bottom = gui->widgets[i].pad_bottom;
-		descriptors[i].pad_top = gui->widgets[i].pad_top;
-		descriptors[i].pad_left = gui->widgets[i].pad_left;
-		descriptors[i].pad_right = gui->widgets[i].pad_right;
-		descriptors[i].flex_factor = gui->widgets[i].flex_factor;
-		descriptors[i].free_from_parent = gui->widgets[i].free_from_parent;
-		descriptors[i].flex_fit = gui->widgets[i].flex_fit;
-		descriptors[i].main_axis_size_type = gui->widgets[i].main_axis_size_type;
-		descriptors[i].layout = gui->widgets[i].layout;
-		descriptors[i].cross_axis_alignment = gui->widgets[i].cross_axis_alignment;
-		descriptors[i].source = gui->widgets[i].source;
-		descriptors[i].x = gui->widgets[i].x;
-		descriptors[i].y = gui->widgets[i].y;
+		descriptors[counter].constraint_min_h = widget.constraint_min_h;
+		descriptors[counter].constraint_min_w = widget.constraint_min_w;
+		descriptors[counter].constraint_max_h = widget.constraint_max_h;
+		descriptors[counter].constraint_max_w = widget.constraint_max_w;
+		descriptors[counter].gap = widget.child_gap;
+		descriptors[counter].pad_bottom = widget.pad_bottom;
+		descriptors[counter].pad_top = widget.pad_top;
+		descriptors[counter].pad_left = widget.pad_left;
+		descriptors[counter].pad_right = widget.pad_right;
+		descriptors[counter].flex_factor = widget.flex_factor;
+		descriptors[counter].free_from_parent = widget.free_from_parent;
+		descriptors[counter].flex_fit = widget.flex_fit;
+		descriptors[counter].main_axis_size_type = widget.main_axis_size_type;
+		descriptors[counter].layout = widget.layout;
+		descriptors[counter].cross_axis_alignment = widget.cross_axis_alignment;
+		descriptors[counter].source = widget.source;
+		descriptors[counter].x = widget.x;
+		descriptors[counter].y = widget.y;
+
+		counter++;
+#endif
 	}
 
 	unsigned int layout_failed = 0;
 
-	// This has to be clean or else the rects accumulate values
-	for (unsigned i = 0; i < MAX_NUM_WIDGETS; ++i)
-	{
-		gui->rects[i].x = 0;
-		gui->rects[i].y = 0;
-		gui->rects[i].w = 0;
-		gui->rects[i].h = 0;
-	}
+	wz_do_layout(1, gui->widgets, gui->rects, gui->widgets_count, &layout_failed);
 
-	wz_do_layout(1, descriptors, gui->rects, gui->widgets_count, &layout_failed);
-
+#if 1
 	for (unsigned int i = 0; i < gui->widgets_count; ++i)
 	{
 		gui->widgets[i].actual_x = gui->rects[i].x;
@@ -2093,6 +2097,7 @@ void wz_do_layout_refactor_me()
 		gui->widgets[i].actual_w = gui->rects[i].w;
 		gui->widgets[i].actual_h = gui->rects[i].h;
 	}
+#endif
 }
 
 void wz_add_persistent_widget(WzWidgetData widget)
@@ -2100,24 +2105,11 @@ void wz_add_persistent_widget(WzWidgetData widget)
 	persistent_widgets[persistent_widgets_count++] = widget;
 }
 
-void wz_draw_persistent_widgets()
-{
-	for (unsigned i = 0; i < persistent_widgets_count; ++i)
-	{
-		persistent_widgets[i].actual_x = 0;
-		persistent_widgets[i].actual_y = 0;
-		persistent_widgets[i].actual_w = 0;
-		persistent_widgets[i].actual_h = 0;
-		gui->widgets[gui->widgets_count++] = persistent_widgets[i];
-	}
-}
-
 void wz_gui_end(WzStr* debug_str)
 {
 	unsigned int widgets_stack[MAX_NUM_BOXES];
 	unsigned int widgets_visits[MAX_NUM_BOXES];
 
-	//wz_draw_persistent_widgets();
 	wz_do_layout_refactor_me();
 
 	// Check all ids are unique
@@ -2306,7 +2298,7 @@ void wz_gui_end(WzStr* debug_str)
 
 		WzWidgetData* widget = wz_widget_get(gui->hovered_item);
 		char line_str[128];
-		sprintf(line_str, "%s %d", widget->source, gui->mouse_pos.x, gui->mouse_pos.y);
+		sprintf(line_str, "%s %u", widget->source, widget->handle.handle);
 		int w, h;
 		gui->get_string_size(line_str, &w, &h);
 
