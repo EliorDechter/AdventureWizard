@@ -1,10 +1,8 @@
 #ifndef EDITOR_H
 #define EDITOR_H
 
-#include "WzGuiWidgets.h"
 #include "Platform.h"
 #include "Game.h"
-
 
 typedef enum EditorTextures
 {

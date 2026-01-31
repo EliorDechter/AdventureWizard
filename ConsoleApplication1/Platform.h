@@ -176,7 +176,7 @@ PlatformTargetTexture PlatformTargetTextureCreate();
 void platform_cursor_set(PlatformCursor cursor);
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a);
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color);
-void platform_draw_wzrd(WzGui *canvas);
+void sdl_draw_wz(WzGui *canvas);
 void platform_time_begin();
 void platform_time_end();
 

@@ -27,9 +27,6 @@
     <ClCompile Include="Main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WzGuiCore.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Game.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -78,18 +75,9 @@
     <ClCompile Include="ArrayList.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WzGuiWidgets.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="WzLayout.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Platform.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WzGuiCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Game.h">
@@ -123,12 +111,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stb_textedit.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WzGuiWidgets.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WzLayout.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

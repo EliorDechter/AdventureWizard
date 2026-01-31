@@ -48,7 +48,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
-    <EnableASAN>false</EnableASAN>
+    <EnableASAN>true</EnableASAN>
     <EnableUnitySupport>false</EnableUnitySupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -135,7 +135,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard_C>Default</LanguageStandard_C>
       <CompileAs>CompileAsC</CompileAs>
       <AdditionalIncludeDirectories>C:\Users\Elior\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\include;C:\Users\Elior\Desktop\SDL-release-3.2.26\include;C:\Users\Elior\Desktop\SDL_image-release-3.2.4\SDL_image-release-3.2.4\include;C:\Users\elior\OneDrive\Desktop\SDL-release-3.2.26\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -173,7 +173,6 @@
     <ClCompile Include="Animation.c" />
     <ClCompile Include="ArrayList.c" />
     <ClCompile Include="Editor.c" />
-    <ClCompile Include="WzGuiCore.c" />
     <ClCompile Include="FileName.c" />
     <ClCompile Include="Game.c" />
     <ClCompile Include="GameState.c" />
@@ -189,13 +188,10 @@
     <ClCompile Include="Strings.c" />
     <ClCompile Include="Textures.c" />
     <ClCompile Include="Timer.c" />
-    <ClCompile Include="WzGuiWidgets.c" />
-    <ClCompile Include="WzLayout.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArrayList.h" />
     <ClInclude Include="Editor.h" />
-    <ClInclude Include="WzGuiCore.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Handle.h" />
     <ClInclude Include="HashTable.h" />
@@ -206,8 +202,6 @@
     <ClInclude Include="stb_textedit.h" />
     <ClInclude Include="Strings.h" />
     <ClInclude Include="Textures.h" />
-    <ClInclude Include="WzGuiWidgets.h" />
-    <ClInclude Include="WzLayout.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -221,6 +215,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\..\..\Desktop\SDL_ttf-preview-3.1.0\SDL_ttf-preview-3.1.0\VisualC\SDL_ttf.vcxproj">
       <Project>{dddbd07d-dc76-4af6-8d02-3e2deb6ee255}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Wz\Wz.vcxproj">
+      <Project>{29ffb079-5f79-4158-a9ed-1e974e90889c}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,6 +1,7 @@
 #include "Platform.h"
 //#include "Editor.h"
 #include <SDL3/SDL_main.h>
+
 #include "Game.h"
 #include "Editor.h"
 
@@ -130,7 +131,6 @@ void platform_string_get_size(char* str, int* w, int* h)
 		*w += (int)w_int;
 		*h += (int)h_int;
 	}
-
 }
 
 void platform_rect_draw(PlatformRect rect, platform_color color) {
@@ -231,8 +231,9 @@ PlatformTexture PlatformTextureLoad(const char* path) {
 SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
-void platform_draw_wzrd(WzGui* canvas) {
 
+void sdl_draw_wz(WzGui* canvas)
+{
 	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
@@ -344,7 +345,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	wz_gui_init(&game_gui);
 	wz_gui_init(&editor_gui);
 
-
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
 	/* Create the window */
@@ -379,9 +379,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 }
 
 SDL_AppResult handle_events(SDL_Event* event) {
-	//if (!sdl.events_count) return;
-
-	//SDL_Event *event = &sdl.events[sdl.events_count];	
 
 	for (int i = 0; i < 128; ++i) {
 		if (g_platform.keyboard_states[i] == Deactivating) {
@@ -636,7 +633,7 @@ void test_gui(WzGui* gui)
 
 	wz_gui_end(0);
 
-	platform_draw_wzrd(gui);
+	sdl_draw_wz(gui);
 }
 
 WzGui test_gui_obj;
@@ -664,7 +661,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			editor_run(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
 			unsigned int time_b = SDL_GetTicksNS();
 
-			platform_draw_wzrd(&editor_gui);
+			sdl_draw_wz(&editor_gui);
 			g_debug_text = (str1024){ 0 };
 
 			static uint64_t samples[32];
@@ -689,7 +686,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		WzWidgetData* target_panel_data = wz_widget_get(target_panel);
 		game_screen_rect = (WzRect){ target_panel_data->actual_x, target_panel_data->actual_y,
 			target_panel_data->actual_w, target_panel_data->actual_h };
-
+		
 		if (wzrd_box_is_hot_using_canvas(&editor_gui, target_panel_data))
 		{
 			enable_game_input = true;
@@ -731,7 +728,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 					enable_game_input, scale_w, scale_h, & debug_str);
 #endif
 				PlatformTextureBeginTarget(g_game.target_texture);
-				platform_draw_wzrd(&game_gui);
+				sdl_draw_wz(&game_gui);
 				PlatformTextureEndTarget();
 			}
 		}
@@ -762,5 +759,6 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 	WZRD_UNUSED(appstate);
 	WZRD_UNUSED(result);
 
+	wz_gui_deinit(&editor_gui);
 }
 

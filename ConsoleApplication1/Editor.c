@@ -3,8 +3,6 @@
 #include "Textures.h"
 #include "Game.h"
 
-
-
 WzStr wzrd_str_from_str128(str128* str)
 {
 	WzStr result = { .str = str->val, .len = str->len };
@@ -76,7 +74,7 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 		editor_seperator_horizontal(window);
 		{
 			WzWidget panel = wz_hpanel(window);
-			wz_widget_set_pad(panel, 10);
+			wz_widget_set_margins(panel, 10);
 			wz_widget_set_child_gap(panel, 15);
 
 			bool b = false;
@@ -204,8 +202,8 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 				wzrd_v2 size = { 500, 500 };
 				bool ok = false, cancel = false;
 
-				WzWidget dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_pos,
-					size, &g_editor.create_object_dialog_active, wz_str_create("add object"), 4, window);
+				WzWidget dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_pos.x, &g_editor.create_object_dialog_pos.y,
+					&size.x, &size.y, &g_editor.create_object_dialog_active, wz_str_create("add object"), 4, window);
 
 				bool* active = &g_editor.create_object_dialog_active;
 				if (1)
@@ -221,11 +219,6 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 					WzWidget form = wz_vpanel(panel);
 					wz_widget_set_expanded(form);
 					wz_widget_set_cross_axis_alignment(form, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
-					//wz_widget_set_cross_axis_alignment(form, CROSS_AXIS_ALIGNMENT_STRETCH);
-					//WzWidget b = wz_widget(form);
-					//wz_widget_set_tight_constraints(b, 50, 50);
-					//WzWidget wdg = { 0 };
-					//WzWidget row = editor_add_row(form, wzrd_str_create("Name:"), wdg);
 					WzWidget row = wz_hpanel(form);
 					wz_label(row, wz_str_create("Name:"));
 					WzWidget wdg = wzrd_input_box(name.val, &name.len, 10, row);
@@ -288,17 +281,36 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 	unsigned w = gui->mouse_pos.x - g_editor.drawing_widget_x;
 	unsigned h = gui->mouse_pos.y - g_editor.drawing_widget_y;
 
-	if (persistent_widgets_count)
+	if (gui->persistent_widgets_count)
 	{
-		for (unsigned i = 0; i < persistent_widgets_count; ++i)
+		for (unsigned i = 0; i < gui->persistent_widgets_count; ++i)
 		{
-			WzWidgetData box = persistent_widgets[i];
-			WzWidgetData* p = wz_widget_get(draw_panel);
-			wz_assert(p->children_count < MAX_NUM_CHILDREN - 1);
-			p->children[p->children_count++] = box.handle.handle;
-			box.layer = p->layer;
-			box.clip_widget = p->clip_widget;
-			box.parent = draw_panel;
+			WzWidget w = wz_widget_add_to_frame(draw_panel, gui->persistent_widgets[i]);
+			WzWidgetData* ww = wz_widget_get(w);
+
+			if (wz_widget_is_interacting(w))
+			{
+				wz_widget_data_set_pos(&gui->persistent_widgets[i],
+					ww->x + gui->mouse_delta.x,
+					ww->y + gui->mouse_delta.y);
+			}
+
+			// ...
+			WzWidget b = wz_widget(w);
+			wz_widget_set_constraints(b, 0, 0, 50, 50);
+			wz_widget_set_pos(b, -50, -50);
+			wz_widget_set_color(b, 0x0000FFFF);
+
+			if (wz_widget_is_active(b))
+			{
+				wz_widget_data_set_tight_constraints(&gui->persistent_widgets[i],
+					ww->constraint_max_w - gui->mouse_delta.x,
+					ww->constraint_max_h - gui->mouse_delta.y);
+				wz_widget_data_set_pos(&gui->persistent_widgets[i],
+					ww->x + gui->mouse_delta.x,
+					ww->y+ gui->mouse_delta.y);
+			}
+
 		}
 	}
 
@@ -330,11 +342,9 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 		wz_widget_data_set_y(&widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
 
 		widg.handle = wz_create_handle();
-		wz_assert(gui->widgets_count < MAX_NUM_BOXES - 1);
 		gui->widgets[widg.handle.handle] = widg;
-		gui->widgets_count++;
 
-		persistent_widgets[persistent_widgets_count++] = widg;
+		gui->persistent_widgets[gui->persistent_widgets_count++] = widg;
 	}
 
 	if (wz_widget_is_active((WzWidget) { 22 }))

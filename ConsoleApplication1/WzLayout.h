@@ -8,5 +8,4 @@
 #include <string.h>
 #include "WzGuiCore.h"
 
-
 #endif
