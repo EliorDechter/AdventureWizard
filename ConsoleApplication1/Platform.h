@@ -144,7 +144,7 @@ typedef struct Sdl {
 	SDL_Mutex *mutex;
 	SDL_Cursor* cursor_hand, *cursor_default, *cursor_horizontal_arrow, *cursor_vertical_arrow;
 
-	SDL_Texture textures[SDL_TEXTURES_MAX_COUNT];
+	SDL_Texture textures_widget_a[SDL_TEXTURES_MAX_COUNT];
 	int textures_count;
 } Sdl;
 

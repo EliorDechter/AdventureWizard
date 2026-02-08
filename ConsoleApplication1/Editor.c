@@ -14,7 +14,7 @@ void editor_seperator_horizontal(WzWidget parent)
 {
 	WzWidget w = wz_widget(parent);
 	wz_widget_set_max_constraint_h(w, 2);
-	wz_widget_set_border(w, BorderType_BottomLine);
+	wz_widget_set_border(w, WZ_BORDER_TYPE_BOTTOM_LINE);
 }
 
 void editor_seperator_vertical(WzWidget parent)
@@ -41,7 +41,7 @@ void editor_init()
 
 }
 
-void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
+void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 	wzrd_icons icons, WzStr* debug_str, WzWidget* target_panel_out)
 {
 	(void)icons;
@@ -53,17 +53,24 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 
 	WzWidget draw_panel;
 
-	WzWidget window0 = wz_gui_begin(gui,
+	WzKeyboard keyboard = { 0 };
+
+	WzWidget window0 = wz_begin(wz,
 		g_platform.window_width, g_platform.window_height,
 		g_platform.mouse_x, g_platform.mouse_y,
 		platform_string_get_size,
 		(WzState)g_platform.mouse_left,
-		*(WzKeyboardKeys*)&g_platform.keys_pressed, true);
+		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
+		&keyboard,
+		true);
 
 	WzWidget window = wz_vpanel(window0);
 	wz_widget_set_max_constraints(window, g_platform.window_width, g_platform.window_height);
 
 	wz_widget_set_cross_axis_alignment(window, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
+	
+	static bool draw_command_button;
+
 	{
 		WzWidget files_panel = wz_hpanel(window);
 
@@ -87,7 +94,7 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 
 			wz_command_toggle(panel, wz_str_create("Add Polygon"), &g_game.polygon_adding_active);
 
-			wz_button_icon(panel, &g_editor.is_drawing_widget, editor_textures[EditorTextureButton]);
+			wz_toggle_icon(panel, &draw_command_button, editor_textures[EditorTextureButton]);
 
 			//bool delete_toggle;
 			//wzrd_button_icon(icons.delete, &delete_toggle, buttons_panel);
@@ -174,11 +181,13 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 		WzWidget panel = wz_hpanel(bottom_panel);
 		wz_widget_set_expanded(panel);
 		wz_widget_set_cross_axis_alignment(panel, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
-		//wz_widget_get(panel)->disable_input = true;
 
 		draw_panel = wz_panel(panel);
 		wz_widget_set_expanded(draw_panel);
 		wz_widget_set_cross_axis_alignment(draw_panel, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
+		wz_widget_clip(draw_panel);
+		
+		wz_frame(draw_panel, 100, 100, wz_str_create("wow"));
 
 #if 0
 		// Game panel
@@ -202,7 +211,7 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 				wzrd_v2 size = { 500, 500 };
 				bool ok = false, cancel = false;
 
-				WzWidget dialog = wzrd_dialog_begin(&g_editor.create_object_dialog_pos.x, &g_editor.create_object_dialog_pos.y,
+				WzWidget dialog = wz_dialog(&g_editor.create_object_dialog_pos.x, &g_editor.create_object_dialog_pos.y,
 					&size.x, &size.y, &g_editor.create_object_dialog_active, wz_str_create("add object"), 4, window);
 
 				bool* active = &g_editor.create_object_dialog_active;
@@ -274,82 +283,87 @@ void editor_run(WzGui* gui, PlatformTargetTexture target_texture,
 	if (wz_widget_is_activating(draw_panel))
 	{
 		WzWidgetData* draw_panel_data = wz_widget_get(draw_panel);
-		g_editor.drawing_widget_x = gui->mouse_pos.x;
-		g_editor.drawing_widget_y = gui->mouse_pos.y;
+		g_editor.drawing_widget_x = wz->mouse_pos.x;
+		g_editor.drawing_widget_y = wz->mouse_pos.y;
 	}
 
-	unsigned w = gui->mouse_pos.x - g_editor.drawing_widget_x;
-	unsigned h = gui->mouse_pos.y - g_editor.drawing_widget_y;
+	unsigned w = wz->mouse_pos.x - g_editor.drawing_widget_x;
+	unsigned h = wz->mouse_pos.y - g_editor.drawing_widget_y;
 
-	if (gui->persistent_widgets_count)
+	// Drawing persistent widgets
+	if (wz->persistent_widgets_count)
 	{
-		for (unsigned i = 0; i < gui->persistent_widgets_count; ++i)
-		{
-			WzWidget w = wz_widget_add_to_frame(draw_panel, gui->persistent_widgets[i]);
-			WzWidgetData* ww = wz_widget_get(w);
+		static WzWidget selected_widget;
 
-			if (wz_widget_is_interacting(w))
+		for (unsigned i = 0; i < wz->persistent_widgets_count; ++i)
+		{
+			WzWidget widget = wz->persistent_widgets[i].handle;
+			wz->widgets[widget.handle] = wz->persistent_widgets[i];
+			wz_widget_add_child(draw_panel, widget);
+
+			WzWidgetData* widget_data = wz_widget_get(widget);
+
+			if (wz_widget_is_activating(widget))
 			{
-				wz_widget_data_set_pos(&gui->persistent_widgets[i],
-					ww->x + gui->mouse_delta.x,
-					ww->y + gui->mouse_delta.y);
+				selected_widget = widget;
 			}
 
-			// ...
-			WzWidget b = wz_widget(w);
-			wz_widget_set_constraints(b, 0, 0, 50, 50);
-			wz_widget_set_pos(b, -50, -50);
-			wz_widget_set_color(b, 0x0000FFFF);
-
-			if (wz_widget_is_active(b))
+			if (wz_widget_is_interacting(widget))
 			{
-				wz_widget_data_set_tight_constraints(&gui->persistent_widgets[i],
-					ww->constraint_max_w - gui->mouse_delta.x,
-					ww->constraint_max_h - gui->mouse_delta.y);
-				wz_widget_data_set_pos(&gui->persistent_widgets[i],
-					ww->x + gui->mouse_delta.x,
-					ww->y+ gui->mouse_delta.y);
+				wz_widget_data_set_pos(&wz->persistent_widgets[i],
+					widget_data->x + wz->mouse_delta.x,
+					widget_data->y + wz->mouse_delta.y);
+			}
+
+			// Add blue buttons
+			if (wz_widget_is_equal(widget, selected_widget))
+			{
+				WzWidget b = wz_widget(widget);
+				wz_widget_set_constraints(b, 0, 0, 50, 50);
+				wz_widget_set_pos(b, -50, -50);
+				wz_widget_set_color(b, 0x0000FFFF);
+
+				if (wz_widget_is_active(b))
+				{
+					wz_widget_data_set_tight_constraints(&wz->persistent_widgets[i],
+						widget_data->constraint_max_w - wz->mouse_delta.x,
+						widget_data->constraint_max_h - wz->mouse_delta.y);
+					wz_widget_data_set_pos(&wz->persistent_widgets[i],
+						widget_data->x + wz->mouse_delta.x,
+						widget_data->y + wz->mouse_delta.y);
+				}
+			}
+
+			if (widget_data->type == WZ_WIDGET_TYPE_COMMAND_BUTTON)
+			{
+				bool released = false;
+				wz_command_button_run(widget, &released);
 			}
 
 		}
 	}
 
-	if (wz_widget_is_active(draw_panel))
+	// User creating widgets
 	{
-		WzWidgetData* draw_panel_data = wz_widget_get(draw_panel);
+		if (wz_widget_is_interacting(draw_panel) || wz_widget_is_deactivating(draw_panel))
+		{
+			if (draw_command_button)
+			{
+				WzWidgetData* draw_panel_data = wz_widget_get(draw_panel);
+				bool b;
+				WzWidget widg = wz_command_button(wz_str_create("wow"), &b, draw_panel);
+				wz_widget_set_tight_constraints(widg, w, h);
+				wz_widget_set_type(widg, WZ_WIDGET_TYPE_COMMAND_BUTTON);
+				wz_widget_set_x(widg, g_editor.drawing_widget_x - draw_panel_data->actual_x);
+				wz_widget_set_y(widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
 
-		WzWidget widg = wz_widget(draw_panel);
-		wz_widget_set_tight_constraints(widg, w, h);
-		wz_widget_set_border(widg, WZ_BORDER_TYPE_DEFAULT);
-		wz_widget_set_x(widg, g_editor.drawing_widget_x - draw_panel_data->actual_x);
-		wz_widget_set_y(widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
-
-		widg = wz_widget(draw_panel);
-		wz_widget_set_tight_constraints(widg, w, h);
-		wz_widget_set_border(widg, WZ_BORDER_TYPE_DEFAULT);
-		wz_widget_set_x(widg, g_editor.drawing_widget_x - draw_panel_data->actual_x);
-		wz_widget_set_y(widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
-	}
-
-	if (wz_widget_is_deactivating(draw_panel))
-	{
-		WzWidgetData* draw_panel_data = wz_widget_get(draw_panel);
-
-		WzWidgetData widg = wz_widget_create(draw_panel);
-		wz_widget_data_set_tight_constraints(&widg, w, h);
-		wz_widget_data_set_border(&widg, WZ_BORDER_TYPE_DEFAULT);
-		wz_widget_data_set_x(&widg, g_editor.drawing_widget_x - draw_panel_data->actual_x);
-		wz_widget_data_set_y(&widg, g_editor.drawing_widget_y - draw_panel_data->actual_y);
-
-		widg.handle = wz_create_handle();
-		gui->widgets[widg.handle.handle] = widg;
-
-		gui->persistent_widgets[gui->persistent_widgets_count++] = widg;
-	}
-
-	if (wz_widget_is_active((WzWidget) { 22 }))
-	{
-		wz_widget_set_color((WzWidget) { 22 }, 0xFF0000FF);
+				if (wz_widget_is_deactivating(draw_panel))
+				{
+					wz->persistent_widgets[wz->persistent_widgets_count++] = *wz_widget_get(widg);
+					draw_command_button = false;
+				}
+			}
+		}
 	}
 
 	wz_do_layout_refactor_me();

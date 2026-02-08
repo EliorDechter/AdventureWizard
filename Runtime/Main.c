@@ -3,34 +3,95 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
+#include <SDL3_image/SDL_image.h>
 #include <stdio.h>
 #include "WzGuiCore.h"
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+//#define assert(x) void(x)
+
+WzKeyboard keyboard;
+
+#define MAX_NUM_TEXTURES_IN_ANIMATION 128
+
+typedef struct Animation
+{
+	SDL_Texture* textures[MAX_NUM_TEXTURES_IN_ANIMATION];
+	unsigned textures_count;
+	unsigned w, h;
+} Animation;
+
+typedef struct WzWidgetPersistentData
+{
+	WzWidget widget;
+	float transform_x, transform_y;
+	float scale_x, scale_y;
+	float rotation;
+
+	Animation animation;
+	unsigned current_animation_frame;
+} WzWidgetPersistentData;
+
+#define MAX_NUM_IMAGE_WIDGETS 32
+WzWidgetPersistentData image_widgets[MAX_NUM_IMAGE_WIDGETS];
+unsigned image_widgets_count;
 
 WzGui gui;
+
+WzTexture texture;
 
 SDL_Renderer* renderer;
 SDL_Window* window;
 TTF_TextEngine* engine;
 TTF_Font* font;
-
+SDL_Texture* x_icon_texture;
 
 WzState left_mouse;
 
 #define WINDOW_WIDTH 960
 #define WINDOW_HEIGHT 540
 
-void PlatformTextDraw(const char* str, float x, float y, char r, char g, char b, char a) {
+bool error;
+
+bool PlatformTextDraw(const char* str, float x, float y, char r, char g, char b, char a)
+{
 	TTF_Text* text = TTF_CreateText(engine, font, str, 0);
-	//int w = 11, h = 22;
-	TTF_SetTextColor(text, r, g, b, a);
+	bool error = false;
+	error = TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
 	TTF_DestroyText(text);
 }
 
-void sdl_draw_wz(WzGui* gui, SDL_Renderer* renderer)
+bool load_animation(Animation* animation, const char* path)
 {
-	WzDrawCommandBuffer* buffer = &gui->commands_buffer;
+	bool success = true;
+	IMG_Animation* anim = IMG_LoadAnimation(path);
+	if (!anim)
+	{
+		return false;
+	}
+
+	if (anim->count == MAX_NUM_TEXTURES_IN_ANIMATION)
+	{
+		SDL_SetError("Loaded to many gifs");
+		return false;
+	}
+
+	*animation = (Animation){ .textures_count = anim->count, .w = anim->w, .h = anim->h };
+	for (int i = 0; i < anim->count; i++)
+	{
+		animation->textures[i] = SDL_CreateTextureFromSurface(renderer, anim->frames[i]);
+		if (!animation->textures[i])
+		{
+			return false;
+		}
+	}
+}
+
+void sdl_draw_wz(WzGui* wz, SDL_Renderer* renderer)
+{
+	WzDrawCommandBuffer* buffer = &wz->commands_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
 		WzDrawCommand command = buffer->commands[i];
@@ -40,15 +101,19 @@ void sdl_draw_wz(WzGui* gui, SDL_Renderer* renderer)
 			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
 			SDL_RenderFillRect(renderer, &rect);
 		}
-		else if (command.type == DrawCommandType_Texture) {
-#if 0
-			PlatformTextureDrawFromSource((PlatformTexture) { command.texture.data, .h = command.texture.h, .w = command.texture.w },
-				(PlatformRect) {
-				(float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h
-			}, (PlatformRect) { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h }, (platform_color) { 255, 255, 255, 255 });
-#endif
+		else if (command.type == DrawCommandType_Texture)
+		{
+			//if (!(command.color.r == 0 && command.color.g == 0 && command.color.b == 0))
+				//SDL_SetTextureColorMod(command.texture.data, command.color.r, command.color.g, command.color.b);
+
+			SDL_SetTextureBlendMode(command.texture.data, SDL_BLENDMODE_BLEND);
+
+			SDL_FRect src = { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h };
+			SDL_FRect dest = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
+			SDL_RenderTextureRotated(renderer, command.texture.data,
+				(SDL_FRect*)&src, (SDL_FRect*)&dest, command.rotation_angle, 0, 0);
 		}
-		else if (command.type == DrawCommandType_String) {
+		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) {
 			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
 				command.color.r, command.color.g, command.color.b, command.color.a);
 		}
@@ -141,14 +206,121 @@ void sdl_draw_wz(WzGui* gui, SDL_Renderer* renderer)
 		{
 			SDL_SetRenderClipRect(renderer, 0);
 		}
-
 	}
 
 	SDL_SetRenderClipRect(renderer, 0);
 }
 
-int SDL_AppEvent(void* appstate, const SDL_Event* event)
+#define MAX_NUM_SDL_EVENTS 128
+SDL_Event events[MAX_NUM_SDL_EVENTS];
+unsigned events_count;
+SDL_Mutex* events_mutex;
+
+void sdl_to_wz_keyboard(WzKeyboard* keyboard)
 {
+#if 0
+	for (int i = 0; i < 128; ++i) {
+		if (keyboard->keys[i] == WZ_ACTIVATING)
+		{
+			keyboard->keys[i] = WZ_INACTIVE;
+		}
+		if (keyboard->keys[i] == WZ_ACTIVATING)
+		{
+			keyboard->keys[i] = WZ_ACTIVE;
+		}
+	}
+
+	SDL_Keycode keycode = 0;
+
+	if (event->type == SDL_EVENT_KEY_DOWN)
+	{
+		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
+		if (keycode < 128) {
+			if (keyboard->keys[keycode] == WZ_INACTIVE)
+			{
+				keyboard->keys[keycode] = WZ_ACTIVATING;
+			}
+			else if (keyboard->keys[keycode] == WZ_ACTIVATING)
+			{
+				keyboard->keys[keycode] = WZ_ACTIVE;
+			}
+		}
+	}
+	else if (event->type == SDL_EVENT_KEY_UP)
+	{
+		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
+		if (keycode < 128) {
+			if (keyboard->keys[keycode] == WZ_ACTIVE || keyboard->keys[keycode] == WZ_ACTIVATING)
+			{
+				keyboard->keys[keycode] = WZ_DEACTIVATING;
+			}
+			else if (keyboard->keys[keycode] == WZ_DEACTIVATING)
+			{
+				keyboard->keys[keycode] = WZ_INACTIVE;
+			}
+		}
+	}
+
+	if (keycode < 128 && keycode > 0) {
+		/*	g_platform.keys_pressed.keys[g_platform.keys_pressed.count++] =
+				(PlatformKey){ .val = (unsigned int)keycode, .state = [keycode] };*/
+	}
+#else
+
+	for (unsigned i = 0; i < 128; ++i)
+	{
+		if (keyboard->keys[i] == WZ_ACTIVATING)
+		{
+			keyboard->keys[i] = WZ_ACTIVE;
+		}
+		if (keyboard->keys[i] == WZ_DEACTIVATING)
+		{
+			keyboard->keys[i] = WZ_INACTIVE;
+		}
+	}
+
+	int num_keys = 0;
+	bool* keys = SDL_GetKeyboardState(&num_keys);
+	for (unsigned i = 0; i < num_keys; ++i)
+	{
+		SDL_Keycode key = SDL_GetKeyFromScancode(i, SDL_KMOD_NONE, false);
+		if (key > 0 && key < 128)
+		{
+			if (keys[i])
+			{
+				if (keyboard->keys[key] == WZ_INACTIVE)
+				{
+					keyboard->keys[key] = WZ_ACTIVATING;
+				}
+			}
+			else
+			{
+				if (keyboard->keys[key] == WZ_ACTIVE)
+				{
+					keyboard->keys[key] = WZ_DEACTIVATING;
+				}
+			}
+		}
+	}
+
+#endif
+}
+
+void sdl_handle_input()
+{
+	sdl_to_wz_keyboard(&keyboard);
+
+#if 0
+	// Finish handling input
+	{
+		if (left_mouse == WZ_ACTIVATING) {
+			left_mouse = WZ_ACTIVE;
+		}
+		else if (left_mouse == WZ_DEACTIVATING) {
+			left_mouse = WZ_INACTIVE;
+		}
+	}
+
 	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
 		if (event->button.button == SDL_BUTTON_LEFT)
@@ -156,6 +328,11 @@ int SDL_AppEvent(void* appstate, const SDL_Event* event)
 			if (left_mouse == WZ_INACTIVE)
 			{
 				left_mouse = WZ_ACTIVATING;
+				printf("wow\n");
+
+			}
+			else
+			{
 			}
 		}
 	}
@@ -166,16 +343,40 @@ int SDL_AppEvent(void* appstate, const SDL_Event* event)
 			left_mouse = WZ_DEACTIVATING;
 		}
 	}
+#else
+
+	int x, y;
+	SDL_MouseButtonFlags flags = SDL_GetMouseState(&x, &y);
+
+	if (left_mouse == WZ_ACTIVATING)
+	{
+		left_mouse = WZ_ACTIVE;
+	}
+	else if (left_mouse == WZ_DEACTIVATING)
+	{
+		left_mouse = WZ_INACTIVE;
+	}
+
+	if (flags & SDL_BUTTON_LMASK)
+	{
+		if (left_mouse == WZ_INACTIVE)
+		{
+			left_mouse = WZ_ACTIVATING;
+		}
+	}
 	else
 	{
-		if (left_mouse == WZ_ACTIVATING) {
-			left_mouse = WZ_ACTIVE;
-		}
-		else if (left_mouse == WZ_DEACTIVATING) {
-			left_mouse = WZ_INACTIVE;
+		if (left_mouse == WZ_ACTIVE)
+		{
+			left_mouse = WZ_DEACTIVATING;
 		}
 	}
 
+#endif
+}
+
+int SDL_AppEvent(void* appstate, const SDL_Event* event)
+{
 	if (event->type == SDL_EVENT_QUIT)
 	{
 		return SDL_APP_SUCCESS;
@@ -189,33 +390,82 @@ void SDL_AppQuit(void* appstate)
 	wz_gui_deinit(&gui);
 }
 
-SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
+SDL_EnumerationResult SDLCALL onFile(void* userdata, const char* dirname, const char* filename)
 {
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
+	char path[512];
+	sprintf(path, "%s%s", dirname, filename);
 
-	/* Create the window */
-	if (!SDL_CreateWindowAndRenderer("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT,
-		SDL_WINDOW_RESIZABLE, &window, &renderer))
+	assert(image_widgets_count < MAX_NUM_IMAGE_WIDGETS - 1);
+	load_animation(&image_widgets[image_widgets_count].animation, path);
+	image_widgets[image_widgets_count].scale_x = 1;
+	image_widgets[image_widgets_count].scale_y = 1;
+	image_widgets_count++;
+
+	return SDL_ENUM_CONTINUE;
+}
+
+void load_animations()
+{
+	bool result = SDL_EnumerateDirectory("Gifs", onFile, 0);
+	if (!result)
 	{
-		SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
+
+		SDL_ShowSimpleMessageBox(
+			SDL_MESSAGEBOX_ERROR,
+			"Fatal Error",
+			SDL_GetError(),
+			NULL
+		);
+
 		return SDL_APP_FAILURE;
 	}
+}
 
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
+{
+	bool success = true;
+	success |= SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
+
+	success |= SDL_CreateWindowAndRenderer("Niga", WINDOW_WIDTH, WINDOW_HEIGHT,
+		SDL_WINDOW_RESIZABLE, &window, &renderer);
+
+	success |= SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
 	// Fonts
 	{
-		TTF_Init();
+		success |= TTF_Init();
 
 		font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", 16);
-		assert(font);
+		success |= (bool)font;
 
 		engine = TTF_CreateRendererTextEngine(renderer);
-		assert(engine);
+		success |= (bool)engine;
 	}
 
+	// X icon
+	{
+		// TODO: Remove width and height fields of wz texture
+		SDL_Surface* surface = SDL_CreateSurfaceFrom(16, 16, SDL_PIXELFORMAT_RGBA8888, wz_x_icon, 16 * 4);
+		success |= (bool)surface;
+		gui.x_icon = (WzTexture){ .w = surface->w, .h = surface->h, .data = SDL_CreateTextureFromSurface(renderer, surface) };
+	}
+
+	if (!success)
+	{
+		SDL_ShowSimpleMessageBox(
+			SDL_MESSAGEBOX_ERROR,
+			"Fatal Error",
+			SDL_GetError(),
+			NULL
+		);
+
+		return SDL_APP_FAILURE;
+	}
 
 	wz_gui_init(&gui);
+	load_animations();
+
+	events_mutex = SDL_CreateMutex();
 
 	return SDL_APP_CONTINUE;
 }
@@ -243,50 +493,314 @@ void platform_string_get_size(char* str, int* w, int* h)
 			line.val[line.len++] = str[index];
 		}
 
-		bool result = TTF_GetStringSize(font, line.val, 0, &w_int, &h_int);
-		assert(result);
+		bool success = TTF_GetStringSize(font, line.val, 0, &w_int, &h_int);
+
+		if (!success)
+		{
+			SDL_ShowSimpleMessageBox(
+				SDL_MESSAGEBOX_ERROR,
+				"Fatal Error",
+				SDL_GetError(),
+				NULL
+			);
+
+			return SDL_APP_FAILURE;
+		}
 
 		*w += (int)w_int;
 		*h += (int)h_int;
 	}
 }
 
+
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
+	// Handle input
+	for (unsigned i = 0; i < events_count; ++i)
+	{
+#if 0
+		SDL_LockMutex(events_mutex);
+		events_count--;
+		SDL_UnlockMutex(events_mutex);
+#endif
+	}
+	sdl_handle_input();
+
+	unsigned time_beginning = SDL_GetTicks();
+
+	bool success = true;
+
 	float mouse_x, mouse_y;
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
-	SDL_SetRenderDrawColor(renderer, 0x20, 0x8c, 0x71, 255);
-	SDL_RenderClear(renderer);
+	success |= SDL_SetRenderDrawColor(renderer, 0x20, 0x8c, 0x71, 255);
+	success |= SDL_RenderClear(renderer);
 
-	WzKeyboardKeys keyboard_keys = { 0 };
-	WzWidget window = wz_gui_begin(&gui, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2,
-		mouse_x, mouse_y, platform_string_get_size, left_mouse, keyboard_keys, true);
+	int window_width, window_height;
+	success |= SDL_GetWindowSize(window, &window_width, &window_height);
 
-	static int x, y;
-	static unsigned w = 800, h = 400;
-	static bool active;
-	WzWidget dialog = wzrd_dialog_begin(&x, &y, &w, &h,
-		&active, wz_str_create("My Dialog"), 4, window);
-	wz_widget_set_cross_axis_alignment(dialog, WZ_CROSS_AXIS_ALIGNMENT_CENTER);
-	//wz_widget_set_main_axis_alignment(dialog, WZ_MAIN_AXIS_ALIGNMENT_CENTER);
-	wz_widget_set_child_gap(dialog, 20);
+	WzWidget window = wz_begin(&gui, window_width, window_height,
+		mouse_x, mouse_y, platform_string_get_size, left_mouse, &keyboard, true);
+	wz_widget_set_layout(window, WZ_LAYOUT_NONE);
+	wz_widget_clip(window);
 
-	WzWidget text = wz_label(dialog, wz_str_create("Hi"));
-	wz_widget_set_max_constraint_h(text, 100);
+	WzScene scene =
+	{
+		.w = WINDOW_WIDTH / 2,
+		.h = WINDOW_HEIGHT / 2,
+	};
 
-	wz_spacer(dialog);
+	WzWidget wid = wz_scene(scene, window, texture, 0, 0, 200, 200);
 
-	bool released = false;
-	WzWidget ok_button = wz_command_button(wz_str_create("OK"), &released, dialog);
-	wz_widget_set_margins(ok_button, 50);
-	wz_widget_set_tight_constraints(ok_button, 160, 40);
+	// ... 
+	for (unsigned i = 0; i < image_widgets_count; ++i)
+	{
+		WzWidgetPersistentData data = image_widgets[i];
+
+		WzTexture widget_a_wz_texture = (WzTexture)
+		{
+			.data = data.animation.textures[data.current_animation_frame],
+			.w = data.animation.textures[data.current_animation_frame]->w,
+			.h = data.animation.textures[data.current_animation_frame]->h,
+		};
+
+		WzWidget widget = wz_texture(wid,
+			widget_a_wz_texture,
+			100, 100);
+		wz_widget_set_x(widget, 0);
+		wz_widget_set_y(widget, 0);
+		wz_widget_set_tight_constraints(widget, 100, 100);
+		wz_widget_set_color(widget, 0);
+
+		image_widgets[i].widget = widget;
+	}
+
+	// Resize items
+	static WzWidget selected_widget;
+
+	if (wz_widget_is_activating(window))
+	{
+		selected_widget = (WzWidget){ 0 };
+	}
+
+	WzWidget text_widget = wz_vbox(window);
+	const unsigned text_widget_width = 200;
+	const unsigned text_widget_height = 400;
+	wz_widget_set_pos(text_widget, window_width - text_widget_width - 5, 5);
+	wz_widget_set_color(text_widget, 0x000000cc);
+	wz_widget_set_tight_constraints(text_widget, text_widget_width, text_widget_height);
+
+	const char* text =
+		"WASD - Movement\n"
+		"Z & X - Zoom in Zoom out\n"
+		"F - Duplicate";
+	WzWidget label = wz_label(text_widget, wz_str_create(text));
+	wz_widget_set_font_color(label, 0xffffffff);
+	wz_widget_set_color(label, 0);
+
+
+	WzWidget buttons_panel = wz_hbox(window);
+	wz_widget_disable(buttons_panel, true);
+
+	bool rotate_right = false;
+	WzWidget rotate_right_widget = wz_command_button(wz_str_create("rotate right"),
+		&rotate_right, buttons_panel);
+	wz_widget_set_pad(rotate_right_widget, 5);
+
+	bool rotate_left = false;
+	WzWidget rotate_left_widget = wz_command_button(wz_str_create("rotate left"),
+		&rotate_left, buttons_panel);
+	wz_widget_set_pad(rotate_left_widget, 5);
+
+	bool duplicate = false;
+	WzWidget duplicate_widget = wz_command_button(wz_str_create("duplicate"),
+		&duplicate, buttons_panel);
+	wz_widget_set_pad(duplicate_widget, 5);
+
+
+
+
+	bool zoom_out = false;
+	bool zoom_in = false;
+	bool move_left = false;
+	bool move_right = false;
+	bool move_up = false;
+	bool move_down = false;
+
+	if (keyboard.keys['f'] == WZ_ACTIVATING)
+	{
+		duplicate = true;
+	}
 	
+	if (keyboard.keys['z'] == WZ_ACTIVATING || keyboard.keys['z'] == WZ_ACTIVE)
+	{
+		zoom_in = true;
+	}
+	else if (keyboard.keys['x'] == WZ_ACTIVATING || keyboard.keys['x'] == WZ_ACTIVE)
+	{
+		zoom_out = true;
+	}
+
+	if (keyboard.keys['w'] == WZ_ACTIVATING || keyboard.keys['w'] == WZ_ACTIVE)
+	{
+		move_up = true;
+	}
+	else if (keyboard.keys['s'] == WZ_ACTIVATING || keyboard.keys['s'] == WZ_ACTIVE)
+	{
+		move_down = true;
+	}
+
+	if (keyboard.keys['a'] == WZ_ACTIVATING || keyboard.keys['a'] == WZ_ACTIVE)
+	{
+		move_left = true;
+	}
+	else if (keyboard.keys['d'] == WZ_ACTIVATING || keyboard.keys['d'] == WZ_ACTIVE)
+	{
+		move_right = true;
+	}
+
+
+	for (unsigned i = 0; i < image_widgets_count; ++i)
+	{
+		if (wz_widget_is_activating(image_widgets[i].widget))
+		{
+			selected_widget = image_widgets[i].widget;
+		}
+
+		if (wz_widget_is_equal(selected_widget, image_widgets[i].widget))
+		{
+#if 0
+			wz_add_resize_widgets_maintain_aspect_ratio(selected_widget,
+				&image_widgets[i].scale_x,
+				&image_widgets[i].scale_y,
+				&image_widgets[i].transform_x,
+				&image_widgets[i].transform_y);
+#else
+			wz_add_resize_widgets_maintain_aspect_ratio2(selected_widget, &image_widgets[i].rotation);
+#endif
+			const float rotation_factor = 5;
+			if (wz_widget_is_interacting(rotate_right_widget))
+			{
+				image_widgets[i].rotation += fmod(rotation_factor, 360);
+			}
+
+			if (wz_widget_is_interacting(rotate_left_widget))
+			{
+				image_widgets[i].rotation -= fmod(rotation_factor, 360);
+			}
+
+			if (duplicate)
+			{
+				image_widgets[image_widgets_count] = image_widgets[i];
+			}
+		}
+	}
+
+	if (duplicate && wz_widget_is_valid(selected_widget))
+	{
+		image_widgets_count++;
+	}
+
+	wz_widget_set_border(selected_widget, WZ_BORDER_TYPE_BLACK);
+
+	// transform and scale
+	for (unsigned i = 0; i < image_widgets_count; ++i)
+	{
+		WzWidgetPersistentData* widget = &image_widgets[i];
+
+		image_widgets[i].current_animation_frame =
+			(widget->current_animation_frame + 1) % widget->animation.textures_count;
+
+		if (wz_widget_is_active(widget->widget))
+		{
+			float mouse_delta_x = (gui.mouse_delta.x) / gui.zoom_factor;
+			float mouse_delta_y = (gui.mouse_delta.y) / gui.zoom_factor;
+
+			widget->transform_x += mouse_delta_x;
+			widget->transform_y += mouse_delta_y;
+		}
+
+		wz_widget_transform(widget->widget, widget->transform_x, widget->transform_y);
+		wz_widget_scale(widget->widget, widget->scale_x, widget->scale_y);
+		wz_widget_rotate(widget->widget, widget->rotation);
+	}
+
+	WzWidget zoom_out_widget = wz_command_button(wz_str_create("zoom out"),
+		&zoom_out, buttons_panel);
+	wz_widget_set_pad(zoom_out_widget, 5);
+
+	WzWidget zoom_in_widget = wz_command_button(wz_str_create("zoom in"),
+		&zoom_in, buttons_panel);
+	wz_widget_set_pad(zoom_in_widget, 5);
+
+	WzWidget move_left_widget = wz_command_button(wz_str_create("move left"),
+		&move_left, buttons_panel);
+	wz_widget_set_pad(move_left_widget, 5);
+	WzWidget move_right_widget = wz_command_button(wz_str_create("move right"),
+		&move_right, buttons_panel);
+	wz_widget_set_pad(move_right_widget, 5);
+	WzWidget move_up_widget = wz_command_button(wz_str_create("move up"),
+		&move_up, buttons_panel);
+	wz_widget_set_pad(move_up_widget, 5);
+
+	WzWidget move_down_widget = wz_command_button(wz_str_create("move down"),
+		&move_down, buttons_panel);
+	wz_widget_set_pad(move_down_widget, 5);
+
+	const float zoom_factor = 0.09;
+	if (wz_widget_is_interacting(zoom_in_widget) || zoom_in)
+	{
+		gui.zoom_factor += zoom_factor;
+	}
+	else if (wz_widget_is_interacting(zoom_out_widget) || zoom_out)
+	{
+		gui.zoom_factor -= zoom_factor;
+	}
+
+	const int move_offset = 10;
+	if (wz_widget_is_interacting(move_left_widget) || move_left)
+	{
+		gui.camera_x -= move_offset;
+	}
+
+	if (wz_widget_is_interacting(move_right_widget) || move_right)
+	{
+		gui.camera_x += move_offset;
+	}
+
+	if (wz_widget_is_interacting(move_up_widget) || move_up)
+	{
+		gui.camera_y -= move_offset;
+	}
+
+	if (wz_widget_is_interacting(move_down_widget) || move_down)
+	{
+		gui.camera_y += move_offset;
+	}
+
 	wz_gui_end(0);
 
 	sdl_draw_wz(&gui, renderer);
 
-	SDL_RenderPresent(renderer);
+	success |= SDL_RenderPresent(renderer);
+
+	unsigned delta_time = SDL_GetTicks() - time_beginning;
+	if (delta_time < 42)
+	{
+		SDL_Delay(42 - delta_time);
+	}
+
+	if (!success)
+	{
+		SDL_ShowSimpleMessageBox(
+			SDL_MESSAGEBOX_ERROR,
+			"Fatal Error",
+			SDL_GetError(),
+			NULL
+		);
+
+		return SDL_APP_FAILURE;
+	}
 
 	return SDL_APP_CONTINUE;
 }

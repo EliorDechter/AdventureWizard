@@ -2,7 +2,7 @@
 
 Texture texture_get_by_name(str128 s) {
 	int i = hashtable_get(g_texture_system.hashtable, s);
-	Texture result = g_texture_system.textures[i];
+	Texture result = g_texture_system.textures_widget_a[i];
 	
 	if (!result.name.len)
 	{
@@ -30,7 +30,7 @@ SDL_EnumerationResult enumerate_directory(void* userdata, const char* dirname, c
 		}
 	}
 
-	g_texture_system.textures[g_texture_system.textures_count++] = (Texture){ .val = texture, .name = name };
+	g_texture_system.textures_widget_a[g_texture_system.textures_count++] = (Texture){ .val = texture, .name = name };
 	hashtable_add(&g_texture_system.hashtable, name, g_texture_system.textures_count - 1);
 
 	return SDL_ENUM_CONTINUE;

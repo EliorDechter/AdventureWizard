@@ -107,7 +107,7 @@ static GrabSystem g_grab_system;
 
 typedef struct Game {
 	Handle_map textures_handle_map;
-	Texture textures[GAME_TEXTURES_COUNT];
+	Texture textures_widget_a[GAME_TEXTURES_COUNT];
 
 	Handle_map entities_handle_map;
 	Entity entities[GAME_ENTITIES_COUNT];
@@ -143,7 +143,7 @@ Texture* game_texture_get(Texture_handle handle);
 Texture_handle game_texture_add(Texture texture);
 void game_texture_remove_by_index(int index);
 void game_init();
-void game_gui_do(WzGui* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, WzStr* debug_str);
+void game_gui_do(WzGui* wz, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, WzStr* debug_str);
 void game_run(v2i window_size, bool enable, unsigned int scale);
 wzrd_icons game_icons_get();
 Entity* entity_get_next(int* iterator_index);

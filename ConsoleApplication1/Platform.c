@@ -1,7 +1,6 @@
 #include "Platform.h"
 //#include "Editor.h"
 #include <SDL3/SDL_main.h>
-
 #include "Game.h"
 #include "Editor.h"
 
@@ -250,7 +249,7 @@ void sdl_draw_wz(WzGui* canvas)
 				(float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h
 			}, (PlatformRect) { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h }, (platform_color) { 255, 255, 255, 255 });
 		}
-		else if (command.type == DrawCommandType_String) {
+		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) {
 			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
 				command.color.r, command.color.g, command.color.b, command.color.a);
 		}
@@ -393,15 +392,20 @@ SDL_AppResult handle_events(SDL_Event* event) {
 		return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
 	}
 
-	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-		if (event->button.button == SDL_BUTTON_LEFT) {
-			if (g_platform.mouse_left == Inactive) {
+	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
+	{
+		if (event->button.button == SDL_BUTTON_LEFT)
+		{
+			if (g_platform.mouse_left == Inactive)
+			{
 				g_platform.mouse_left = Activating;
 			}
 		}
 	}
-	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
-		if (event->button.button == SDL_BUTTON_LEFT) {
+	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
+	{
+		if (event->button.button == SDL_BUTTON_LEFT)
+		{
 			g_platform.mouse_left = Deactivating;
 		}
 	}
@@ -412,10 +416,12 @@ SDL_AppResult handle_events(SDL_Event* event) {
 	if (event->type == SDL_EVENT_KEY_DOWN) {
 		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
 		if (keycode < 128) {
-			if (g_platform.keyboard_states[keycode] == Inactive) {
+			if (g_platform.keyboard_states[keycode] == Inactive) 
+			{
 				g_platform.keyboard_states[keycode] = Activating;
 			}
-			else if (g_platform.keyboard_states[keycode] == Activating) {
+			else if (g_platform.keyboard_states[keycode] == Activating)
+			{
 				g_platform.keyboard_states[keycode] = Active;
 			}
 		}
@@ -560,14 +566,17 @@ void platform_time_end()
 	g_time = g_time_b - g_time_a;
 }
 
-void test_gui(WzGui* gui)
+void test_gui(WzGui* wz)
 {
-	WzWidget window0 = wz_gui_begin(gui,
+	WzKeyboard keyboard = { 0 };
+	WzWidget window0 = wz_begin(wz,
 		g_platform.window_width, g_platform.window_height,
 		g_platform.mouse_x, g_platform.mouse_y,
 		platform_string_get_size,
 		(WzState)g_platform.mouse_left,
-		*(WzKeyboardKeys*)&g_platform.keys_pressed, true);
+		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
+		&keyboard,
+		true);
 
 	WzWidget window = wz_vbox(window0);
 	WzWidget menu = wz_vbox(window);
@@ -629,11 +638,11 @@ void test_gui(WzGui* gui)
 		}
 
 	}
-	gui->trees[0] = g_tree;
+	wz->trees[0] = g_tree;
 
 	wz_gui_end(0);
 
-	sdl_draw_wz(gui);
+	sdl_draw_wz(wz);
 }
 
 WzGui test_gui_obj;

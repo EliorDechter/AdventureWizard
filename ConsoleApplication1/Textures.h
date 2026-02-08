@@ -15,7 +15,7 @@ typedef struct texture {
 
 typedef struct Texture_system {
 	hashtable hashtable;
-	Texture textures[TEXTURES_MAX_COUNT];
+	Texture textures_widget_a[TEXTURES_MAX_COUNT];
 	int textures_count;
 } Texture_system;
 

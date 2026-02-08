@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include "WzLayout.h"
 #include "Strings.h"
@@ -61,7 +62,7 @@ typedef struct WzColor {
 #define EGUI_LIGHTGRAY (WzColor){ 200, 200, 200, 255}   // Light Gray
 #define EGUI_LIGHTESTGRAY (WzColor){ 225, 225, 225, 255 }   // Lightest Gray
 #define EGUI_GRAY      (WzColor){ 180, 180, 180, 255 }   // Gray
-#define EGUI_DARKGRAY  (WzColor){ 80, 80, 80, 255 }      // Dark Gray
+#define WZ_DARKGRAY  (WzColor){ 80, 80, 80, 255 }      // Dark Gray
 #define WZ_YELLOW    (WzColor){ 255, 255, 0, 255 }     // Yellow
 #define EGUI_GOLD      (WzColor){ 255, 203, 0, 255 }     // Gold
 #define EGUI_ORANGE    (WzColor){ 255, 161, 0, 255 }     // Orange
@@ -114,7 +115,7 @@ typedef struct wzrd_v2 {
 typedef enum WzBorderType
 {
 	WZ_BORDER_TYPE_NONE, WZ_BORDER_TYPE_DEFAULT, WZ_BORDER_TYPE_BLACK, WZ_BORDER_TYPE_CLICKED,
-	BorderType_InputBox, BorderType_BottomLine, BorderType_LeftLine, BorderType_Custom
+	BorderType_InputBox, WZ_BORDER_TYPE_BOTTOM_LINE, BorderType_LeftLine, BorderType_Custom
 }
 WzBorderType;
 
@@ -206,7 +207,7 @@ typedef enum EguiDrawCommandType {
 	DrawCommandType_LineDotted,
 	DrawCommandType_VerticalLine,
 	DrawCommandType_HorizontalLine,
-	DrawCommandType_String,
+	WZ_DRAW_COMMAND_TYPE_TEXT,
 	DrawCommandType_Texture,
 	DrawCommandType_Clip,
 	DrawCommandType_StopClip,
@@ -224,6 +225,7 @@ typedef struct EguiDrawCommand {
 	WzColor color;
 	WzTexture texture;
 	int z;
+	float rotation_angle;
 } WzDrawCommand;
 
 typedef struct WzDrawCommandBuffer {
@@ -241,6 +243,15 @@ typedef struct WzSource
 } WzSource;
 
 #define MAX_SOURCE_SIZE 128
+
+#define WZ_WIDGET_TYPE_NONE 0
+#define WZ_WIDGET_TYPE_COMMAND_BUTTON 1
+
+typedef enum
+{
+	WZ_TEXT_ALIGNMENT_LEFT,
+	WZ_TEXT_ALIGNMENT_CENTER,
+};
 
 typedef struct
 {
@@ -313,7 +324,28 @@ typedef struct
 
 	unsigned type;
 
+	int pos[2];
+	int	rotation;
+	float scale[2];
+	
+	int world_pos[2];
+	int	world_rotation;
+	float world_scale[2];
+
+	bool absolute_scale;
+
+	unsigned text_alignment;
+	bool disable;
 } WzWidgetData;
+
+void wz_widget_transform(WzWidget widget, float x, float y);
+
+typedef struct WzScene
+{
+	WzWidget root;
+	int center_x, center_y;
+	unsigned w, h;
+} WzScene;
 
 typedef struct CachedBox
 {
@@ -325,6 +357,12 @@ typedef struct wzrd_keyboard_key {
 	char val;
 	WzState state;
 } wzrd_keyboard_key;
+
+typedef struct WzKeyboard
+{
+	WzState keys[128];
+} WzKeyboard;
+
 
 typedef struct wzrd_keyboard_keys {
 	wzrd_keyboard_key keys[32];
@@ -406,7 +444,7 @@ typedef struct WzGui
 	void (*get_string_size)(char*, int*, int*);
 
 	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta, screen_mouse_pos;
-	WzKeyboardKeys keyboard_keys;
+	WzKeyboard *keyboard;
 	WzState mouse_left, mouse_right;
 
 	// Frame ?
@@ -440,6 +478,15 @@ typedef struct WzGui
 	WzWidget focused_widget;
 
 	WzTree trees[8];
+
+	WzTexture x_icon;
+
+	float zoom_factor;
+	int camera_x, camera_y;
+
+#define MAX_NUM_SCENES 8 
+	WzScene scenes[MAX_NUM_SCENES];
+	unsigned scenes_count;
 
 } WzGui;
 
@@ -493,16 +540,18 @@ enum
 
 // CORE
 WzWidget wz_create_handle();
-void wz_gui_init(WzGui *gui);
-void wz_gui_deinit(WzGui* gui);
-WzWidget wz_gui_begin(WzGui* gui,
+void wz_gui_init(WzGui *wz);
+void wz_gui_deinit(WzGui* wz);
+WzWidget wz_begin(WzGui* wz,
 	unsigned window_w, unsigned  window_h,
 	unsigned mouse_x, unsigned mouse_y,
 	void (*get_string_size)(char*, int*, int*),
 	WzState left_mouse_state,
-	WzKeyboardKeys keys,
+	WzKeyboard *keys,
 	bool enable_input);
 void wz_spacer(WzWidget parent);
+void wz_widget_scale(WzWidget widget, float w, float h);
+void wz_widget_rotate(WzWidget widget, float rotation);
 void wz_gui_end(WzStr* debug_str);
 void wz_widget_set_margins(WzWidget w, unsigned int pad);
 void wz_widget_set_pad(WzWidget w, unsigned  pad);
@@ -544,11 +593,14 @@ bool wz_widget_is_deactivating(WzWidget handle);
 bool wz_widget_is_active(WzWidget handle);
 bool wz_widget_is_interacting(WzWidget handle);
 bool wz_widget_is_activating(WzWidget handle);
+bool wz_is_any_widget_activating();
 WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag);
 void wz_widget_set_color_old(WzWidget widget, WzColor color);
 void wz_widget_set_max_constraint_w(WzWidget w, int width);
 void wz_widget_set_max_constraint_h(WzWidget h, int height);
+void wz_frame(WzWidget parent, unsigned w, unsigned h, WzStr str);
 void wz_widget_set_x(WzWidget w, int x);
+void wz_widget_set_type(WzWidget w, unsigned type);
 void wz_widget_set_y(WzWidget h, int y);
 void wz_widget_data_set_x(WzWidgetData *w, int x);
 void wz_widget_data_set_y(WzWidgetData *h, int y);
@@ -575,9 +627,11 @@ void wz_widget_ignore_unique_id(WzWidget widget);
 // WIDGETS
 WzWidget wzrd_label_button_raw(WzStr str, bool* result, WzWidget parent, const char *file, unsigned int line);
 WzWidget wz_button_icon_raw(WzWidget parent, bool* result, WzTexture texture, const char* file, unsigned int line);
+WzWidget wz_toggle_icon_raw(WzWidget parent, bool* result, WzTexture texture, const char* file, unsigned int line);
 WzWidget wz_command_button_raw(WzStr str, bool* b, WzWidget parent, const char *file, unsigned int line);
+void wz_command_button_run(WzWidget button, bool* released);
 WzWidget wzrd_dropdown_raw(int* selected_text, const WzStr* texts, int texts_count, int w, bool* active, WzWidget parent, const char *file, unsigned int line);
-WzWidget wzrd_dialog_begin_raw(int *x, int *y, unsigned *w, unsigned *h, bool* active, WzStr name, int layer, WzWidget parent, const char *file, unsigned int line);
+WzWidget wz_dialog_raw(int *x, int *y, unsigned *w, unsigned *h, bool* active, WzStr name, int layer, WzWidget parent, const char *file, unsigned int line);
 WzWidget wz_command_toggle_raw(WzWidget parent, WzStr str, bool* active,  const char *file, unsigned int line);
 WzWidget wz_icon_toggle_raw(WzWidget parent, WzTexture texture, unsigned w, unsigned h, bool* active, const char *file, unsigned int line);
 void wzrd_label_list_sorted_raw(WzStr* item_names, unsigned int count, int* items, unsigned int width, unsigned int height, unsigned int color, unsigned int* selected, bool* is_selected, WzWidget parent, const char *file, unsigned int line);
@@ -601,16 +655,18 @@ void wz_widget_add_rect_absolute(WzWidget widget, int x, int y, unsigned w, unsi
 WzWidget wz_vpanel_raw(WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_hpanel_raw(WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_panel_raw(WzWidget parent, const char* file, unsigned int line);
-
+bool wz_widget_is_valid(WzWidget handle);
+void wz_widget_set_font_color(WzWidget widget, unsigned color);
 
 #define wz_texture(parent, texture, w, h, file_name, line) wz_texture_raw(parent, texture, w, h, __FILE__, __LINE__)
 #define wz_toggle(parent, w, h, color, active, file_name, line) wz_toggle_raw(parent, w, h, color, active, __FILE__, __LINE__)
 #define wz_tree_add_row(tree, str, texture, depth, expand, selected, node) wz_tree_add_row_raw(tree, str, texture, depth, expand, selected, node, __FILE__, __LINE__)
 #define wz_label_button(str, result, parent) wzrd_label_button_raw(str, result, parent, __FILE__, __LINE__)
 #define wz_button_icon(parent, result, texture) wz_button_icon_raw(parent, result, texture, __FILE__, __LINE__)
+#define wz_toggle_icon(parent, result, texture) wz_toggle_icon_raw(parent, result, texture, __FILE__, __LINE__)
 #define wz_command_button(str, b, parent) wz_command_button_raw(str, b, parent, __FILE__, __LINE__)
 #define wzrd_dropdown(selected_text, texts, texts_count, w, active, parent) wzrd_dropdown_raw(selected_text, texts, texts_count, w, active, parent, __FILE__, __LINE__)
-#define wzrd_dialog_begin(x, y, w, h, active, name, layer, parent) wzrd_dialog_begin_raw(x, y, w, h, active, name, layer, parent, __FILE__, __LINE__)
+#define wz_dialog(x, y, w, h, active, name, layer, parent) wz_dialog_raw(x, y, w, h, active, name, layer, parent, __FILE__, __LINE__)
 #define wz_command_toggle(parent, str, active) wz_command_toggle_raw(parent, str, active, __FILE__, __LINE__)
 #define wz_icon_toggle(parent, texture, w, h, active) wz_icon_toggle_raw(parent, texture, w, h, active, __FILE__, __LINE__)
 #define wzrd_label_list_sorted(item_names, count, items, width, height, color, selected, is_selected, parent) wzrd_label_list_sorted_raw(item_names, count, items, width, height, color, selected, is_selected, parent, __FILE__, __LINE__)
@@ -627,9 +683,12 @@ WzWidget wz_panel_raw(WzWidget parent, const char* file, unsigned int line);
 #define wz_hpanel(parent) wz_hpanel_raw(parent, __FILE__, __LINE__)
 #define wz_panel(parent) wz_panel_raw(parent, __FILE__, __LINE__)
 WzWidget wz_widget_add_to_frame(WzWidget parent, WzWidgetData widget);
-
+void wz_zoom(unsigned x);
+void wz_transform_x(unsigned x);
+void wz_add_resize_widgets_maintain_aspect_ratio(WzWidget parent, float* scale_x, float* scale_y, float* transform_x, float* transform_y);
 WzWidget wz_scroll_box(wzrd_v2 size, unsigned int* scroll, WzWidget parent, const void* tag);
 void wz_add_persistent_widget(WzWidgetData widget);
+void wz_widget_disable(WzWidget widget, bool disable);
 
 
 // LAYOUT
@@ -671,7 +730,7 @@ typedef struct WzlRect
 enum
 {
 	CROSS_AXIS_ALIGNMENT_START,
-	CROSS_AXIS_ALIGNMENT_END,
+	WZ_CROSS_AXIS_ALIGNMENT_END,
 	WZ_CROSS_AXIS_ALIGNMENT_CENTER,
 	WZ_CROSS_AXIS_ALIGNMENT_STRETCH,
 	CROSS_AXIS_ALIGNMENT_BASELINE,
@@ -684,6 +743,9 @@ enum
 	WZ_MAIN_AXIS_ALIGNMENT_END,
 	WZ_MAIN_AXIS_ALIGNMENT_CENTER,
 };
+
+void wz_add_resize_widgets_maintain_aspect_ratio2(WzWidget parent, float* angle);
+
 
 #define WZ_LAYOUT_MAX_NUM_SOURCES 8
 
@@ -740,5 +802,28 @@ typedef struct WzLogMessage
 void wz_do_layout(unsigned int index,
 	WzWidgetData* widgets, WzLayoutRect* rects,
 	unsigned int count, unsigned int* failed);
+WzWidget wz_scene(WzScene scene, WzWidget parent, WzTexture texture, int x, int y, unsigned w, unsigned h);
+
+#if 1
+static unsigned wz_x_icon[] =
+{
+	0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff,
+	0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0,
+	0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0,
+	0, 0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0,
+	0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0xff, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0xff, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0,
+	0, 0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0,
+	0, 0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0,
+	0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0,
+	0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0xff,
+	0xff, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0xff
+};
+#endif
 
 #endif

@@ -21,6 +21,6 @@ typedef struct Editor
 	wzrd_v2 create_object_dialog_pos;
 } Editor;
 
-void editor_run(WzGui* gui, PlatformTargetTexture target_texture, wzrd_icons icons, WzStr *debug_str, WzWidget *target_panel_out);
+void editor_run(WzGui* wz, PlatformTargetTexture target_texture, wzrd_icons icons, WzStr *debug_str, WzWidget *target_panel_out);
 
 #endif

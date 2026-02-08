@@ -166,7 +166,7 @@ wzrd_v2 EguiV2iAdd(wzrd_v2 a, wzrd_v2 b) {
 Texture_handle game_texture_add(Texture texture) {
 	Handle handle = handle_create(&g_game.textures_handle_map);
 	int index = handle_get(&g_game.textures_handle_map, handle);
-	g_game.textures[index] = texture;
+	g_game.textures_widget_a[index] = texture;
 
 	Texture_handle result = (Texture_handle){ .val = handle };
 
@@ -185,7 +185,7 @@ Texture* game_texture_get_next(int* iterator_index) {
 	Handle handle = { 0 };
 	Texture* result = 0;
 	if (handle_get_next(&g_game.textures_handle_map, iterator_index, &handle)) {
-		result = &g_game.textures[handle.index];
+		result = &g_game.textures_widget_a[handle.index];
 	}
 
 	return result;
@@ -239,7 +239,7 @@ Texture* game_texture_get(Texture_handle handle) {
 
 	if (index)
 	{
-		result = g_game.textures + index;
+		result = g_game.textures_widget_a + index;
 	}
 
 	return result;
@@ -788,9 +788,9 @@ void game_draw_screen_dots()
 	}
 }
 
-void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, WzGui* gui, WzWidgetData* background_box)
+void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, WzGui* wz, WzWidgetData* background_box)
 {
-	(void)gui;
+	(void)wz;
 	WzWidget selected_entity_handle = { 0 };
 #if 1
 
@@ -909,7 +909,7 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, WzGui* gui, 
 
 }
 
-void game_gui_do(WzGui* gui, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, WzStr* debug_str)
+void game_gui_do(WzGui* wz, WzRect window, bool enable_input, unsigned int scale_w, unsigned int scale_h, WzStr* debug_str)
 {
 	assert(scale_w && scale_h);
 
@@ -918,9 +918,12 @@ void game_gui_do(WzGui* gui, WzRect window, bool enable_input, unsigned int scal
 
 	WZRD_UNUSED(enable_input);
 
-	WzWidget window_widget = wz_gui_begin(gui, window.w, window.h, mouse_pos.x, mouse_pos.y,
+	WzKeyboard keyboard = { 0 };
+	WzWidget window_widget = wz_begin(wz, window.w, window.h, mouse_pos.x, mouse_pos.y,
 		platform_string_get_size,
-		(WzState)g_platform.mouse_left, *(WzKeyboardKeys*)&g_platform.keys_pressed,
+		(WzState)g_platform.mouse_left,
+		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
+		&keyboard,
 		enable_input);
 	{
 		wz_widget_set_color(window_widget, 0);
@@ -936,7 +939,7 @@ void game_gui_do(WzGui* gui, WzRect window, bool enable_input, unsigned int scal
 		}
 		PlatformTextureEndTarget();
 
-		game_entity_gui_do(scale_w, scale_h, gui, wz_widget_get(window_widget));
+		game_entity_gui_do(scale_w, scale_h, wz, wz_widget_get(window_widget));
 	}
 
 	wz_gui_end(debug_str);
