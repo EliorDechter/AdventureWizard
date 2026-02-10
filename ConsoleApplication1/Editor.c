@@ -387,7 +387,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 		}
 	}
 
-	wz_gui_end(debug_str);
+	wz_end(debug_str);
 }
 
 char multi_line_text[1024 * 10];

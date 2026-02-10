@@ -942,7 +942,7 @@ void game_gui_do(WzGui* wz, WzRect window, bool enable_input, unsigned int scale
 		game_entity_gui_do(scale_w, scale_h, wz, wz_widget_get(window_widget));
 	}
 
-	wz_gui_end(debug_str);
+	wz_end(debug_str);
 }
 
 void game_run(v2i window_size, bool enable, unsigned int scale) {

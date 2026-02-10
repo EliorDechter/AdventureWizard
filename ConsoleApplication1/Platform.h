@@ -137,7 +137,7 @@ typedef struct Sdl {
 	TTF_Font* font;
 	TTF_Text* fps_text;
 	SDL_Event* event;
-	TTF_TextEngine* engine;
+	TTF_TextEngine* text_engine;
 	//PlatformTargetTexture a;
 	SDL_Event events[32];
 	int events_count;

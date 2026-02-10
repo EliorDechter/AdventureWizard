@@ -78,7 +78,7 @@ PlatformSystem g_platform;
 WzGui editor_gui, game_gui;
 
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
-	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
+	TTF_Text* text = TTF_CreateText(g_sdl.text_engine, g_sdl.font, str, 0);
 	//int w = 11, h = 22;
 	TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
@@ -86,7 +86,7 @@ void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, ch
 }
 
 void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
+	TTF_Text* text = TTF_CreateText(g_sdl.text_engine, g_sdl.font, str, 0);
 	TTF_SetTextColor(text, r, g, b, a);
 	TTF_DrawRendererText(text, x, y);
 	TTF_DestroyText(text);
@@ -94,7 +94,7 @@ void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsign
 
 PlatformV2i PlatformTextGetSize(const char* str) {
 	PlatformV2i result = { 0 };
-	TTF_Text* text = TTF_CreateText(g_sdl.engine, g_sdl.font, str, 0);
+	TTF_Text* text = TTF_CreateText(g_sdl.text_engine, g_sdl.font, str, 0);
 	TTF_GetTextSize(text, &result.x, &result.y);
 	TTF_DestroyText(text);
 
@@ -341,8 +341,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
-	wz_gui_init(&game_gui);
-	wz_gui_init(&editor_gui);
+	//wz_gui_init(&game_gui);
+	//wz_gui_init(&editor_gui);
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
@@ -362,8 +362,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 	g_sdl.font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", 16);
 	assert(g_sdl.font);
 
-	g_sdl.engine = TTF_CreateRendererTextEngine(g_sdl.renderer);
-	assert(g_sdl.engine);
+	g_sdl.text_engine = TTF_CreateRendererTextEngine(g_sdl.renderer);
+	assert(g_sdl.text_engine);
 
 	game_init();
 
@@ -640,7 +640,7 @@ void test_gui(WzGui* wz)
 	}
 	wz->trees[0] = g_tree;
 
-	wz_gui_end(0);
+	wz_end();
 
 	sdl_draw_wz(wz);
 }
