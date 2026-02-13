@@ -4,6 +4,12 @@
 #include "Game.h"
 #include "Editor.h"
 
+// Color component extraction macros (for RGBA format: 0xRRGGBBAA)
+#define WZ_COLOR_R(c) (((c) >> 24) & 0xFF)
+#define WZ_COLOR_G(c) (((c) >> 16) & 0xFF)
+#define WZ_COLOR_B(c) (((c) >> 8) & 0xFF)
+#define WZ_COLOR_A(c) ((c) & 0xFF)
+
 typedef struct Test
 {
 	unsigned x[32];
@@ -180,7 +186,7 @@ void PlatformLineDraw(float x0, float y0, float x1, float y1, unsigned char r, u
 
 void platform_draw_points(float* x, float* y, unsigned count)
 {
-	SDL_FPoint *points = malloc(sizeof(*points) * count);
+	SDL_FPoint* points = malloc(sizeof(*points) * count);
 	for (unsigned i = 0; i < count; ++i)
 	{
 		SDL_FPoint point;
@@ -239,7 +245,7 @@ void sdl_draw_wz(WzGui* canvas)
 		WzDrawCommand command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Rect) {
-			SDL_SetRenderDrawColor(g_sdl.renderer, command.color.r, command.color.g, command.color.b, command.color.a);
+			SDL_SetRenderDrawColor(g_sdl.renderer, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
 			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
 			SDL_RenderFillRect(g_sdl.renderer, &rect);
 		}
@@ -251,7 +257,7 @@ void sdl_draw_wz(WzGui* canvas)
 		}
 		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) {
 			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
-				command.color.r, command.color.g, command.color.b, command.color.a);
+				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
 		}
 		else if (command.type == DrawCommandType_Line)
 		{
@@ -259,7 +265,7 @@ void sdl_draw_wz(WzGui* canvas)
 
 			PlatformLineDraw((float)command.line.x0, (float)command.line.y0,
 				(float)command.line.x1, (float)command.line.y1,
-				command.color.r, command.color.g, command.color.b);
+				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color));
 		}
 		else if (command.type == DrawCommandType_LineDotted)
 		{
@@ -392,7 +398,7 @@ SDL_AppResult handle_events(SDL_Event* event) {
 		return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
 	}
 
-	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) 
+	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
 		if (event->button.button == SDL_BUTTON_LEFT)
 		{
@@ -416,7 +422,7 @@ SDL_AppResult handle_events(SDL_Event* event) {
 	if (event->type == SDL_EVENT_KEY_DOWN) {
 		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
 		if (keycode < 128) {
-			if (g_platform.keyboard_states[keycode] == Inactive) 
+			if (g_platform.keyboard_states[keycode] == Inactive)
 			{
 				g_platform.keyboard_states[keycode] = Activating;
 			}
@@ -695,7 +701,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		WzWidgetData* target_panel_data = wz_widget_get(target_panel);
 		game_screen_rect = (WzRect){ target_panel_data->actual_x, target_panel_data->actual_y,
 			target_panel_data->actual_w, target_panel_data->actual_h };
-		
+
 		if (wzrd_box_is_hot_using_canvas(&editor_gui, target_panel_data))
 		{
 			enable_game_input = true;
@@ -770,4 +776,3 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 
 	wz_gui_deinit(&editor_gui);
 }
-

@@ -42,7 +42,7 @@
 
 #define MAX_NUM_WIDGETS 512
 
-#define MAX_NUM_ITEMS 32
+#define MAX_NUM_ITEMS 128
 #define MAX_NUM_CHILDREN 256
 
 #define DEBUG_PANELS 0
@@ -93,36 +93,36 @@
 
 #define WZ_LAYOUT_MAX_NUM_SOURCES 8
 
-// Color Defines
-#define WZ_DEFAULT_COLOR (WzColor){ 0xc0, 0xc0, 0xc0, 0xff }
-#define EGUI_LIGHTGRAY (WzColor){ 200, 200, 200, 255}   // Light Gray
-#define EGUI_LIGHTESTGRAY (WzColor){ 225, 225, 225, 255 }   // Lightest Gray
-#define EGUI_GRAY      (WzColor){ 180, 180, 180, 255 }   // Gray
-#define WZ_DARKGRAY  (WzColor){ 80, 80, 80, 255 }      // Dark Gray
-#define WZ_YELLOW    (WzColor){ 255, 255, 0, 255 }     // Yellow
-#define EGUI_GOLD      (WzColor){ 255, 203, 0, 255 }     // Gold
-#define EGUI_ORANGE    (WzColor){ 255, 161, 0, 255 }     // Orange
-#define EGUI_PINK      (WzColor){ 255, 109, 194, 255 }   // Pink
-#define WZ_RED       (WzColor){ 255, 0, 0, 255 }     // Red
-#define EGUI_MAROON    (WzColor){ 190, 33, 55, 255 }     // Maroon
-#define WZ_GREEN     (WzColor){ 0, 228, 48, 255 }      // Green
-#define EGUI_LIME      (WzColor){ 0, 158, 47, 255 }      // Lime
-#define EGUI_DARKGREEN (WzColor){ 0, 117, 44, 255 }      // Dark Green
-#define EGUI_SKYBLUE   (WzColor){ 102, 191, 255, 255 }   // Sky Blue
-#define WZ_BLUE      (WzColor){ 0, 0, 255, 255 }     // Blue
-#define EGUI_DARKBLUE  (WzColor){ 0, 82, 172, 255 }      // Dark Blue
-#define EGUI_PURPLE    (WzColor){ 200, 122, 255, 255 }   // Purple
-#define EGUI_VIOLET    (WzColor){ 135, 60, 190, 255 }    // Violet
-#define EGUI_DARKPURPLE (WzColor){ 112, 31, 126, 255 }    // Dark Purple
-#define EGUI_BEIGE     (WzColor){ 211, 176, 131, 255 }   // Beige
-#define EGUI_BROWN     (WzColor){ 127, 106, 79, 255 }    // Brown
-#define EGUI_DARKBROWN (WzColor){ 76, 63, 47, 255 }      // Dark Brown
-#define WZ_WHITE     (WzColor){ 255, 255, 255, 255 }   // White
-#define EGUI_WHITE2     (WzColor){ 230, 230, 230, 255 }   // White2
-#define WZ_BLACK     (WzColor){ 0, 0, 0, 255 }         // Black
-#define EGUI_BLANK     (WzColor){ 0, 0, 0, 0 }           // Blank (Transparent)
-#define EGUI_MAGENTA   (WzColor){ 255, 0, 255, 255 }     // Magenta
-#define EGUI_RAYWHITE  (WzColor){ 245, 245, 245, 255 }   // My own White (raylib logo)
+// Color Defines (RGBA format: 0xRRGGBBAA)
+#define WZ_DEFAULT_COLOR 0xc0c0c0ff
+#define EGUI_LIGHTGRAY 0xc8c8c8ff      // Light Gray
+#define EGUI_LIGHTESTGRAY 0xe1e1e1ff   // Lightest Gray
+#define EGUI_GRAY 0xb4b4b4ff           // Gray
+#define WZ_DARKGRAY 0x505050ff         // Dark Gray
+#define WZ_YELLOW 0xffff00ff           // Yellow
+#define EGUI_GOLD 0xffcb00ff           // Gold
+#define EGUI_ORANGE 0xffa100ff         // Orange
+#define EGUI_PINK 0xff6dc2ff           // Pink
+#define WZ_RED 0xff0000ff              // Red
+#define EGUI_MAROON 0xbe2137ff         // Maroon
+#define WZ_GREEN 0x00e430ff            // Green
+#define EGUI_LIME 0x009e2fff           // Lime
+#define EGUI_DARKGREEN 0x00752cff      // Dark Green
+#define EGUI_SKYBLUE 0x66bfffff        // Sky Blue
+#define WZ_BLUE 0x0000ffff             // Blue
+#define EGUI_DARKBLUE 0x0052acff       // Dark Blue
+#define EGUI_PURPLE 0xc87affff         // Purple
+#define EGUI_VIOLET 0x873cbeff         // Violet
+#define EGUI_DARKPURPLE 0x701f7eff     // Dark Purple
+#define EGUI_BEIGE 0xd3b083ff          // Beige
+#define EGUI_BROWN 0x7f6a4fff          // Brown
+#define EGUI_DARKBROWN 0x4c3f2fff      // Dark Brown
+#define WZ_WHITE 0xffffffff            // White
+#define EGUI_WHITE2 0xe6e6e6ff         // White2
+#define WZ_BLACK 0x000000ff            // Black
+#define EGUI_BLANK 0x00000000          // Blank (Transparent)
+#define EGUI_MAGENTA 0xff00ffff        // Magenta
+#define EGUI_RAYWHITE 0xf5f5f5ff       // My own White (raylib logo)
 
 //==============================================================================
 // STRUCTS AND ENUMS
@@ -154,9 +154,7 @@ typedef enum EditorWindowId {
 	EditorWindowId_DrawTool
 } EditorWindowId;
 
-typedef struct WzColor {
-	unsigned char r, g, b, a;
-} WzColor;
+// WzColor is now unsigned int in RGBA format (0xRRGGBBAA)
 
 typedef enum WzSizePolicyFlag
 {
@@ -226,7 +224,7 @@ typedef struct wzrd_str
 typedef struct Item {
 	ItemType type;
 	wzrd_v2 size;
-	WzColor color;
+	unsigned int color;
 	int margin_left, margin_right, margin_top, margin_bottom;
 	union {
 		WzStr str;
@@ -289,10 +287,11 @@ typedef struct EguiDrawCommand {
 		struct { WzRect dest_rect, src_rect; };
 		Line line;
 	};
-	WzColor color;
+	unsigned int color;
 	WzTexture texture;
 	int z;
 	float rotation_angle;
+	unsigned widget_index;
 } WzDrawCommand;
 
 typedef struct WzDrawCommandBuffer {
@@ -360,9 +359,9 @@ typedef struct
 	unsigned int cross_axis_alignment;
 	unsigned int main_axis_alignment;
 
-	WzColor font_color;
-	WzColor color;
-	WzColor b0, b1, b2, b3;
+	unsigned int font_color;
+	unsigned int color;
+	unsigned int b0, b1, b2, b3;
 	WzBorderType border_type;
 	WzBorderType window_border_type;
 
@@ -433,8 +432,8 @@ typedef enum wzrd_cursor {
 
 typedef struct wzrd_stylesheet
 {
-	WzColor label_color;
-	WzColor label_item_selected_color;
+	unsigned int label_color;
+	unsigned int label_item_selected_color;
 } wzrd_stylesheet;
 
 typedef void (*ScrollbarCallback)(WzWidget, WzWidget, WzWidget);
@@ -673,13 +672,13 @@ void wz_spacer(WzWidget parent);
 void wz_widget_scale(WzWidget widget, float w, float h);
 void wz_widget_rotate(WzWidget widget, float rotation);
 void wz_end();
-void wz_tabs(WzWidget parent, WzStr* tab_names, unsigned tabs_count, WzWidget *panels, unsigned *current_tab);
+void wz_tabs(WzWidget parent, WzStr* tab_names, unsigned tabs_count, WzWidget* panels, unsigned* current_tab);
 void wz_widget_set_margins(WzWidget w, unsigned int pad);
 void wz_widget_set_pad(WzWidget w, unsigned  pad);
 void wz_widget_set_child_gap(WzWidget widget, unsigned int child_gap);
 void wz_widget_set_constraints(WzWidget widget, unsigned int min_w, unsigned int min_h, unsigned int max_w, unsigned int max_h);
 WzWidget wz_widget_raw(WzWidget parent, const char* file, unsigned int line);
-void wz_widget_add_rect(WzWidget widget, unsigned int w, unsigned int h, WzColor color);
+void wz_widget_add_rect(WzWidget widget, unsigned int w, unsigned int h, unsigned int color);
 void wz_widget_set_margin_bottom(WzWidget widget, unsigned int pad);
 void wz_widget_set_margin_top(WzWidget widget, unsigned int pad);
 void wz_widget_set_margin_left(WzWidget widget, unsigned int pad);
@@ -715,7 +714,7 @@ bool wz_widget_is_interacting(WzWidget handle);
 bool wz_widget_is_activating(WzWidget handle);
 bool wz_is_any_widget_activating();
 WzWidgetData wzrd_widget_get_cached_box_with_secondary_tag(const char* tag, const char* secondary_tag);
-void wz_widget_set_color_old(WzWidget widget, WzColor color);
+void wz_widget_set_color_old(WzWidget widget, unsigned int color);
 void wz_widget_set_max_constraint_w(WzWidget w, int width);
 void wz_widget_set_max_constraint_h(WzWidget h, int height);
 void wz_frame(WzWidget parent, unsigned w, unsigned h, WzStr str);
@@ -757,7 +756,7 @@ WzWidget wz_icon_toggle_raw(WzWidget parent, WzTexture texture, unsigned w, unsi
 void wzrd_label_list_sorted_raw(WzStr* item_names, unsigned int count, int* items, unsigned int width, unsigned int height, unsigned int color, unsigned int* selected, bool* is_selected, WzWidget parent, const char* file, unsigned int line);
 void wzrd_label_list_raw(WzStr* item_names, unsigned int count, unsigned int width, unsigned int height, unsigned int color, WzWidget* handles, unsigned int* selected, bool* is_selected, WzWidget parent, const char* file, unsigned int line);
 WzWidget wzrd_input_box_raw(char* str, int* len, int max_num_keys, WzWidget parent, const char* file, unsigned int line);
-WzWidget wzrd_handle_button_raw(bool* active, WzRect rect, WzColor color, WzStr name, WzWidget parent, const char* file, unsigned int line);
+WzWidget wzrd_handle_button_raw(bool* active, WzRect rect, unsigned int color, WzStr name, WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_label_raw(WzWidget parent, WzStr str, const char* file, unsigned int line);
 WzWidget wzrd_vbox_border_raw(wzrd_v2 size, WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_hbox_raw(WzWidget parent, const char* file, unsigned int line);
@@ -765,13 +764,13 @@ WzWidget wz_vbox_raw(WzWidget parent, const char* file, unsigned int line);
 WzWidget wzrd_label_button_activating_raw(WzStr str, bool* active, WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_tree_add_row_raw(WzTree* tree, WzStr str, WzTexture texture, unsigned depth,
 	bool* expand, bool* selected, WzTreeNodeData* node, const char* file, unsigned line);
-WzWidget wz_toggle_raw(WzWidget parent, unsigned w, unsigned h, WzColor color,
+WzWidget wz_toggle_raw(WzWidget parent, unsigned w, unsigned h, unsigned int color,
 	bool* active, const char* file_name, unsigned int line);
 WzWidget wz_texture_raw(WzWidget parent, WzTexture texture, unsigned w, unsigned h, const char* file_name, unsigned int line);
 void wz_widget_add_horizontal_line(WzWidget widget, unsigned w);
 void wz_widget_add_vertical_line(WzWidget widget, unsigned h);
 void wz_do_layout_refactor_me();
-void wz_widget_add_rect_absolute(WzWidget widget, int x, int y, unsigned w, unsigned h, WzColor color);
+void wz_widget_add_rect_absolute(WzWidget widget, int x, int y, unsigned w, unsigned h, unsigned int color);
 WzWidget wz_vpanel_raw(WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_hpanel_raw(WzWidget parent, const char* file, unsigned int line);
 WzWidget wz_panel_raw(WzWidget parent, const char* file, unsigned int line);

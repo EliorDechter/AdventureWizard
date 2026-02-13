@@ -672,7 +672,7 @@ bool entity_get_next_handle(int* iterator_index, Entity_handle* handle) {
 	return result;
 }
 
-platform_color wzrd_color_to_platform_color(WzColor color) {
+platform_color wzrd_color_to_platform_color(unsigned color) {
 
 	platform_color result = *(platform_color*)&color;
 
@@ -860,9 +860,7 @@ void game_entity_gui_do(unsigned int scale_w, unsigned int scale_h, WzGui* wz, W
 			rect.y = (int)entity->rect.y - 5;
 			button_name = str128_create("green button %s", entity->name);
 			bool green_button;
-			WzColor color = (WzColor){
-				0, 255, 0, 255
-			};
+			unsigned color = 0X00FF00FF;
 			WzStr name = (WzStr){
 				.str = button_name.val, .len = button_name.len
 			};
@@ -1072,22 +1070,22 @@ void game_init() {
 	game_entity_create((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e1"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
-			.color = (WzColor){ 255, 255, 255, 255 }
+			.color = 0XFFFFFFFF
 	});
 	game_entity_create((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e2"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
-			.color = (WzColor){ 255, 255, 255, 255 }
+			.color = 0XFFFFFFFF
 	});
 	game_entity_create((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e3"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
-			.color = (WzColor){ 255, 255, 255, 255 }
+			.color = 0XFFFFFFFF
 	});
 	game_entity_create((Entity) {
 		.rect = { .x = 50, .y = 50, .w = 100, .h = 100 }, .name = str128_create("e4"),
 			.texture = game_texture_add(texture_get_by_name(str128_create("clouds"))),
-			.color = (WzColor){ 255, 255, 255, 255 }
+			.color = 0XFFFFFFFF
 	});
 
 

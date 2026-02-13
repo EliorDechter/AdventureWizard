@@ -9,6 +9,12 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+// Color component extraction macros (for RGBA format: 0xRRGGBBAA)
+#define WZ_COLOR_R(c) (((c) >> 24) & 0xFF)
+#define WZ_COLOR_G(c) (((c) >> 16) & 0xFF)
+#define WZ_COLOR_B(c) (((c) >> 8) & 0xFF)
+#define WZ_COLOR_A(c) ((c) & 0xFF)
+
 //#define assert(x) void(x)
 
 WzKeyboard keyboard;
@@ -90,7 +96,6 @@ bool load_animation(SDL_Renderer* renderer, Animation* animation, const char* pa
 			return false;
 		}
 	}
-
 }
 
 void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
@@ -103,14 +108,19 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 		WzDrawCommand command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Rect) {
-			SDL_SetRenderDrawColor(renderer, command.color.r, command.color.g, command.color.b, command.color.a);
-			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
+#if 1
+			SDL_SetRenderDrawColor(renderer,
+				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color),
+				WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
+			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y,
+				(float)command.dest_rect.w, (float)command.dest_rect.h };
 			SDL_RenderFillRect(renderer, &rect);
+#endif
 		}
 		else if (command.type == DrawCommandType_Texture)
 		{
-			//if (!(command.color.r == 0 && command.color.g == 0 && command.color.b == 0))
-				//SDL_SetTextureColorMod(command.texture.data, command.color.r, command.color.g, command.color.b);
+			//if (!(WZ_COLOR_R(command.color) == 0 && WZ_COLOR_G(command.color) == 0 && WZ_COLOR_B(command.color) == 0))
+				//SDL_SetTextureColorMod(command.texture.data, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color));
 
 			SDL_SetTextureBlendMode(command.texture.data, SDL_BLENDMODE_BLEND);
 
@@ -119,11 +129,11 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 			SDL_RenderTextureRotated(renderer, command.texture.data,
 				(SDL_FRect*)&src, (SDL_FRect*)&dest, command.rotation_angle, 0, 0);
 		}
-		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) {
-
+		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) 
+		{
 			TTF_Text* text = TTF_CreateText(window_context->text_engine, font, command.str.str, 0);
 			bool error = false;
-			error = TTF_SetTextColor(text, command.color.r, command.color.g, command.color.b, command.color.a);
+			error = TTF_SetTextColor(text, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
 			TTF_DrawRendererText(text, command.dest_rect.x, command.dest_rect.y);
 			TTF_DestroyText(text);
 		}
@@ -131,7 +141,7 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 		{
 			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
-			SDL_SetRenderDrawColor(renderer, command.color.r, command.color.g, command.color.b, 255);
+			SDL_SetRenderDrawColor(renderer, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), 255);
 			SDL_RenderLine(renderer, command.line.x0, command.line.y0, command.line.x1, command.line.y1);
 		}
 		else if (command.type == DrawCommandType_LineDotted)
@@ -597,7 +607,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	{
 		Uint32 flags = SDL_GetWindowFlags(main_window.window);
 		float mouse_x = 0, mouse_y = 0;
-		if (flags & SDL_WINDOW_MOUSE_FOCUS) 
+		if (flags & SDL_WINDOW_MOUSE_FOCUS)
 		{
 			SDL_GetMouseState(&mouse_x, &mouse_y);
 		}
@@ -885,8 +895,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		panels[0] = wz_command_button(wz_str_create("wow"), &bb, null_widget);
 		strs[0] = wz_str_create("a");
 		strs[1] = wz_str_create("b");
-		wz_tabs(window, strs, 2, panels, &current_tab);
-
+		if (1)
+		{
+			wz_tabs(window, strs, 2, panels, &current_tab);
+		}
 		//bool b;
 		//wz_command_button(wz_str_create("asd"), &b, window);
 
@@ -916,4 +928,3 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 	return SDL_APP_CONTINUE;
 }
-

@@ -68,7 +68,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 	wz_widget_set_max_constraints(window, g_platform.window_width, g_platform.window_height);
 
 	wz_widget_set_cross_axis_alignment(window, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
-	
+
 	static bool draw_command_button;
 
 	{
@@ -112,7 +112,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 					}, panel);*/
 			}
 
-			//static WzColor color = { 100, 100, 100, 255 };
+			//static unsigned int color = 0x646464ff;
 			//wzrd_widget((wzrd_style) {
 			//	.is_slot = true,
 			//		.style = wzrd_style_create((wzrd_style_template) {
@@ -186,7 +186,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 		wz_widget_set_expanded(draw_panel);
 		wz_widget_set_cross_axis_alignment(draw_panel, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
 		wz_widget_clip(draw_panel);
-		
+
 		wz_frame(draw_panel, 100, 100, wz_str_create("wow"));
 
 #if 0
@@ -263,7 +263,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 							.name = str128_create(name.val),
 								.texture = game_texture_get_handle_by_name(str128_create("player")),
 								.rect = { .x = 0, .y = 0, .w = 100, .h = 100 },
-								.color = (WzColor){ 255, 255, 255, 255 }
+								.color = 0xffffffff
 						});
 					}
 
@@ -382,7 +382,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 				wz_widget_add_rect_absolute(draw_panel_data->handle,
 					draw_panel_data->actual_x + i * stride_x,
 					draw_panel_data->actual_y + j * stride_y,
-					10, 10, (WzColor) { 0, 0, 0, 255 });
+					10, 10, 0x000000ff);
 			}
 		}
 	}
