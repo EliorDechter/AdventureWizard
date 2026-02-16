@@ -161,7 +161,7 @@ typedef enum PlatformCursor { PlatformCursorDefault, PlatformCursorHand, Platfor
 
 // API
 void platform_clear_target_to_white();
-void platform_string_get_size(char* str, int* w, int* h);
+void get_string_size(char* str, int* w, int* h);
 void platform_rect_draw(PlatformRect rect, platform_color color);
 void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void PlatformTextureDraw(PlatformTexture texture, PlatformRect rect);
@@ -176,7 +176,7 @@ PlatformTargetTexture PlatformTargetTextureCreate();
 void platform_cursor_set(PlatformCursor cursor);
 void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a);
 void PlatformTextureDrawFromSource(PlatformTexture texture, PlatformRect dest, PlatformRect src, platform_color color);
-void sdl_draw_wz(WzGui *canvas);
+void WSDL_WzEnd(WzGui *canvas);
 void platform_time_begin();
 void platform_time_end();
 

@@ -917,12 +917,14 @@ void game_gui_do(WzGui* wz, WzRect window, bool enable_input, unsigned int scale
 	WZRD_UNUSED(enable_input);
 
 	WzKeyboard keyboard = { 0 };
-	WzWidget window_widget = wz_begin(wz, window.w, window.h, mouse_pos.x, mouse_pos.y,
-		platform_string_get_size,
+	WzWidget window_widget = (WzWidget){ 0 };
+	#if 0
+		wz_begin(window.w, window.h, mouse_pos.x, mouse_pos.y,
 		(WzState)g_platform.mouse_left,
 		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
-		&keyboard,
+		keyboard,
 		enable_input);
+#endif
 	{
 		wz_widget_set_color(window_widget, 0);
 #if 0

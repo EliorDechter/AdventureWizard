@@ -9,6 +9,311 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#define STB_TEXTEDIT_IMPLEMENTATION
+#include "stb_textedit.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
+
+// Convert SDL3 scancode + modifiers to WZ keycode
+// Returns 0-127 for ASCII characters, 128+ for special keys
+WZ_Keycode wz_sdl_scancode_to_keycode(SDL_Scancode scancode, SDL_Keymod modifiers)
+{
+	bool shift = (modifiers & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT)) != 0;
+	bool caps = (modifiers & SDL_KMOD_CAPS) != 0;
+
+	// Letters A-Z
+	if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
+		char base = 'a' + (scancode - SDL_SCANCODE_A);
+		// Caps lock XOR shift gives uppercase
+		if (caps != shift) {
+			return base - 32; // Uppercase ASCII
+		}
+		return base; // Lowercase ASCII
+	}
+
+	// Numbers 1-9, 0
+	if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
+		if (shift) {
+			const char symbols[] = "!@#$%^&*(";
+			return symbols[scancode - SDL_SCANCODE_1];
+		}
+		return '1' + (scancode - SDL_SCANCODE_1);
+	}
+
+	if (scancode == SDL_SCANCODE_0) {
+		return shift ? ')' : '0';
+	}
+
+	// Punctuation and special keys (ASCII range)
+	switch (scancode) {
+	case SDL_SCANCODE_SPACE:      return ' ';
+	case SDL_SCANCODE_RETURN:     return '\n';
+	case SDL_SCANCODE_ESCAPE:     return 27;
+	case SDL_SCANCODE_BACKSPACE:  return '\b';
+	case SDL_SCANCODE_TAB:        return '\t';
+
+	case SDL_SCANCODE_MINUS:      return shift ? '_' : '-';
+	case SDL_SCANCODE_EQUALS:     return shift ? '+' : '=';
+	case SDL_SCANCODE_LEFTBRACKET:  return shift ? '{' : '[';
+	case SDL_SCANCODE_RIGHTBRACKET: return shift ? '}' : ']';
+	case SDL_SCANCODE_BACKSLASH:    return shift ? '|' : '\\';
+	case SDL_SCANCODE_SEMICOLON:    return shift ? ':' : ';';
+	case SDL_SCANCODE_APOSTROPHE:   return shift ? '"' : '\'';
+	case SDL_SCANCODE_GRAVE:        return shift ? '~' : '`';
+	case SDL_SCANCODE_COMMA:        return shift ? '<' : ',';
+	case SDL_SCANCODE_PERIOD:       return shift ? '>' : '.';
+	case SDL_SCANCODE_SLASH:        return shift ? '?' : '/';
+	}
+
+	// Extended keys (128+)
+	switch (scancode) {
+	case SDL_SCANCODE_CAPSLOCK:     return WZ_KEY_CAPSLOCK;
+	case SDL_SCANCODE_F1:           return WZ_KEY_F1;
+	case SDL_SCANCODE_F2:           return WZ_KEY_F2;
+	case SDL_SCANCODE_F3:           return WZ_KEY_F3;
+	case SDL_SCANCODE_F4:           return WZ_KEY_F4;
+	case SDL_SCANCODE_F5:           return WZ_KEY_F5;
+	case SDL_SCANCODE_F6:           return WZ_KEY_F6;
+	case SDL_SCANCODE_F7:           return WZ_KEY_F7;
+	case SDL_SCANCODE_F8:           return WZ_KEY_F8;
+	case SDL_SCANCODE_F9:           return WZ_KEY_F9;
+	case SDL_SCANCODE_F10:          return WZ_KEY_F10;
+	case SDL_SCANCODE_F11:          return WZ_KEY_F11;
+	case SDL_SCANCODE_F12:          return WZ_KEY_F12;
+
+	case SDL_SCANCODE_PRINTSCREEN:  return WZ_KEY_PRINTSCREEN;
+	case SDL_SCANCODE_SCROLLLOCK:   return WZ_KEY_SCROLLLOCK;
+	case SDL_SCANCODE_PAUSE:        return WZ_KEY_PAUSE;
+	case SDL_SCANCODE_INSERT:       return WZ_KEY_INSERT;
+	case SDL_SCANCODE_HOME:         return WZ_KEY_HOME;
+	case SDL_SCANCODE_PAGEUP:       return WZ_KEY_PAGEUP;
+	case SDL_SCANCODE_DELETE:       return WZ_KEY_DELETE;
+	case SDL_SCANCODE_END:          return WZ_KEY_END;
+	case SDL_SCANCODE_PAGEDOWN:     return WZ_KEY_PAGEDOWN;
+	case SDL_SCANCODE_RIGHT:        return WZ_KEY_RIGHT;
+	case SDL_SCANCODE_LEFT:         return WZ_KEY_LEFT;
+	case SDL_SCANCODE_DOWN:         return WZ_KEY_DOWN;
+	case SDL_SCANCODE_UP:           return WZ_KEY_UP;
+
+	case SDL_SCANCODE_NUMLOCKCLEAR: return WZ_KEY_NUMLOCKCLEAR;
+	case SDL_SCANCODE_KP_DIVIDE:    return WZ_KEY_KP_DIVIDE;
+	case SDL_SCANCODE_KP_MULTIPLY:  return WZ_KEY_KP_MULTIPLY;
+	case SDL_SCANCODE_KP_MINUS:     return WZ_KEY_KP_MINUS;
+	case SDL_SCANCODE_KP_PLUS:      return WZ_KEY_KP_PLUS;
+	case SDL_SCANCODE_KP_ENTER:     return WZ_KEY_KP_ENTER;
+	case SDL_SCANCODE_KP_1:         return (modifiers & SDL_KMOD_NUM) ? '1' : WZ_KEY_KP_1;
+	case SDL_SCANCODE_KP_2:         return (modifiers & SDL_KMOD_NUM) ? '2' : WZ_KEY_KP_2;
+	case SDL_SCANCODE_KP_3:         return (modifiers & SDL_KMOD_NUM) ? '3' : WZ_KEY_KP_3;
+	case SDL_SCANCODE_KP_4:         return (modifiers & SDL_KMOD_NUM) ? '4' : WZ_KEY_KP_4;
+	case SDL_SCANCODE_KP_5:         return (modifiers & SDL_KMOD_NUM) ? '5' : WZ_KEY_KP_5;
+	case SDL_SCANCODE_KP_6:         return (modifiers & SDL_KMOD_NUM) ? '6' : WZ_KEY_KP_6;
+	case SDL_SCANCODE_KP_7:         return (modifiers & SDL_KMOD_NUM) ? '7' : WZ_KEY_KP_7;
+	case SDL_SCANCODE_KP_8:         return (modifiers & SDL_KMOD_NUM) ? '8' : WZ_KEY_KP_8;
+	case SDL_SCANCODE_KP_9:         return (modifiers & SDL_KMOD_NUM) ? '9' : WZ_KEY_KP_9;
+	case SDL_SCANCODE_KP_0:         return (modifiers & SDL_KMOD_NUM) ? '0' : WZ_KEY_KP_0;
+	case SDL_SCANCODE_KP_PERIOD:    return (modifiers & SDL_KMOD_NUM) ? '.' : WZ_KEY_KP_PERIOD;
+
+	case SDL_SCANCODE_APPLICATION:  return WZ_KEY_APPLICATION;
+	case SDL_SCANCODE_POWER:        return WZ_KEY_POWER;
+	case SDL_SCANCODE_KP_EQUALS:    return WZ_KEY_KP_EQUALS;
+	case SDL_SCANCODE_F13:          return WZ_KEY_F13;
+	case SDL_SCANCODE_F14:          return WZ_KEY_F14;
+	case SDL_SCANCODE_F15:          return WZ_KEY_F15;
+	case SDL_SCANCODE_F16:          return WZ_KEY_F16;
+	case SDL_SCANCODE_F17:          return WZ_KEY_F17;
+	case SDL_SCANCODE_F18:          return WZ_KEY_F18;
+	case SDL_SCANCODE_F19:          return WZ_KEY_F19;
+	case SDL_SCANCODE_F20:          return WZ_KEY_F20;
+	case SDL_SCANCODE_F21:          return WZ_KEY_F21;
+	case SDL_SCANCODE_F22:          return WZ_KEY_F22;
+	case SDL_SCANCODE_F23:          return WZ_KEY_F23;
+	case SDL_SCANCODE_F24:          return WZ_KEY_F24;
+
+	case SDL_SCANCODE_EXECUTE:      return WZ_KEY_EXECUTE;
+	case SDL_SCANCODE_HELP:         return WZ_KEY_HELP;
+	case SDL_SCANCODE_MENU:         return WZ_KEY_MENU;
+	case SDL_SCANCODE_SELECT:       return WZ_KEY_SELECT;
+	case SDL_SCANCODE_STOP:         return WZ_KEY_STOP;
+	case SDL_SCANCODE_AGAIN:        return WZ_KEY_AGAIN;
+	case SDL_SCANCODE_UNDO:         return WZ_KEY_UNDO;
+	case SDL_SCANCODE_CUT:          return WZ_KEY_CUT;
+	case SDL_SCANCODE_COPY:         return WZ_KEY_COPY;
+	case SDL_SCANCODE_PASTE:        return WZ_KEY_PASTE;
+	case SDL_SCANCODE_FIND:         return WZ_KEY_FIND;
+	case SDL_SCANCODE_MUTE:         return WZ_KEY_MUTE;
+	case SDL_SCANCODE_VOLUMEUP:     return WZ_KEY_VOLUMEUP;
+	case SDL_SCANCODE_VOLUMEDOWN:   return WZ_KEY_VOLUMEDOWN;
+
+	case SDL_SCANCODE_LCTRL:        return WZ_KEY_LCTRL;
+	case SDL_SCANCODE_LSHIFT:       return WZ_KEY_LSHIFT;
+	case SDL_SCANCODE_LALT:         return WZ_KEY_LALT;
+	case SDL_SCANCODE_LGUI:         return WZ_KEY_LGUI;
+	case SDL_SCANCODE_RCTRL:        return WZ_KEY_RCTRL;
+	case SDL_SCANCODE_RSHIFT:       return WZ_KEY_RSHIFT;
+	case SDL_SCANCODE_RALT:         return WZ_KEY_RALT;
+	case SDL_SCANCODE_RGUI:         return WZ_KEY_RGUI;
+
+	case SDL_SCANCODE_MODE:         return WZ_KEY_MODE;
+
+	default:
+		return WZ_KEY_UNKNOWN;
+	}
+}
+
+// Helper: Check if keycode is printable ASCII
+bool wz_keycode_is_printable(WZ_Keycode keycode)
+{
+	return keycode >= 32 && keycode <= 126;
+}
+
+// Helper: Check if keycode is ASCII (printable or control)
+bool wz_keycode_is_ascii(WZ_Keycode keycode)
+{
+	return keycode >= 0 && keycode < 128;
+}
+
+// Helper: Check if keycode is extended (special key)
+bool wz_keycode_is_extended(WZ_Keycode keycode)
+{
+	return keycode >= 128 && keycode < WZ_KEY_COUNT;
+}
+
+// Usage example with SDL3 events:
+void example_sdl3_usage(void)
+{
+	// Create array indexed by WZ keycodes
+	WzState keyboard_state[WZ_KEY_COUNT] = { 0 };
+
+	// When processing SDL3 events:
+	SDL_Event event;
+	while (SDL_PollEvent(&event)) {
+		if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+			SDL_Scancode scancode = event.key.scancode;
+			SDL_Keymod modifiers = event.key.mod;
+
+			WZ_Keycode keycode = wz_sdl_scancode_to_keycode(scancode, modifiers);
+
+			if (keycode != WZ_KEY_UNKNOWN) {
+				keyboard_state[keycode] = (event.type == SDL_EVENT_KEY_DOWN) ? WZ_ACTIVATING : WZ_INACTIVE;
+
+				// For text input, check if it's printable ASCII
+				if (event.type == SDL_EVENT_KEY_DOWN && wz_keycode_is_printable(keycode)) {
+					printf("Typed character: '%c'\n", (char)keycode);
+				}
+
+				// For special keys
+				if (keycode == WZ_KEY_LEFT) {
+					printf("Left arrow pressed\n");
+				}
+			}
+		}
+
+		// SDL3 also has text input events you can use:
+		if (event.type == SDL_EVENT_TEXT_INPUT) {
+			printf("Text input: %s\n", event.text.text);
+		}
+	}
+
+	// Check state in your input box:
+	if (keyboard_state['a'] == WZ_ACTIVE) {
+		printf("'a' key is held\n");
+	}
+
+	if (keyboard_state[WZ_KEY_LEFT] == WZ_ACTIVATING) {
+		printf("Left arrow just pressed\n");
+	}
+}
+
+
+void render_text(SDL_Renderer* renderer, stbtt_fontinfo* font,
+	const char* text, int x, int y, float font_size, unsigned len)
+{
+	float scale = stbtt_ScaleForPixelHeight(font, font_size);
+
+	int ascent, descent, lineGap;
+	stbtt_GetFontVMetrics(font, &ascent, &descent, &lineGap);
+
+	int baseline = (int)(ascent * scale);
+
+	int current_x = x;
+	int current_y = y;
+
+	for (int i = 0; i < len; i++)
+	{
+		// Handle newlines
+		if (text[i] == '\n') {
+			current_x = x;
+			current_y += (int)((ascent - descent + lineGap) * scale);
+			continue;
+		}
+
+		// Get glyph bitmap
+		int width, height, xoff, yoff;
+		unsigned char* bitmap = stbtt_GetCodepointBitmap(font, 0, scale,
+			text[i], &width, &height,
+			&xoff, &yoff);
+
+
+		// Get horizontal advance for this character
+		int advance, lsb;
+		stbtt_GetCodepointHMetrics(font, text[i], &advance, &lsb);
+
+		if (bitmap)
+		{
+			// Render the bitmap pixel by pixel
+			for (int row = 0; row < height; row++) {
+				for (int col = 0; col < width; col++) {
+					unsigned char pixel = bitmap[row * width + col];
+
+					if (pixel > 0) {
+						// Set color based on alpha value
+						SDL_SetRenderDrawColor(renderer, 0, 0, 0, pixel);
+						SDL_RenderPoint(renderer,
+							current_x + xoff + col,
+							current_y + baseline + yoff + row);
+					}
+				}
+			}
+
+			stbtt_FreeBitmap(bitmap, NULL);
+		}
+
+		// Move to next character position
+		current_x += (int)(advance * scale);
+
+		// Apply kerning if there's a next character
+		if (text[i + 1])
+		{
+			int kern = stbtt_GetCodepointKernAdvance(font, text[i], text[i + 1]);
+			current_x += (int)(kern * scale);
+		}
+	}
+}
+
+typedef struct Wsdl
+{
+	WzKeyboard keyboard;
+} Wsdl;
+
+Wsdl wsdl;
+
+typedef struct
+{	
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	TTF_TextEngine* text_engine;
+	WzGui gui;
+} WSDL_Context;
+
+WSDL_Context main_window;
+WSDL_Context gui_window;
+
+stbtt_fontinfo font;
+float font_height;
+SDL_Texture* x_icon_texture;
+
+
 // Color component extraction macros (for RGBA format: 0xRRGGBBAA)
 #define WZ_COLOR_R(c) (((c) >> 24) & 0xFF)
 #define WZ_COLOR_G(c) (((c) >> 16) & 0xFF)
@@ -16,19 +321,6 @@
 #define WZ_COLOR_A(c) ((c) & 0xFF)
 
 //#define assert(x) void(x)
-
-WzKeyboard keyboard;
-
-typedef struct
-{
-	SDL_Window* window;
-	SDL_Renderer* renderer;
-	TTF_TextEngine* text_engine;
-	// Textures
-} WindowContext;
-
-WindowContext main_window;
-WindowContext gui_window;
 
 #define MAX_NUM_TEXTURES_IN_ANIMATION 128
 
@@ -61,8 +353,6 @@ WzTexture texture;
 #define MAX_NUM_RENDERERS 16
 #define MAX_NUM_WINDOWS 16
 
-TTF_Font* font;
-SDL_Texture* x_icon_texture;
 
 WzState left_mouse;
 
@@ -98,16 +388,31 @@ bool load_animation(SDL_Renderer* renderer, Animation* animation, const char* pa
 	}
 }
 
-void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
+void WSDL_WzEnd(WSDL_Context* context)
 {
-	SDL_Renderer* renderer = window_context->renderer;
+	Uint32 flags = SDL_GetWindowFlags(gui_window.window);
+	float mouse_x = 0, mouse_y = 0;
+	if (flags & SDL_WINDOW_MOUSE_FOCUS)
+	{
+		SDL_GetMouseState(&mouse_x, &mouse_y);
+	}
 
-	WzDrawCommandBuffer* buffer = &wz->commands_buffer;
+	wz_begin(WINDOW_WIDTH, WINDOW_HEIGHT,
+		mouse_x, mouse_y, left_mouse, events, events_count, true);
+
+
+	wz_end();
+
+	// Draw
+	SDL_Renderer* renderer = context->renderer;
+
+	WzDrawCommandBuffer* buffer = &context->gui.commands_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
 		WzDrawCommand command = buffer->commands[i];
 
-		if (command.type == DrawCommandType_Rect) {
+		if (command.type == DrawCommandType_Rect)
+		{
 #if 1
 			SDL_SetRenderDrawColor(renderer,
 				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color),
@@ -119,9 +424,6 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 		}
 		else if (command.type == DrawCommandType_Texture)
 		{
-			//if (!(WZ_COLOR_R(command.color) == 0 && WZ_COLOR_G(command.color) == 0 && WZ_COLOR_B(command.color) == 0))
-				//SDL_SetTextureColorMod(command.texture.data, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color));
-
 			SDL_SetTextureBlendMode(command.texture.data, SDL_BLENDMODE_BLEND);
 
 			SDL_FRect src = { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h };
@@ -129,13 +431,18 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 			SDL_RenderTextureRotated(renderer, command.texture.data,
 				(SDL_FRect*)&src, (SDL_FRect*)&dest, command.rotation_angle, 0, 0);
 		}
-		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) 
+		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT)
 		{
-			TTF_Text* text = TTF_CreateText(window_context->text_engine, font, command.str.str, 0);
-			bool error = false;
-			error = TTF_SetTextColor(text, WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
-			TTF_DrawRendererText(text, command.dest_rect.x, command.dest_rect.y);
-			TTF_DestroyText(text);
+			SDL_FRect rect =
+			{
+				command.dest_rect.x,
+				command.dest_rect.y,
+				command.dest_rect.w,
+				command.dest_rect.h,
+			};
+
+			render_text(renderer, &font,
+				command.str.str, command.dest_rect.x, command.dest_rect.y, font_height, command.str.len);
 		}
 		else if (command.type == DrawCommandType_Line)
 		{
@@ -229,73 +536,21 @@ void sdl_draw_wz(WzGui* wz, WindowContext* window_context)
 	}
 
 	SDL_SetRenderClipRect(renderer, 0);
+
+	SDL_RenderPresent(context->renderer);
 }
 
-#define MAX_NUM_SDL_EVENTS 128
-SDL_Event events[MAX_NUM_SDL_EVENTS];
-unsigned events_count;
-SDL_Mutex* events_mutex;
-
-void sdl_to_wz_keyboard(WzKeyboard* keyboard)
+void WSDL_HandleInput()
 {
-#if 0
-	for (int i = 0; i < 128; ++i) {
-		if (keyboard->keys[i] == WZ_ACTIVATING)
-		{
-			keyboard->keys[i] = WZ_INACTIVE;
-		}
-		if (keyboard->keys[i] == WZ_ACTIVATING)
-		{
-			keyboard->keys[i] = WZ_ACTIVE;
-		}
-	}
-
-	SDL_Keycode keycode = 0;
-
-	if (event->type == SDL_EVENT_KEY_DOWN)
+	for (unsigned i = 0; i < 512; ++i)
 	{
-		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
-		if (keycode < 128) {
-			if (keyboard->keys[keycode] == WZ_INACTIVE)
-			{
-				keyboard->keys[keycode] = WZ_ACTIVATING;
-			}
-			else if (keyboard->keys[keycode] == WZ_ACTIVATING)
-			{
-				keyboard->keys[keycode] = WZ_ACTIVE;
-			}
-		}
-	}
-	else if (event->type == SDL_EVENT_KEY_UP)
-	{
-		keycode = SDL_GetKeyFromScancode(event->key.scancode, event->key.mod, false);
-		if (keycode < 128) {
-			if (keyboard->keys[keycode] == WZ_ACTIVE || keyboard->keys[keycode] == WZ_ACTIVATING)
-			{
-				keyboard->keys[keycode] = WZ_DEACTIVATING;
-			}
-			else if (keyboard->keys[keycode] == WZ_DEACTIVATING)
-			{
-				keyboard->keys[keycode] = WZ_INACTIVE;
-			}
-		}
-	}
-
-	if (keycode < 128 && keycode > 0) {
-		/*	g_platform.keys_pressed.keys[g_platform.keys_pressed.count++] =
-				(PlatformKey){ .val = (unsigned int)keycode, .state = [keycode] };*/
-	}
-#else
-
-	for (unsigned i = 0; i < 128; ++i)
-	{
-		if (keyboard->keys[i] == WZ_ACTIVATING)
+		if (wsdl.keyboard.keys[i] == WZ_ACTIVATING)
 		{
-			keyboard->keys[i] = WZ_ACTIVE;
+			wsdl.keyboard.keys[i] = WZ_ACTIVE;
 		}
-		if (keyboard->keys[i] == WZ_DEACTIVATING)
+		if (wsdl.keyboard.keys[i] == WZ_DEACTIVATING)
 		{
-			keyboard->keys[i] = WZ_INACTIVE;
+			wsdl.keyboard.keys[i] = WZ_INACTIVE;
 		}
 	}
 
@@ -303,103 +558,247 @@ void sdl_to_wz_keyboard(WzKeyboard* keyboard)
 	bool* keys = SDL_GetKeyboardState(&num_keys);
 	for (unsigned i = 0; i < num_keys; ++i)
 	{
-		SDL_Keycode key = SDL_GetKeyFromScancode(i, SDL_KMOD_NONE, false);
-		if (key > 0 && key < 128)
+		WZ_Keycode keycode = wz_sdl_scancode_to_keycode(i, 0);
 		{
 			if (keys[i])
 			{
-				if (keyboard->keys[key] == WZ_INACTIVE)
+				if (wsdl.keyboard.keys[keycode] == WZ_INACTIVE)
 				{
-					keyboard->keys[key] = WZ_ACTIVATING;
+					wsdl.keyboard.keys[keycode] = WZ_ACTIVATING;
 				}
 			}
 			else
 			{
-				if (keyboard->keys[key] == WZ_ACTIVE)
+				if (wsdl.keyboard.keys[keycode] == WZ_ACTIVE)
 				{
-					keyboard->keys[key] = WZ_DEACTIVATING;
+					wsdl.keyboard.keys[keycode] = WZ_DEACTIVATING;
 				}
 			}
 		}
 	}
 
-#endif
-}
-
-void sdl_handle_input()
-{
-	sdl_to_wz_keyboard(&keyboard);
-
-#if 0
-	// Finish handling input
+	// Mouse Input
 	{
-		if (left_mouse == WZ_ACTIVATING) {
+		float mouse_x, mouse_y;
+		Uint32 flags = SDL_GetMouseState(&mouse_x, &mouse_y);
+
+		if (left_mouse == WZ_ACTIVATING)
+		{
 			left_mouse = WZ_ACTIVE;
 		}
-		else if (left_mouse == WZ_DEACTIVATING) {
+		else if (left_mouse == WZ_DEACTIVATING)
+		{
 			left_mouse = WZ_INACTIVE;
 		}
-	}
 
-	if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
-	{
-		if (event->button.button == SDL_BUTTON_LEFT)
+		if (flags & SDL_BUTTON_LMASK)
 		{
 			if (left_mouse == WZ_INACTIVE)
 			{
 				left_mouse = WZ_ACTIVATING;
-				printf("wow\n");
-
 			}
-			else
+		}
+		else
+		{
+			if (left_mouse == WZ_ACTIVE)
 			{
+				left_mouse = WZ_DEACTIVATING;
 			}
 		}
 	}
-	else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
-	{
-		if (event->button.button == SDL_BUTTON_LEFT)
-		{
-			left_mouse = WZ_DEACTIVATING;
-		}
-	}
-#else
-
-	float mouse_x, mouse_y;
-	Uint32 flags = SDL_GetMouseState(&mouse_x, &mouse_y);
-
-	if (left_mouse == WZ_ACTIVATING)
-	{
-		left_mouse = WZ_ACTIVE;
-	}
-	else if (left_mouse == WZ_DEACTIVATING)
-	{
-		left_mouse = WZ_INACTIVE;
-	}
-
-	if (flags & SDL_BUTTON_LMASK)
-	{
-		if (left_mouse == WZ_INACTIVE)
-		{
-			left_mouse = WZ_ACTIVATING;
-		}
-	}
-	else
-	{
-		if (left_mouse == WZ_ACTIVE)
-		{
-			left_mouse = WZ_DEACTIVATING;
-		}
-	}
-
-#endif
 }
 
-int SDL_AppEvent(void* appstate, const SDL_Event* event)
+static int WSDL_TranslateToWzKeycodes(SDL_Scancode scancode) {
+	// Handle ASCII range (a-z, 0-9, punctuation, etc.)
+	// SDL scancodes for letters are offset from ASCII
+	if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
+		return 'a' + (scancode - SDL_SCANCODE_A);  // Map to lowercase ASCII
+	}
+
+	if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
+		return '1' + (scancode - SDL_SCANCODE_1);
+	}
+
+	if (scancode == SDL_SCANCODE_0) return '0';
+
+	// Special ASCII characters
+	switch (scancode) {
+	case SDL_SCANCODE_SPACE: return ' ';
+	case SDL_SCANCODE_RETURN: return '\n';
+	case SDL_SCANCODE_TAB: return '\t';
+	case SDL_SCANCODE_BACKSPACE: return '\b';
+	case SDL_SCANCODE_ESCAPE: return 27;  // ESC
+
+		// Punctuation (you may need to adjust these based on your keyboard layout)
+	case SDL_SCANCODE_MINUS: return '-';
+	case SDL_SCANCODE_EQUALS: return '=';
+	case SDL_SCANCODE_LEFTBRACKET: return '[';
+	case SDL_SCANCODE_RIGHTBRACKET: return ']';
+	case SDL_SCANCODE_BACKSLASH: return '\\';
+	case SDL_SCANCODE_SEMICOLON: return ';';
+	case SDL_SCANCODE_APOSTROPHE: return '\'';
+	case SDL_SCANCODE_GRAVE: return '`';
+	case SDL_SCANCODE_COMMA: return ',';
+	case SDL_SCANCODE_PERIOD: return '.';
+	case SDL_SCANCODE_SLASH: return '/';
+	}
+
+	// Extended keys (>= 128)
+	switch (scancode) {
+	case SDL_SCANCODE_CAPSLOCK: return WZ_KEY_CAPSLOCK;
+	case SDL_SCANCODE_F1: return WZ_KEY_F1;
+	case SDL_SCANCODE_F2: return WZ_KEY_F2;
+	case SDL_SCANCODE_F3: return WZ_KEY_F3;
+	case SDL_SCANCODE_F4: return WZ_KEY_F4;
+	case SDL_SCANCODE_F5: return WZ_KEY_F5;
+	case SDL_SCANCODE_F6: return WZ_KEY_F6;
+	case SDL_SCANCODE_F7: return WZ_KEY_F7;
+	case SDL_SCANCODE_F8: return WZ_KEY_F8;
+	case SDL_SCANCODE_F9: return WZ_KEY_F9;
+	case SDL_SCANCODE_F10: return WZ_KEY_F10;
+	case SDL_SCANCODE_F11: return WZ_KEY_F11;
+	case SDL_SCANCODE_F12: return WZ_KEY_F12;
+	case SDL_SCANCODE_PRINTSCREEN: return WZ_KEY_PRINTSCREEN;
+	case SDL_SCANCODE_SCROLLLOCK: return WZ_KEY_SCROLLLOCK;
+	case SDL_SCANCODE_PAUSE: return WZ_KEY_PAUSE;
+	case SDL_SCANCODE_INSERT: return WZ_KEY_INSERT;
+	case SDL_SCANCODE_HOME: return WZ_KEY_HOME;
+	case SDL_SCANCODE_PAGEUP: return WZ_KEY_PAGEUP;
+	case SDL_SCANCODE_DELETE: return WZ_KEY_DELETE;
+	case SDL_SCANCODE_END: return WZ_KEY_END;
+	case SDL_SCANCODE_PAGEDOWN: return WZ_KEY_PAGEDOWN;
+	case SDL_SCANCODE_RIGHT: return WZ_KEY_RIGHT;
+	case SDL_SCANCODE_LEFT: return WZ_KEY_LEFT;
+	case SDL_SCANCODE_DOWN: return WZ_KEY_DOWN;
+	case SDL_SCANCODE_UP: return WZ_KEY_UP;
+	case SDL_SCANCODE_NUMLOCKCLEAR: return WZ_KEY_NUMLOCKCLEAR;
+	case SDL_SCANCODE_KP_DIVIDE: return WZ_KEY_KP_DIVIDE;
+	case SDL_SCANCODE_KP_MULTIPLY: return WZ_KEY_KP_MULTIPLY;
+	case SDL_SCANCODE_KP_MINUS: return WZ_KEY_KP_MINUS;
+	case SDL_SCANCODE_KP_PLUS: return WZ_KEY_KP_PLUS;
+	case SDL_SCANCODE_KP_ENTER: return WZ_KEY_KP_ENTER;
+	case SDL_SCANCODE_KP_1: return WZ_KEY_KP_1;
+	case SDL_SCANCODE_KP_2: return WZ_KEY_KP_2;
+	case SDL_SCANCODE_KP_3: return WZ_KEY_KP_3;
+	case SDL_SCANCODE_KP_4: return WZ_KEY_KP_4;
+	case SDL_SCANCODE_KP_5: return WZ_KEY_KP_5;
+	case SDL_SCANCODE_KP_6: return WZ_KEY_KP_6;
+	case SDL_SCANCODE_KP_7: return WZ_KEY_KP_7;
+	case SDL_SCANCODE_KP_8: return WZ_KEY_KP_8;
+	case SDL_SCANCODE_KP_9: return WZ_KEY_KP_9;
+	case SDL_SCANCODE_KP_0: return WZ_KEY_KP_0;
+	case SDL_SCANCODE_KP_PERIOD: return WZ_KEY_KP_PERIOD;
+	case SDL_SCANCODE_APPLICATION: return WZ_KEY_APPLICATION;
+	case SDL_SCANCODE_POWER: return WZ_KEY_POWER;
+	case SDL_SCANCODE_KP_EQUALS: return WZ_KEY_KP_EQUALS;
+	case SDL_SCANCODE_F13: return WZ_KEY_F13;
+	case SDL_SCANCODE_F14: return WZ_KEY_F14;
+	case SDL_SCANCODE_F15: return WZ_KEY_F15;
+	case SDL_SCANCODE_F16: return WZ_KEY_F16;
+	case SDL_SCANCODE_F17: return WZ_KEY_F17;
+	case SDL_SCANCODE_F18: return WZ_KEY_F18;
+	case SDL_SCANCODE_F19: return WZ_KEY_F19;
+	case SDL_SCANCODE_F20: return WZ_KEY_F20;
+	case SDL_SCANCODE_F21: return WZ_KEY_F21;
+	case SDL_SCANCODE_F22: return WZ_KEY_F22;
+	case SDL_SCANCODE_F23: return WZ_KEY_F23;
+	case SDL_SCANCODE_F24: return WZ_KEY_F24;
+	case SDL_SCANCODE_EXECUTE: return WZ_KEY_EXECUTE;
+	case SDL_SCANCODE_HELP: return WZ_KEY_HELP;
+	case SDL_SCANCODE_MENU: return WZ_KEY_MENU;
+	case SDL_SCANCODE_SELECT: return WZ_KEY_SELECT;
+	case SDL_SCANCODE_STOP: return WZ_KEY_STOP;
+	case SDL_SCANCODE_AGAIN: return WZ_KEY_AGAIN;
+	case SDL_SCANCODE_UNDO: return WZ_KEY_UNDO;
+	case SDL_SCANCODE_CUT: return WZ_KEY_CUT;
+	case SDL_SCANCODE_COPY: return WZ_KEY_COPY;
+	case SDL_SCANCODE_PASTE: return WZ_KEY_PASTE;
+	case SDL_SCANCODE_FIND: return WZ_KEY_FIND;
+	case SDL_SCANCODE_MUTE: return WZ_KEY_MUTE;
+	case SDL_SCANCODE_VOLUMEUP: return WZ_KEY_VOLUMEUP;
+	case SDL_SCANCODE_VOLUMEDOWN: return WZ_KEY_VOLUMEDOWN;
+	case SDL_SCANCODE_LCTRL: return WZ_KEY_LCTRL;
+	case SDL_SCANCODE_LSHIFT: return WZ_KEY_LSHIFT;
+	case SDL_SCANCODE_LALT: return WZ_KEY_LALT;
+	case SDL_SCANCODE_LGUI: return WZ_KEY_LGUI;
+	case SDL_SCANCODE_RCTRL: return WZ_KEY_RCTRL;
+	case SDL_SCANCODE_RSHIFT: return WZ_KEY_RSHIFT;
+	case SDL_SCANCODE_RALT: return WZ_KEY_RALT;
+	case SDL_SCANCODE_RGUI: return WZ_KEY_RGUI;
+	case SDL_SCANCODE_MODE: return WZ_KEY_MODE;
+
+	default: return WZ_KEY_UNKNOWN;
+	}
+}
+
+
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-	if (event->type == SDL_EVENT_QUIT)
-	{
+	WzEvent wz_event = { 0 };
+
+	switch (event->type) {
+	case SDL_EVENT_KEY_DOWN: {
+		unsigned wz_key = (unsigned)WSDL_TranslateToWzKeycodes(event->key.scancode);
+		if (wz_key != WZ_KEY_UNKNOWN) {
+			bool is_repeat = (event->key.repeat != 0);
+			wz_event.key = (WzKeyboardEvent){ .type = WZ_EVENT_TYPE_KEYBOARD, .key = wz_key, .down = true, .repeat = is_repeat };
+		}
+		break;
+	}
+
+	case SDL_EVENT_KEY_UP: {
+		int wz_key = WSDL_TranslateToWzKeycodes(event->key.scancode);
+		if (wz_key != WZ_KEY_UNKNOWN) {
+			wz_event.key = (WzKeyboardEvent){ .type = WZ_EVENT_TYPE_KEYBOARD };
+		}
+		break;
+	}
+
+	// Mouse button events
+	case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+		wz_input_mouse_button_event(
+			event->button.button, 
+			true,
+			event->button.x,
+			event->button.y
+		);
+
+		wz_event.button = (WzButtonEvent)
+		{
+			.button = event->button.button,
+			.down = true,
+			.x = event->button.x,
+			.y = event->button.y,
+		};
+		break;
+	}
+
+	case SDL_EVENT_MOUSE_BUTTON_UP: {
+		wz_input_mouse_button_event(
+			event->button.button,
+			false,
+			event->button.x,
+			event->button.y
+		);
+
+		wz_event.button = (WzButtonEvent)
+		{
+			.button = event->button.button,
+			.x = event->button.x,
+			.y = event->button.y,
+		};
+
+		break;
+	}
+
+	case SDL_EVENT_QUIT:
 		return SDL_APP_SUCCESS;
+	}
+
+	if (wz_event.type)
+	{
+		events[events_count++] = wz_event;
+		assert(events_count < MAX_NUM_EVENTS);
 	}
 
 	return SDL_APP_CONTINUE;
@@ -442,7 +841,7 @@ void load_animations()
 	}
 }
 
-WindowContext sdl_create_window()
+void WSDL_ContextCreate(WSDL_Context* context, unsigned window_width, unsigned window_height)
 {
 	bool success = true;
 	SDL_Renderer* renderer;
@@ -451,7 +850,7 @@ WindowContext sdl_create_window()
 
 	success &= SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d");
 
-	success &= SDL_CreateWindowAndRenderer("Niga", WINDOW_WIDTH, WINDOW_HEIGHT,
+	success &= SDL_CreateWindowAndRenderer("my window", window_width, window_height,
 		SDL_WINDOW_RESIZABLE, &window, &renderer);
 
 	success &= SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -469,30 +868,33 @@ WindowContext sdl_create_window()
 		);
 	}
 
-	WindowContext context =
-	{
-		.renderer = renderer,
-		.window = window,
-		.text_engine = text_engine
-	};
-
-	return context;
+	context->renderer = renderer;
+	context->window = window;
+	context->text_engine = text_engine;
 }
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
 	bool success = false;
 
-	//main_window = sdl_create_window();
-	gui_window = sdl_create_window();
-	SDL_SetWindowResizable(gui_window.window, false);
+	WSDL_ContextCreate(&gui_window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	// Fonts
+	// stb fonts
 	{
-		success |= TTF_Init();
+		font_height = 18;
+		size_t file_size;
+		char *data = SDL_LoadFile("C:\\Windows\\Fonts\\Arial.ttf", &file_size);
+		if (!data) {
+			SDL_Log("Failed to open file: %s", SDL_GetError());
+			SDL_Quit();
+			return 1;
+		}
 
-		font = TTF_OpenFont("C:\\Windows\\Fonts\\Arial.ttf", 16);
-		success |= (bool)font;
+		if (!stbtt_InitFont(&font, data, 0)) {
+			fprintf(stderr, "Failed to initialize font\n");
+			SDL_Quit();
+			return 1;
+		}
 	}
 
 	// X icon
@@ -515,398 +917,75 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	//wz_gui_init(&gui);
 	load_animations();
-
-	events_mutex = SDL_CreateMutex();
 
 	return SDL_APP_CONTINUE;
 }
 
-void platform_string_get_size(char* str, int* w, int* h)
+void get_string_size(char* str, unsigned start, unsigned end, float* w, float* h)
 {
-	int w_int = 0, h_int = 0;
-	str128 line = { 0 };
-	size_t index = 0;
-	size_t str_len = strlen(str);
-	*w = 0;
-	*h = 0;
-	while (str[index])
+	float scale = stbtt_ScaleForPixelHeight(&font, font_height);
+	float width = 0;
+
+	for (int i = start; i < end; i++)
 	{
-		line = (str128){ 0 };
-		for (; index < str_len; ++index)
-		{
-			if (str[index] == '\n')
-			{
-				++index;
-				line.val[line.len] = 0;
-				break;
-			}
+		int advance, lsb;
+		stbtt_GetCodepointHMetrics(&font, str[i], &advance, &lsb);
+		width += advance * scale;
 
-			line.val[line.len++] = str[index];
+		// Add kerning if there's a next character
+		if (str[i + 1]) {
+			int kern = stbtt_GetCodepointKernAdvance(&font, str[i], str[i + 1]);
+			width += kern * scale;
 		}
-
-		bool success = TTF_GetStringSize(font, line.val, 0, &w_int, &h_int);
-
-		if (!success)
-		{
-			SDL_ShowSimpleMessageBox(
-				SDL_MESSAGEBOX_ERROR,
-				"Fatal Error",
-				SDL_GetError(),
-				NULL
-			);
-
-			return SDL_APP_FAILURE;
-		}
-
-		*w += (int)w_int;
-		*h += (int)h_int;
 	}
+
+	*w = width;
+	*h = font_height;
 }
 
 
-void window_context_begin(WindowContext* context)
+void WSDL_WindowContextBegin(WSDL_Context* context)
 {
 	bool success = true;
 	success &= SDL_SetRenderDrawColor(context->renderer, 0x20, 0x8c, 0x71, 255);
 	success &= SDL_RenderClear(context->renderer);
 }
 
-void window_context_end(WindowContext* context)
+WzWidget WSDL_WzBegin(WSDL_Context* context)
 {
-	SDL_RenderPresent(context->renderer);
+	int window_width, window_height;
+	SDL_GetWindowSize(context->window, &window_width, &window_height);
+
+	WSDL_WindowContextBegin(&gui_window);
 }
 
-bool is_key_interacting(char k)
+bool WSDL_IsInteracting(char k)
 {
-	bool result = keyboard.keys[k] == WZ_ACTIVATING || keyboard.keys[k] == WZ_ACTIVE;
+	bool result = wsdl.keyboard.keys[k] == WZ_ACTIVATING || wsdl.keyboard.keys[k] == WZ_ACTIVE;
 
 	return result;
 }
 
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-	// Handle input
-	for (unsigned i = 0; i < events_count; ++i)
-	{
-#if 0
-		SDL_LockMutex(events_mutex);
-		events_count--;
-		SDL_UnlockMutex(events_mutex);
-#endif
-	}
-	sdl_handle_input();
-
 	unsigned time_beginning = SDL_GetTicks();
 
 	bool success = true;
 
-#if 0
-	window_context_begin(&main_window);
+	WSDL_WzBegin(&gui_window);
+	wz_set_gui(&gui_window.gui);
+	wz_set_string_size_callback(get_string_size);
+	
+	WzWidget window = wz_vbox((WzWidget) { 0 });
+	wz_widget_set_tight_constraints(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+	wz_widget_set_border(window, WZ_BORDER_TYPE_NONE);	
+	
 	{
-		Uint32 flags = SDL_GetWindowFlags(main_window.window);
-		float mouse_x = 0, mouse_y = 0;
-		if (flags & SDL_WINDOW_MOUSE_FOCUS)
-		{
-			SDL_GetMouseState(&mouse_x, &mouse_y);
-		}
-
-		int window_width, window_height;
-		success |= SDL_GetWindowSize(main_window.window, &window_width, &window_height);
-
-		WzWidget window = wz_begin(&gui, window_width, window_height,
-			mouse_x, mouse_y, platform_string_get_size, left_mouse, &keyboard, true);
-		wz_widget_set_layout(window, WZ_LAYOUT_NONE);
-		wz_widget_clip(window);
-
-		WzScene scene =
-		{
-			.w = WINDOW_WIDTH / 2,
-			.h = WINDOW_HEIGHT / 2,
-		};
-
-		WzWidget wid = wz_scene(scene, window, texture, 0, 0, 200, 200);
-
-		// ... 
-		for (unsigned i = 0; i < image_widgets_count; ++i)
-		{
-			WzWidgetPersistentData data = image_widgets[i];
-
-			WzTexture widget_a_wz_texture = (WzTexture)
-			{
-				.data = data.animation.textures[data.current_animation_frame],
-				.w = data.animation.textures[data.current_animation_frame]->w,
-				.h = data.animation.textures[data.current_animation_frame]->h,
-			};
-
-			WzWidget widget = wz_texture(wid,
-				widget_a_wz_texture,
-				100, 100);
-			wz_widget_set_x(widget, 0);
-			wz_widget_set_y(widget, 0);
-			wz_widget_set_tight_constraints(widget, 100, 100);
-			wz_widget_set_color(widget, 0);
-
-			image_widgets[i].widget = widget;
-		}
-
-		// Resize items
-		static WzWidget selected_widget;
-
-		if (wz_widget_is_activating(window))
-		{
-			selected_widget = (WzWidget){ 0 };
-		}
-
-		WzWidget text_widget = wz_vbox(window);
-		const unsigned text_widget_width = 200;
-		const unsigned text_widget_height = 400;
-		wz_widget_set_pos(text_widget, window_width - text_widget_width - 5, 5);
-		wz_widget_set_color(text_widget, 0x000000cc);
-		wz_widget_set_tight_constraints(text_widget, text_widget_width, text_widget_height);
-
-		const char* text =
-			"WASD - Movement\n"
-			"Z & X - Zoom in Zoom out\n"
-			"F - Duplicate";
-		WzWidget label = wz_label(text_widget, wz_str_create(text));
-		wz_widget_set_font_color(label, 0xffffffff);
-		wz_widget_set_color(label, 0);
-
-
-		WzWidget buttons_panel = wz_hbox(window);
-		wz_widget_disable(buttons_panel, true);
-
-		bool rotate_right = false;
-		WzWidget rotate_right_widget = wz_command_button(wz_str_create("rotate right"),
-			&rotate_right, buttons_panel);
-		wz_widget_set_pad(rotate_right_widget, 5);
-
-		bool rotate_left = false;
-		WzWidget rotate_left_widget = wz_command_button(wz_str_create("rotate left"),
-			&rotate_left, buttons_panel);
-		wz_widget_set_pad(rotate_left_widget, 5);
-
-		bool duplicate = false;
-		WzWidget duplicate_widget = wz_command_button(wz_str_create("duplicate"),
-			&duplicate, buttons_panel);
-		wz_widget_set_pad(duplicate_widget, 5);
-
-		bool zoom_out = false;
-		bool zoom_in = false;
-		bool move_left = false;
-		bool move_right = false;
-		bool move_up = false;
-		bool move_down = false;
-
-		if (keyboard.keys['f'] == WZ_ACTIVATING)
-		{
-			duplicate = true;
-		}
-
-		if (keyboard.keys['z'] == WZ_ACTIVATING || keyboard.keys['z'] == WZ_ACTIVE)
-		{
-			zoom_in = true;
-		}
-		else if (keyboard.keys['x'] == WZ_ACTIVATING || keyboard.keys['x'] == WZ_ACTIVE)
-		{
-			zoom_out = true;
-		}
-
-		if (keyboard.keys['w'] == WZ_ACTIVATING || keyboard.keys['w'] == WZ_ACTIVE)
-		{
-			move_up = true;
-		}
-		else if (keyboard.keys['s'] == WZ_ACTIVATING || keyboard.keys['s'] == WZ_ACTIVE)
-		{
-			move_down = true;
-		}
-
-		if (keyboard.keys['a'] == WZ_ACTIVATING || keyboard.keys['a'] == WZ_ACTIVE)
-		{
-			move_left = true;
-		}
-		else if (keyboard.keys['d'] == WZ_ACTIVATING || keyboard.keys['d'] == WZ_ACTIVE)
-		{
-			move_right = true;
-		}
-
-		for (unsigned i = 0; i < image_widgets_count; ++i)
-		{
-			if (wz_widget_is_activating(image_widgets[i].widget))
-			{
-				selected_widget = image_widgets[i].widget;
-			}
-
-			if (wz_widget_is_equal(selected_widget, image_widgets[i].widget))
-			{
-#if 1
-				wz_add_resize_widgets_maintain_aspect_ratio(selected_widget,
-					&image_widgets[i].scale_x,
-					&image_widgets[i].scale_y,
-					&image_widgets[i].transform_x,
-					&image_widgets[i].transform_y);
-#else
-				wz_add_resize_widgets_maintain_aspect_ratio2(selected_widget, &image_widgets[i].rotation);
-#endif
-				const float rotation_factor = 5;
-				if (wz_widget_is_interacting(rotate_right_widget))
-				{
-					image_widgets[i].rotation += fmod(rotation_factor, 360);
-				}
-
-				if (wz_widget_is_interacting(rotate_left_widget))
-				{
-					image_widgets[i].rotation -= fmod(rotation_factor, 360);
-				}
-
-				if (duplicate)
-				{
-					image_widgets[image_widgets_count] = image_widgets[i];
-				}
-			}
-		}
-
-		if (duplicate && wz_widget_is_valid(selected_widget))
-		{
-			image_widgets_count++;
-		}
-
-		wz_widget_set_border(selected_widget, WZ_BORDER_TYPE_BLACK);
-
-		// transform and scale
-		for (unsigned i = 0; i < image_widgets_count; ++i)
-		{
-			WzWidgetPersistentData* widget = &image_widgets[i];
-
-			image_widgets[i].current_animation_frame =
-				(widget->current_animation_frame + 1) % widget->animation.textures_count;
-
-			if (wz_widget_is_active(widget->widget))
-			{
-				float mouse_delta_x = (gui.mouse_delta.x) / gui.zoom_factor;
-				float mouse_delta_y = (gui.mouse_delta.y) / gui.zoom_factor;
-
-				widget->transform_x += mouse_delta_x;
-				widget->transform_y += mouse_delta_y;
-			}
-
-			wz_widget_transform(widget->widget, widget->transform_x, widget->transform_y);
-			wz_widget_scale(widget->widget, widget->scale_x, widget->scale_y);
-			wz_widget_rotate(widget->widget, widget->rotation);
-		}
-
-		WzWidget zoom_out_widget = wz_command_button(wz_str_create("zoom out"),
-			&zoom_out, buttons_panel);
-		wz_widget_set_pad(zoom_out_widget, 5);
-
-		WzWidget zoom_in_widget = wz_command_button(wz_str_create("zoom in"),
-			&zoom_in, buttons_panel);
-		wz_widget_set_pad(zoom_in_widget, 5);
-
-		WzWidget move_left_widget = wz_command_button(wz_str_create("move left"),
-			&move_left, buttons_panel);
-		wz_widget_set_pad(move_left_widget, 5);
-		WzWidget move_right_widget = wz_command_button(wz_str_create("move right"),
-			&move_right, buttons_panel);
-		wz_widget_set_pad(move_right_widget, 5);
-		WzWidget move_up_widget = wz_command_button(wz_str_create("move up"),
-			&move_up, buttons_panel);
-		wz_widget_set_pad(move_up_widget, 5);
-
-		WzWidget move_down_widget = wz_command_button(wz_str_create("move down"),
-			&move_down, buttons_panel);
-		wz_widget_set_pad(move_down_widget, 5);
-
-		const float zoom_factor = 0.09;
-		if (wz_widget_is_interacting(zoom_in_widget) || zoom_in)
-		{
-			gui.zoom_factor += zoom_factor;
-		}
-		else if (wz_widget_is_interacting(zoom_out_widget) || zoom_out)
-		{
-			gui.zoom_factor -= zoom_factor;
-		}
-
-		const int move_offset = 10;
-		if (wz_widget_is_interacting(move_left_widget) || move_left)
-		{
-			gui.camera_x -= move_offset;
-		}
-
-		if (wz_widget_is_interacting(move_right_widget) || move_right)
-		{
-			gui.camera_x += move_offset;
-		}
-
-		if (wz_widget_is_interacting(move_up_widget) || move_up)
-		{
-			gui.camera_y -= move_offset;
-		}
-
-		if (wz_widget_is_interacting(move_down_widget) || move_down)
-		{
-			gui.camera_y += move_offset;
-		}
-
-		wz_end();
+		WzWidget input_box = wz_input_box(window);
 	}
-	sdl_draw_wz(&gui, &main_window);
-
-	window_context_end(&main_window);
-#endif
-
-	// Gui 
-	static WzGui gui_window_wz;
-
-	window_context_begin(&gui_window);
-	{
-		int window_width, window_height;
-		SDL_GetWindowSize(gui_window.window, &window_width, &window_height);
-
-		Uint32 flags = SDL_GetWindowFlags(gui_window.window);
-		float mouse_x = 0, mouse_y = 0;
-		if (flags & SDL_WINDOW_MOUSE_FOCUS) {
-			SDL_GetMouseState(&mouse_x, &mouse_y);
-		}
-
-		// Zooming
-		{
-			const float zoom_factor = 0.01;
-			if (is_key_interacting('z'))
-			{
-				wz_zoom(zoom_factor);
-			}
-			if (is_key_interacting('x'))
-			{
-				wz_zoom(-zoom_factor);
-			}
-		}
-
-		WzWidget window = wz_begin(&gui_window_wz, window_width, window_height,
-			mouse_x, mouse_y, platform_string_get_size, left_mouse, &keyboard, true);
-
-		WzStr strs[2];
-		WzWidget panels[2] = { 0 };
-		bool bb;
-		WzWidget null_widget = (WzWidget){ 0 };
-		static unsigned current_tab;
-		panels[0] = wz_command_button(wz_str_create("wow"), &bb, null_widget);
-		strs[0] = wz_str_create("a");
-		strs[1] = wz_str_create("b");
-		if (1)
-		{
-			wz_tabs(window, strs, 2, panels, &current_tab);
-		}
-		//bool b;
-		//wz_command_button(wz_str_create("asd"), &b, window);
-
-		wz_end();
-	}
-
-	sdl_draw_wz(&gui_window_wz, &gui_window);
-	window_context_end(&gui_window);
+	
+	WSDL_WzEnd(&gui_window);
 
 	unsigned delta_time = SDL_GetTicks() - time_beginning;
 	if (delta_time < 42)
@@ -925,6 +1004,8 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
 		return SDL_APP_FAILURE;
 	}
+	
+	events_count = 0;
 
 	return SDL_APP_CONTINUE;
 }

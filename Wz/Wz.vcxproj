@@ -131,6 +131,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ConsoleApplication1\stb_textedit.h" />
+    <ClInclude Include="..\ConsoleApplication1\stb_truetype.h" />
     <ClInclude Include="..\ConsoleApplication1\WzGuiCore.h" />
   </ItemGroup>
   <ItemGroup>

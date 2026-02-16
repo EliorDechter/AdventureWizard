@@ -18,6 +18,12 @@
     <ClInclude Include="..\ConsoleApplication1\WzGuiCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ConsoleApplication1\stb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ConsoleApplication1\stb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ConsoleApplication1\WzGuiCore.c">

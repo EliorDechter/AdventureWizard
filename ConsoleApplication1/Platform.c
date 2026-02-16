@@ -83,14 +83,6 @@ PlatformSystem g_platform;
 // TODO: make it not global!
 WzGui editor_gui, game_gui;
 
-void PlatformTextDrawColor(const char* str, float x, float y, char r, char g, char b, char a) {
-	TTF_Text* text = TTF_CreateText(g_sdl.text_engine, g_sdl.font, str, 0);
-	//int w = 11, h = 22;
-	TTF_SetTextColor(text, r, g, b, a);
-	TTF_DrawRendererText(text, x, y);
-	TTF_DestroyText(text);
-}
-
 void PlatformTextDraw(const char* str, float x, float y, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
 	TTF_Text* text = TTF_CreateText(g_sdl.text_engine, g_sdl.font, str, 0);
 	TTF_SetTextColor(text, r, g, b, a);
@@ -107,7 +99,7 @@ PlatformV2i PlatformTextGetSize(const char* str) {
 	return result;
 }
 
-void platform_string_get_size(char* str, int* w, int* h)
+void get_string_size(char* str, int* w, int* h)
 {
 	int w_int = 0, h_int = 0;
 	str128 line = { 0 };
@@ -237,7 +229,7 @@ SDL_Texture* g_target;
 SDL_Texture* g_texture;
 
 
-void sdl_draw_wz(WzGui* canvas)
+void WSDL_WzEnd(WzGui* canvas)
 {
 	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 
@@ -256,8 +248,10 @@ void sdl_draw_wz(WzGui* canvas)
 			}, (PlatformRect) { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h }, (platform_color) { 255, 255, 255, 255 });
 		}
 		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT) {
+			#if 0
 			PlatformTextDraw(command.str.str, (float)command.dest_rect.x, (float)command.dest_rect.y,
 				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color), WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
+#endif
 		}
 		else if (command.type == DrawCommandType_Line)
 		{
@@ -575,14 +569,17 @@ void platform_time_end()
 void test_gui(WzGui* wz)
 {
 	WzKeyboard keyboard = { 0 };
-	WzWidget window0 = wz_begin(wz,
+	WzWidget window0 = { 0 };
+
+#if 0
+	wz_begin(
 		g_platform.window_width, g_platform.window_height,
 		g_platform.mouse_x, g_platform.mouse_y,
-		platform_string_get_size,
 		(WzState)g_platform.mouse_left,
 		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
-		&keyboard,
+		keyboard,
 		true);
+#endif
 
 	WzWidget window = wz_vbox(window0);
 	WzWidget menu = wz_vbox(window);
@@ -648,7 +645,7 @@ void test_gui(WzGui* wz)
 
 	wz_end();
 
-	sdl_draw_wz(wz);
+	WSDL_WzEnd(wz);
 }
 
 WzGui test_gui_obj;
@@ -676,7 +673,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 			editor_run(&editor_gui, game_target_texture_get(), icons, &debug_str, &target_panel);
 			unsigned int time_b = SDL_GetTicksNS();
 
-			sdl_draw_wz(&editor_gui);
+			WSDL_WzEnd(&editor_gui);
 			g_debug_text = (str1024){ 0 };
 
 			static uint64_t samples[32];
@@ -743,7 +740,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 					enable_game_input, scale_w, scale_h, & debug_str);
 #endif
 				PlatformTextureBeginTarget(g_game.target_texture);
-				sdl_draw_wz(&game_gui);
+				WSDL_WzEnd(&game_gui);
 				PlatformTextureEndTarget();
 			}
 		}

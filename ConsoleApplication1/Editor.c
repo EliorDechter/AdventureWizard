@@ -55,15 +55,17 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 
 	WzKeyboard keyboard = { 0 };
 
-	WzWidget window0 = wz_begin(wz,
+#
+	WzWidget window0 = { 0 };
+#if 0
+		wz_begin(
 		g_platform.window_width, g_platform.window_height,
 		g_platform.mouse_x, g_platform.mouse_y,
-		platform_string_get_size,
 		(WzState)g_platform.mouse_left,
 		//*(WzKeyboardKeys*)&g_platform.keys_pressed,
-		&keyboard,
+		keyboard,
 		true);
-
+#endif
 	WzWidget window = wz_vpanel(window0);
 	wz_widget_set_max_constraints(window, g_platform.window_width, g_platform.window_height);
 
@@ -230,7 +232,7 @@ void editor_run(WzGui* wz, PlatformTargetTexture target_texture,
 					wz_widget_set_cross_axis_alignment(form, WZ_CROSS_AXIS_ALIGNMENT_STRETCH);
 					WzWidget row = wz_hpanel(form);
 					wz_label(row, wz_str_create("Name:"));
-					WzWidget wdg = wzrd_input_box(name.val, &name.len, 10, row);
+					//WzWidget wdg = wz_input_box(name.val, &name.len, 10, row);
 
 					wz_widget_set_border(row, WZ_BORDER_TYPE_DEFAULT);
 					{
