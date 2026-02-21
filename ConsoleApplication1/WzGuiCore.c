@@ -802,7 +802,7 @@ unsigned int wz_convert_color(unsigned int color)
 	return color;
 }
 
-void wz_widget_add_rect_new(WzWidget widget, int x, int y, unsigned w, unsigned h, unsigned color)
+void wz_widget_add_rect_new(WzWidget widget, float x, float y, float w, float h, unsigned color)
 {
 	WzWidgetItem item = { 0 };
 	item.x = x;
@@ -876,7 +876,8 @@ void wz_log_error(WzLogMessage* arr, unsigned int* count, const char* fmt, ...)
 
 #endif
 
-void wzrd_crate(int window_id, WzWidgetData box) {
+void wzrd_crate(int window_id, WzWidgetData box)
+{
 	wzrd_crate_begin(window_id, box);
 }
 
@@ -892,9 +893,9 @@ void wz_set_string_size_callback(void (*get_string_size)(char*, unsigned, unsign
 
 WzWidget wz_begin(
 	unsigned window_w, unsigned  window_h,
-	unsigned mouse_x, unsigned mouse_y,
+	float mouse_x, float mouse_y,
 	WzState left_mouse_state,
-	WzEvent *events,
+	WzEvent* events,
 	unsigned events_count,
 	bool enable_input)
 {
@@ -905,6 +906,9 @@ WzWidget wz_begin(
 		//wz->occupied[wz->persistent_widgets[i].handle.handle] = false;
 	}
 
+
+	memcpy(wz->events, events, events_count * sizeof(*wz->events));
+	wz->events_count = events_count;
 
 	memset(wz->keyboard.keys, 0, sizeof(WzState) * 512);
 
@@ -920,9 +924,8 @@ WzWidget wz_begin(
 		}
 	}
 
-
 	wz->mouse_left = left_mouse_state;
-	wz->mouse_pos = (wzrd_v2){ mouse_x, mouse_y };
+	wz->mouse_pos = (wzrd_v2f){ mouse_x, mouse_y };
 	wz->mouse_delta.x = wz->mouse_pos.x - wz->previous_mouse_pos.x;
 	wz->mouse_delta.y = wz->mouse_pos.y - wz->previous_mouse_pos.y;
 
@@ -940,7 +943,7 @@ WzWidget wz_begin(
 	//gui->widgets[gui->widgets_count++] = (WzWidgetData){ 0 };
 
 	// Window
-	
+
 
 	// Stylesheet
 	wz->stylesheet.label_color = WZ_LIGHTGRAY;
@@ -956,9 +959,12 @@ void wz_draw_rect(WzDrawCommand* out_command,
 {
 	*out_command = (WzDrawCommand){
 		.type = DrawCommandType_Rect,
-		.dest_rect = rect,
 		.color = color,
 		.z = z,
+		.x = rect.x,
+		.y = rect.y,
+		.w = rect.w,
+		.h = rect.h,
 		.source = source
 	};
 
@@ -1164,7 +1170,7 @@ void wz_input(int* indices, int count)
 		bool is_hover = false;
 		{
 			// Clamp rect size to some arbitrary number in case it's uint_max
-			int w, h;
+			float w, h;
 			if (scaled_rect.w < 8000)
 			{
 				w = scaled_rect.w;
@@ -1210,6 +1216,7 @@ void wz_input(int* indices, int count)
 					hovered_box = box;
 				}
 			}
+
 		}
 	}
 
@@ -1340,7 +1347,13 @@ bool wz_widget_is_active(WzWidget handle) {
 
 bool wz_widget_is_interacting(WzWidget handle)
 {
-	return wz_widget_is_activating(handle) || wz_widget_is_active(handle);
+	bool result = false;
+	if (wz_widget_is_activating(handle) || wz_widget_is_active(handle))
+	{
+		result = true;
+	}
+
+	return result;
 }
 
 void wzrd_box_bring_to_front(WzWidgetData* box, void* data)
@@ -1374,7 +1387,10 @@ void wz_draw_text(WzDrawCommand* out_command, const char* string, WzRect rect)
 	*out_command = (WzDrawCommand){
 		.type = WZ_DRAW_COMMAND_TYPE_TEXT,
 		.str = wz_str_create(string),
-		.dest_rect = rect,
+		.x = rect.x,
+		.y = rect.y,
+		.w = rect.w,
+		.h = rect.h,
 		.color = WZ_BLACK,
 		.z = 10
 	};
@@ -1406,7 +1422,6 @@ void wz_draw(WzWidget* boxes_indices)
 	unsigned int line_size;
 	WzWidget current_clip_widget;
 	WzWidgetItem item;
-	WzRect item_dest_rect = { 0 };
 
 #define TEMP_BUFFER_SIZE 128
 	WzDrawCommand temp_buffer[TEMP_BUFFER_SIZE] = { 0 };
@@ -1593,7 +1608,8 @@ void wz_draw(WzWidget* boxes_indices)
 			if (item.size.y == 0)
 				item.size.y = widget.actual_h;
 
-			item_dest_rect = (WzRect){
+			WzRect item_dest_rect = (WzRect)
+			{
 				widget.actual_x + item.x,
 				widget.actual_y + item.y,
 				item.w,
@@ -1613,10 +1629,10 @@ void wz_draw(WzWidget* boxes_indices)
 			if (item.type == WZ_WIDGET_ITEM_TYPE_STRING)
 			{
 				float w, h;
-				wz->get_string_size(item.val.str.str, 0, strlen(item.val.str.str), & w, &h);
+				wz->get_string_size(item.val.str.str, 0, strlen(item.val.str.str), &w, &h);
 
-				item_dest_rect.w = (int)w;
-				item_dest_rect.h = (int)h;
+				item_dest_rect.w = w;
+				item_dest_rect.h = h;
 
 				if (widget.text_alignment == WZ_TEXT_ALIGNMENT_LEFT)
 				{
@@ -1632,7 +1648,10 @@ void wz_draw(WzWidget* boxes_indices)
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = WZ_DRAW_COMMAND_TYPE_TEXT,
 					.str = item.val.str,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.color = widget.font_color,
 					.z = widget.layer
 				};
@@ -1644,7 +1663,10 @@ void wz_draw(WzWidget* boxes_indices)
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_Texture,
 					.rotation_angle = widget.rotation,
-					.dest_rect = (WzRect){widget.actual_x, widget.actual_y, widget.actual_w, widget.actual_h},
+					.x = widget.actual_x,
+					.y = widget.actual_y,
+					.w = widget.actual_w,
+					.h = widget.actual_h,
 					.src_rect = (WzRect) {0, 0, item.val.texture.w, item.val.texture.h},
 					.texture = item.val.texture,
 					.z = widget.layer
@@ -1656,13 +1678,14 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_Rect,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.color = item.color,
 					.z = widget.layer
 				};
 
-				wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.w > 0);
-				wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.h > 0);
 			}
 			else if (item.type == ItemType_RectAbsolute)
 			{
@@ -1674,35 +1697,38 @@ void wz_draw(WzWidget* boxes_indices)
 
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_Rect,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.color = item.color,
 					.z = widget.layer
 				};
 
-				wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.w > 0);
-				wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.h > 0);
+				wz_assert(temp_buffer[temp_buffer_count - 1].w > 0);
+				wz_assert(temp_buffer[temp_buffer_count - 1].h > 0);
 			}
 
 			// Line items
 			if (item.type == ItemType_Line) {
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_Line,
-					.dest_rect = (WzRect){
-						widget.actual_w + item.val.rect.x,
-						widget.actual_y + item.val.rect.y,
-						widget.actual_w + item.val.rect.w,
-						widget.actual_y + item.val.rect.h
-					},
+					.x = widget.actual_w + item.val.rect.x,
+					.y = widget.actual_y + item.val.rect.y,
+					.w = widget.actual_w + item.val.rect.w,
+					.h = widget.actual_y + item.val.rect.h,
 					.color = item.color,
 					.z = widget.layer
-
 				};
 			}
 			else if (item.type == ItemType_HorizontalDottedLine)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.z = widget.layer
 				};
 			}
@@ -1710,35 +1736,32 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
-					.dest_rect = (WzRect){
-						widget.actual_x,
-						widget.actual_y + widget.actual_h / 2,
-						widget.actual_x + widget.actual_w / 2,
-						widget.actual_y + widget.actual_h / 2
-					},
+					.x = widget.actual_x,
+					.y = widget.actual_y + widget.actual_h / 2,
+					.w = widget.actual_x + widget.actual_w / 2,
+					.h = widget.actual_y + widget.actual_h / 2,
 					.z = widget.layer
-
 				};
 			}
 			else if (item.type == ItemType_RightHorizontalDottedLine)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
-					.dest_rect = (WzRect){
-						widget.actual_x + widget.actual_w / 2,
-						widget.actual_y + widget.actual_h / 2,
-						widget.actual_x + widget.actual_w,
-						widget.actual_y + widget.actual_h / 2
-					},
+					.x = widget.actual_x + widget.actual_w / 2,
+					.y = widget.actual_y + widget.actual_h / 2,
+					.w = widget.actual_x + widget.actual_w,
+					.h = widget.actual_y + widget.actual_h / 2,
 					.z = widget.layer
-
 				};
 			}
 			else if (item.type == ItemType_VerticalDottedLine)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.z = widget.layer
 				};
 			}
@@ -1746,7 +1769,10 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.z = widget.layer
 				};
 			}
@@ -1770,7 +1796,10 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_HorizontalLine,
-					.dest_rect = item_dest_rect,
+					.x = item_dest_rect.x,
+					.y = item_dest_rect.y,
+					.w = item_dest_rect.w,
+					.h = item_dest_rect.h,
 					.z = widget.layer
 				};
 			}
@@ -1778,12 +1807,10 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
-					.dest_rect = (WzRect){
-						widget.actual_w + widget.actual_w / 2,
-						widget.actual_y,
-						widget.actual_w + widget.actual_w / 2 + widget.actual_w,
-						widget.actual_y + widget.actual_h / 2
-					},
+					.x = widget.actual_w + widget.actual_w / 2,
+					.y = widget.actual_y,
+					.w = widget.actual_w + widget.actual_w / 2 + widget.actual_w,
+					.h = widget.actual_y + widget.actual_h / 2,
 					.z = widget.layer
 				};
 			}
@@ -1791,23 +1818,20 @@ void wz_draw(WzWidget* boxes_indices)
 			{
 				temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 					.type = DrawCommandType_VerticalLine,
-					.dest_rect = (WzRect){
-						widget.actual_w + widget.actual_w / 2,
-						widget.actual_y + widget.actual_h / 2,
-						widget.actual_w + widget.actual_w / 2,
-						widget.actual_y + widget.actual_h
-					},
+					.x = widget.actual_w + widget.actual_w / 2,
+					.y = widget.actual_y + widget.actual_h / 2,
+					.w = widget.actual_w + widget.actual_w / 2,
+					.h = widget.actual_y + widget.actual_h,
 					.z = widget.layer
-
 				};
 			}
 
 			// Apply item margins
-			temp_buffer[temp_buffer_count - 1].dest_rect.x += item.margin_left;
-			temp_buffer[temp_buffer_count - 1].dest_rect.y += item.margin_top;
+			temp_buffer[temp_buffer_count - 1].x += item.margin_left;
+			temp_buffer[temp_buffer_count - 1].y += item.margin_top;
 
-			wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.w >= 0);
-			wz_assert(temp_buffer[temp_buffer_count - 1].dest_rect.h >= 0);
+			wz_assert(temp_buffer[temp_buffer_count - 1].w >= 0);
+			wz_assert(temp_buffer[temp_buffer_count - 1].h >= 0);
 		}
 
 		// Draw clip area
@@ -1843,7 +1867,10 @@ void wz_draw(WzWidget* boxes_indices)
 					wz_assert(temp_buffer_count < TEMP_BUFFER_SIZE - 1);
 					temp_buffer[temp_buffer_count++] = (WzDrawCommand){
 						.type = DrawCommandType_Clip,
-						.dest_rect = clip_rect,
+						.x = clip_rect.x,
+						.y = clip_rect.y,
+						.w = clip_rect.w,
+						.h = clip_rect.h,
 						.color = WZ_BLUE
 					};
 				}
@@ -1872,31 +1899,31 @@ void wz_draw(WzWidget* boxes_indices)
 					WzDrawCommand* cmd = &temp_buffer[cmd_idx];
 
 					// Scale
-					cmd->dest_rect.w *= current_widget->world_scale[0];
-					cmd->dest_rect.h *= current_widget->world_scale[1];
+					cmd->w *= current_widget->world_scale[0];
+					cmd->h *= current_widget->world_scale[1];
 
 					// Rotate position
-					float x = cmd->dest_rect.x;
-					float y = cmd->dest_rect.y;
-					cmd->dest_rect.x = x * cos(current_widget->world_rotation) -
+					float x = cmd->x;
+					float y = cmd->y;
+					cmd->x = x * cos(current_widget->world_rotation) -
 						y * sin(current_widget->world_rotation);
-					cmd->dest_rect.y = x * sin(current_widget->world_rotation) +
+					cmd->y = x * sin(current_widget->world_rotation) +
 						y * cos(current_widget->world_rotation);
 
 					// Translate
-					cmd->dest_rect.x += current_widget->world_pos[0];
-					cmd->dest_rect.y += current_widget->world_pos[1];
+					cmd->x += current_widget->world_pos[0];
+					cmd->y += current_widget->world_pos[1];
 
 #if 1
 					// Apply camera offset (for all widgets)
-					cmd->dest_rect.x -= wz->camera_x;
-					cmd->dest_rect.y -= wz->camera_y;
+					cmd->x -= wz->camera_x;
+					cmd->y -= wz->camera_y;
 
 					// Apply zoom (for all widgets)
-					cmd->dest_rect.x *= (1 + wz->zoom_factor);
-					cmd->dest_rect.y *= (1 + wz->zoom_factor);
-					cmd->dest_rect.w *= (1 + wz->zoom_factor);
-					cmd->dest_rect.h *= (1 + wz->zoom_factor);
+					cmd->x *= (1 + wz->zoom_factor);
+					cmd->y *= (1 + wz->zoom_factor);
+					cmd->w *= (1 + wz->zoom_factor);
+					cmd->h *= (1 + wz->zoom_factor);
 #endif
 				}
 			}
@@ -2330,7 +2357,7 @@ void wz_do_layout_refactor_me()
 {
 	unsigned int layout_failed = 0;
 
-	wz_do_layout(1, wz->widgets, wz->rects, MAX_NUM_WIDGETS, &layout_failed);
+	wz_layout(1, wz->widgets, wz->rects, MAX_NUM_WIDGETS, &layout_failed);
 }
 
 void wz_widget_set_width(WzWidget widget, unsigned w)
@@ -2422,6 +2449,17 @@ void wz_end()
 	unsigned int widgets_visits[MAX_NUM_WIDGETS];
 
 	wz_do_layout_refactor_me();
+
+	for (unsigned i = 0; i < MAX_NUM_WIDGETS; ++i)
+	{
+		wz->widget_rects[i] = (WzRect)
+		{
+			wz->widgets[i].actual_x,
+			wz->widgets[i].actual_y,
+			wz->widgets[i].actual_w,
+			wz->widgets[i].actual_h,
+		};
+	}
 
 	// Check all ids are unique
 	// WARNING O(N^2)
@@ -2844,7 +2882,7 @@ void wz_widget_add_item(WzWidget widget, WzWidgetItem item)
 WzWidget wz_label_raw(WzWidget handle, WzStr str, const char* file, unsigned int line)
 {
 	float w = 0, h = 0;
-	wz->get_string_size(str.str, 0, strlen(str.str), & w, &h);
+	wz->get_string_size(str.str, 0, strlen(str.str), &w, &h);
 
 	WzWidget parent = wz_widget_raw(handle, file, line);
 	wz_widget_set_tight_constraints(parent, (int)w, (int)h);
@@ -2853,6 +2891,7 @@ WzWidget wz_label_raw(WzWidget handle, WzStr str, const char* file, unsigned int
 
 	return parent;
 }
+
 // Implement the required callbacks
 static void wz_textedit_layout_row(StbTexteditRow* r, WzInputState* obj, int n) {
 	r->x0 = 0;
@@ -2873,7 +2912,7 @@ static void wz_textedit_delete(WzInputState* obj, int pos, int num) {
 	obj->buffer[obj->length] = 0;
 }
 
-float wz_get_font_width(WzInputState *state, int line_start, int char_index)
+float wz_get_font_width(WzInputState* state, int line_start, int char_index)
 {
 	char c[2] = { 0 };
 	c[0] = state->buffer[char_index];
@@ -2902,8 +2941,10 @@ WzWidget wz_input_box_raw(
 	wz_widget_set_size(widget, 100, 100);
 	wz_widget_set_color(widget, WZ_RAYWHITE);
 	static bool is_active = false;
+	bool is_cursor_moving = false;
+
 	// Initialization code when clicked
-	
+
 	if (!is_active)
 	{
 		is_active = true;
@@ -2914,113 +2955,174 @@ WzWidget wz_input_box_raw(
 	if (is_active)
 	{
 		// Process keyboard - use STB constants directly
-		for (int i = 0; i < 512; ++i) {
-			WzState state = wz->keyboard.keys[i];
+		for (unsigned i = 0; i < wz->events_count; ++i) {
+			WzEvent* event = &wz->events[i];
 
-			if (state == WZ_ACTIVATING || state == WZ_ACTIVE) {
-				bool handled = false;
-				int stb_key = 0;
+			bool handled = false;
+			int stb_key = 0;
 
-				// Map your key codes to STB keys
-				switch (i) {
-				case '\b':
+			// Map your key codes to STB keys
+			switch (event->key.key)
+			{
+			case '\b':
+			{
+				if (event->key.mod & WZ_KMOD_CTRL)
 				{
-					stb_key = STB_TEXTEDIT_K_BACKSPACE;
-					handled = true;
-					break;
+				
 				}
-				case WZ_KEY_DELETE:
-					stb_key = STB_TEXTEDIT_K_DELETE;
-					handled = true;
-					break;
-				case WZ_KEY_LEFT: 
-					stb_key = STB_TEXTEDIT_K_LEFT;
-					handled = true;
-					break;
-				case WZ_KEY_RIGHT:
-					stb_key = STB_TEXTEDIT_K_RIGHT;
-					handled = true;
-					break;
-				case WZ_KEY_UP:
-					stb_key = STB_TEXTEDIT_K_UP;
-					handled = true;
-					break;
-				case WZ_KEY_DOWN:
-					stb_key = STB_TEXTEDIT_K_DOWN;
-					handled = true;
-					break;
-				case WZ_KEY_HOME:
-					stb_key = STB_TEXTEDIT_K_LINESTART;
-					handled = true;
-					break;
-				case WZ_KEY_END:
-					stb_key = STB_TEXTEDIT_K_LINEEND;
-					handled = true;
-					break;
-				case 1: // Ctrl+A
+				stb_key = STB_TEXTEDIT_K_BACKSPACE;
+				handled = true;
+				break;
+			}
+			case WZ_KEY_DELETE:
+				stb_key = STB_TEXTEDIT_K_DELETE;
+				handled = true;
+				break;
+			case WZ_KEY_LEFT:
+				stb_key = STB_TEXTEDIT_K_LEFT;
+				handled = true;
+				is_cursor_moving = true;
+				break;
+			case WZ_KEY_RIGHT:
+				stb_key = STB_TEXTEDIT_K_RIGHT;
+				handled = true;
+				is_cursor_moving = true;
+				break;
+			case WZ_KEY_UP:
+				stb_key = STB_TEXTEDIT_K_UP;
+				handled = true;
+				break;
+			case WZ_KEY_DOWN:
+				stb_key = STB_TEXTEDIT_K_DOWN;
+				handled = true;
+				break;
+			case WZ_KEY_HOME:
+				stb_key = STB_TEXTEDIT_K_LINESTART;
+				handled = true;
+				break;
+			case WZ_KEY_END:
+				stb_key = STB_TEXTEDIT_K_LINEEND;
+				handled = true;
+				break;
+			case 'a': // Ctrl+A
+			{
+				if (event->key.mod & WZ_KMOD_CTRL)
+				{
 					stb_textedit_key(&wz->input_state, &wz->input_state.textedit_state,
 						STB_TEXTEDIT_K_TEXTSTART);
 					stb_textedit_key(&wz->input_state, &wz->input_state.textedit_state,
 						STB_TEXTEDIT_K_TEXTEND | STB_TEXTEDIT_K_SHIFT);
 					handled = true;
+
 					break;
-				case 26: // Ctrl+Z
+				}
+			}
+			case 'z': // Ctrl+Z
+				if (event->key.mod & WZ_KMOD_CTRL)
+				{
 					stb_key = STB_TEXTEDIT_K_UNDO;
 					handled = true;
 					break;
-				case 25: // Ctrl+Y
+				}
+			case 'y': // Ctrl+Y
+				if (event->key.mod & WZ_KMOD_CTRL)
+				{
 					stb_key = STB_TEXTEDIT_K_REDO;
 					handled = true;
 					break;
-				default:
-					if (state == WZ_ACTIVATING && (isprint(i) || i == ' '))
+				}
+			case 'v':
+				if (event->key.mod & WZ_KMOD_CTRL)
+				{
+					if (wz->pasted_text)
 					{
-						char c = (char)i;
-						stb_textedit_paste(&wz->input_state.buffer, &wz->input_state.textedit_state,
-							&c, 1);
-						handled = true;
+						stb_textedit_paste(&wz->input_state, &wz->input_state.textedit_state,
+							wz->pasted_text, strlen(wz->pasted_text));
+						SDL_free(wz->pasted_text);
 					}
+					handled = true;
 					break;
 				}
-
-				if (handled && stb_key)
+			default:
+				// printable keys
+				if (isprint(event->key.key) || event->key.key == ' ')
 				{
-					stb_textedit_key(&wz->input_state, &wz->input_state.textedit_state, stb_key);
+					char c = (char)event->key.key;
+					stb_textedit_paste(&wz->input_state, &wz->input_state.textedit_state,
+						&c, 1);
+					handled = true;
 				}
+				break;
 			}
-		}
 
-		// Draw cursor
-		if ((int)(wz->input_box_timer / 500) % 2 == 0) 
-		{
-			float w, h;
-			wz->get_string_size(wz->input_state.buffer,
-				0, wz->input_state.textedit_state.cursor,
-				&w, &h);
-			wz_widget_add_rect_new(widget, (int)w, 2, 1, 16, WZ_BLACK);
-		}
-		
-		// Draw selection
-		if (wz->input_state.textedit_state.select_start !=
-			wz->input_state.textedit_state.select_end)
-		{
-			int sel_start = wz->input_state.textedit_state.select_start;
-			int sel_end = wz->input_state.textedit_state.select_end;
-
-			if (sel_start > sel_end)
+			if (handled && stb_key)
 			{
-				int temp = sel_start;
-				sel_start = sel_end;
-				sel_end = temp;
+				stb_textedit_key(&wz->input_state, &wz->input_state.textedit_state, stb_key);
+			}
+		}
+
+		float x = wz->mouse_pos.x - wz->widget_rects[widget.handle].x;
+		float y = wz->mouse_pos.y - wz->widget_rects[widget.handle].y;
+
+		if (wz_widget_is_activating(widget))
+		{
+
+			if (0)
+			{
+				// Test
+				x = 23;
+				y = 9;
+				strcpy(wz->input_state.buffer, "hello");
+				wz->input_state.length = strlen("hello");
 			}
 
-			int sel_x = sel_start * 8;
-			int sel_w = (sel_end - sel_start) * 8;
-			wz_widget_add_rect_new(widget, sel_x, 2, sel_w, 16, 0x6699FFAA);
+			stb_textedit_click(&wz->input_state, &wz->input_state.textedit_state,
+				x, y);
+		}
+		else if (wz_widget_is_active(widget))
+		{
+			stb_textedit_drag(&wz->input_state, &wz->input_state.textedit_state, x, y);
+		}
+
+		if (wz->input_state.textedit_state.select_start < wz->input_state.textedit_state.select_end)
+		{
+			float selection_w, h;
+			wz->get_string_size(wz->input_state.buffer, wz->input_state.textedit_state.select_start,
+				wz->input_state.textedit_state.select_end, &selection_w, &h);
+
+			float up_to_selection_w;
+			wz->get_string_size(wz->input_state.buffer, 0, wz->input_state.textedit_state.select_start, &up_to_selection_w, &h);
+
+			wz_widget_add_rect_new(widget, up_to_selection_w, 0, selection_w, h, 0x6699FFAA);
+		}
+		else if (wz->input_state.textedit_state.select_start > wz->input_state.textedit_state.select_end)
+		{
+			float selection_w, h;
+			wz->get_string_size(wz->input_state.buffer, wz->input_state.textedit_state.select_end,
+				wz->input_state.textedit_state.select_start, &selection_w, &h);
+
+			float up_to_selection_w;
+			wz->get_string_size(wz->input_state.buffer, 0,
+				wz->input_state.textedit_state.select_end, &up_to_selection_w, &h);
+
+			wz_widget_add_rect_new(widget, up_to_selection_w, 0, selection_w, h, 0x6699FFAA);
 		}
 	}
 
-	wz_widget_add_text(widget, wz_str_create_slice(wz->input_state.buffer, 0, wz->input_state.length));
+
+	// Draw cursor/ Caret
+	//if ((int)(wz->input_box_timer / 500) % 2 == 0 || is_cursor_moving)
+	{
+		float w, h;
+		wz->get_string_size(wz->input_state.buffer,
+			0, wz->input_state.textedit_state.cursor,
+			&w, &h);
+		wz_widget_add_rect_new(widget, w, 2, 1, 16, WZ_BLACK);
+	}
+
+
+	wz_widget_add_text(widget, wz_str_create_slice(wz->input_state.buffer,
+		0, wz->input_state.length));
 
 	return widget;
 }
@@ -3028,7 +3130,7 @@ WzWidget wz_input_box_raw(
 WzWidget wzrd_label_button_raw(WzStr str, bool* result, WzWidget handle,
 	const char* file, unsigned  int line) {
 	float w = 0, h = 0;
-	wz->get_string_size(str.str, 0, strlen(str.str),  & w, &h);
+	wz->get_string_size(str.str, 0, strlen(str.str), &w, &h);
 
 	WzWidget parent = wz_label_raw(handle, str, file, line);
 
@@ -3562,11 +3664,10 @@ void wz_log(WzLogMessage* arr, unsigned int* count, const char* fmt, ...)
 	arr[*count] = message;
 	*count = *count + 1;
 
-	//printf("%s", message.str);
 }
 
 
-void wz_do_layout(unsigned int index,
+void wz_layout(unsigned int index,
 	WzWidgetData* widgets, WzLayoutRect* rects,
 	unsigned int count, unsigned int* failed)
 {
@@ -4625,16 +4726,16 @@ void wz_widget_set_size(WzWidget c, unsigned int w, unsigned int h)
 // define the functions we need
 void layout_func(StbTexteditRow* row, STB_TEXTEDIT_STRING* str, int start_i)
 {
+	float w, h;
+	wz->get_string_size(str->buffer, 0, str->length, &w, &h);
 	int remaining_chars = str->length - start_i;
-	row->num_chars = remaining_chars > 20 ? 20 : remaining_chars; // should do real word wrap here
+	row->num_chars = remaining_chars; // should do real word wrap here
 	row->x0 = 0;
-	row->x1 = 20; // need to account for actual size of characters
+	row->x1 = w; // need to account for actual size of characters
 	row->baseline_y_delta = 1.25;
 	row->ymin = -1;
 	row->ymax = 0;
 }
-// 0123
-// flow
 
 int delete_chars(STB_TEXTEDIT_STRING* str, int pos, int num)
 {

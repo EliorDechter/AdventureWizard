@@ -455,7 +455,7 @@ static void stb_textedit_click(STB_TEXTEDIT_STRING *str, STB_TexteditState *stat
 {
    // In single-line mode, just always make y = 0. This lets the drag keep working if the mouse
    // goes off the top or bottom of the text
-   if( state->single_line )
+   if (state->single_line)
    {
       StbTexteditRow r;
       STB_TEXTEDIT_LAYOUTROW(&r, str, 0);

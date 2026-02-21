@@ -231,6 +231,7 @@ SDL_Texture* g_texture;
 
 void WSDL_WzEnd(WzGui* canvas)
 {
+#if 0
 	WzDrawCommandBuffer* buffer = &canvas->commands_buffer;
 
 	for (int i = 0; i < buffer->count; ++i) {
@@ -332,6 +333,7 @@ void WSDL_WzEnd(WzGui* canvas)
 	}
 
 	SDL_SetRenderClipRect(g_sdl.renderer, 0);
+#endif
 }
 
 /* This function runs once at startup. */

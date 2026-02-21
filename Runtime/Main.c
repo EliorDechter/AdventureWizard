@@ -15,6 +15,26 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
+#define MAX_NUM_EVENTS 128
+unsigned events_count;
+WzEvent events[MAX_NUM_EVENTS];
+
+static unsigned short sdl_keymod_to_wz(SDL_Keymod sdl_mod)
+{
+	unsigned short wz_mod = WZ_KMOD_NONE;
+
+	if (sdl_mod & SDL_KMOD_LSHIFT) wz_mod |= WZ_KMOD_LSHIFT;
+	if (sdl_mod & SDL_KMOD_RSHIFT) wz_mod |= WZ_KMOD_RSHIFT;
+	if (sdl_mod & SDL_KMOD_LCTRL)  wz_mod |= WZ_KMOD_LCTRL;
+	if (sdl_mod & SDL_KMOD_RCTRL)  wz_mod |= WZ_KMOD_RCTRL;
+	if (sdl_mod & SDL_KMOD_LALT)   wz_mod |= WZ_KMOD_LALT;
+	if (sdl_mod & SDL_KMOD_RALT)   wz_mod |= WZ_KMOD_RALT;
+	if (sdl_mod & SDL_KMOD_LGUI)   wz_mod |= WZ_KMOD_LGUI;
+	if (sdl_mod & SDL_KMOD_RGUI)   wz_mod |= WZ_KMOD_RGUI;
+
+	return wz_mod;
+}
+
 // Convert SDL3 scancode + modifiers to WZ keycode
 // Returns 0-127 for ASCII characters, 128+ for special keys
 WZ_Keycode wz_sdl_scancode_to_keycode(SDL_Scancode scancode, SDL_Keymod modifiers)
@@ -179,64 +199,14 @@ bool wz_keycode_is_extended(WZ_Keycode keycode)
 	return keycode >= 128 && keycode < WZ_KEY_COUNT;
 }
 
-// Usage example with SDL3 events:
-void example_sdl3_usage(void)
-{
-	// Create array indexed by WZ keycodes
-	WzState keyboard_state[WZ_KEY_COUNT] = { 0 };
-
-	// When processing SDL3 events:
-	SDL_Event event;
-	while (SDL_PollEvent(&event)) {
-		if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
-			SDL_Scancode scancode = event.key.scancode;
-			SDL_Keymod modifiers = event.key.mod;
-
-			WZ_Keycode keycode = wz_sdl_scancode_to_keycode(scancode, modifiers);
-
-			if (keycode != WZ_KEY_UNKNOWN) {
-				keyboard_state[keycode] = (event.type == SDL_EVENT_KEY_DOWN) ? WZ_ACTIVATING : WZ_INACTIVE;
-
-				// For text input, check if it's printable ASCII
-				if (event.type == SDL_EVENT_KEY_DOWN && wz_keycode_is_printable(keycode)) {
-					printf("Typed character: '%c'\n", (char)keycode);
-				}
-
-				// For special keys
-				if (keycode == WZ_KEY_LEFT) {
-					printf("Left arrow pressed\n");
-				}
-			}
-		}
-
-		// SDL3 also has text input events you can use:
-		if (event.type == SDL_EVENT_TEXT_INPUT) {
-			printf("Text input: %s\n", event.text.text);
-		}
-	}
-
-	// Check state in your input box:
-	if (keyboard_state['a'] == WZ_ACTIVE) {
-		printf("'a' key is held\n");
-	}
-
-	if (keyboard_state[WZ_KEY_LEFT] == WZ_ACTIVATING) {
-		printf("Left arrow just pressed\n");
-	}
-}
-
-
 void render_text(SDL_Renderer* renderer, stbtt_fontinfo* font,
 	const char* text, int x, int y, float font_size, unsigned len)
 {
 	float scale = stbtt_ScaleForPixelHeight(font, font_size);
-
 	int ascent, descent, lineGap;
 	stbtt_GetFontVMetrics(font, &ascent, &descent, &lineGap);
-
 	int baseline = (int)(ascent * scale);
-
-	int current_x = x;
+	float current_x = x;  // Changed to float
 	int current_y = y;
 
 	for (int i = 0; i < len; i++)
@@ -247,46 +217,38 @@ void render_text(SDL_Renderer* renderer, stbtt_fontinfo* font,
 			current_y += (int)((ascent - descent + lineGap) * scale);
 			continue;
 		}
-
 		// Get glyph bitmap
 		int width, height, xoff, yoff;
 		unsigned char* bitmap = stbtt_GetCodepointBitmap(font, 0, scale,
 			text[i], &width, &height,
 			&xoff, &yoff);
-
-
 		// Get horizontal advance for this character
 		int advance, lsb;
 		stbtt_GetCodepointHMetrics(font, text[i], &advance, &lsb);
-
 		if (bitmap)
 		{
 			// Render the bitmap pixel by pixel
 			for (int row = 0; row < height; row++) {
 				for (int col = 0; col < width; col++) {
 					unsigned char pixel = bitmap[row * width + col];
-
 					if (pixel > 0) {
 						// Set color based on alpha value
 						SDL_SetRenderDrawColor(renderer, 0, 0, 0, pixel);
 						SDL_RenderPoint(renderer,
-							current_x + xoff + col,
+							(int)current_x + xoff + col,  // Cast to int only when rendering
 							current_y + baseline + yoff + row);
 					}
 				}
 			}
-
 			stbtt_FreeBitmap(bitmap, NULL);
 		}
-
-		// Move to next character position
-		current_x += (int)(advance * scale);
-
+		// Move to next character position - keep as float!
+		current_x += advance * scale;  // Removed (int) cast
 		// Apply kerning if there's a next character
-		if (text[i + 1])
+		if (i + 1 < len)  // Also fixed this from text[i+1]
 		{
 			int kern = stbtt_GetCodepointKernAdvance(font, text[i], text[i + 1]);
-			current_x += (int)(kern * scale);
+			current_x += kern * scale;  // Removed (int) cast
 		}
 	}
 }
@@ -361,6 +323,8 @@ WzState left_mouse;
 
 bool error;
 
+
+
 bool load_animation(SDL_Renderer* renderer, Animation* animation, const char* path)
 {
 	bool success = true;
@@ -397,9 +361,39 @@ void WSDL_WzEnd(WSDL_Context* context)
 		SDL_GetMouseState(&mouse_x, &mouse_y);
 	}
 
+	// Mouse Input
+	{
+		float mouse_x, mouse_y;
+		Uint32 flags = SDL_GetMouseState(&mouse_x, &mouse_y);
+
+		if (left_mouse == WZ_ACTIVATING)
+		{
+			left_mouse = WZ_ACTIVE;
+		}
+		else if (left_mouse == WZ_DEACTIVATING)
+		{
+			left_mouse = WZ_INACTIVE;
+		}
+
+		if (flags & SDL_BUTTON_LMASK)
+		{
+			if (left_mouse == WZ_INACTIVE)
+			{
+				left_mouse = WZ_ACTIVATING;
+			}
+		}
+		else
+		{
+			if (left_mouse == WZ_ACTIVE)
+			{
+				left_mouse = WZ_DEACTIVATING;
+			}
+		}
+	}
+
+
 	wz_begin(WINDOW_WIDTH, WINDOW_HEIGHT,
 		mouse_x, mouse_y, left_mouse, events, events_count, true);
-
 
 	wz_end();
 
@@ -408,41 +402,31 @@ void WSDL_WzEnd(WSDL_Context* context)
 
 	WzDrawCommandBuffer* buffer = &context->gui.commands_buffer;
 
-	for (int i = 0; i < buffer->count; ++i) {
+	for (int i = 0; i < buffer->count; ++i)
+	{
 		WzDrawCommand command = buffer->commands[i];
 
 		if (command.type == DrawCommandType_Rect)
 		{
-#if 1
 			SDL_SetRenderDrawColor(renderer,
 				WZ_COLOR_R(command.color), WZ_COLOR_G(command.color),
 				WZ_COLOR_B(command.color), WZ_COLOR_A(command.color));
-			SDL_FRect rect = { (float)command.dest_rect.x, (float)command.dest_rect.y,
-				(float)command.dest_rect.w, (float)command.dest_rect.h };
+			SDL_FRect rect = { command.x, command.y, command.w, command.h };
 			SDL_RenderFillRect(renderer, &rect);
-#endif
 		}
 		else if (command.type == DrawCommandType_Texture)
 		{
 			SDL_SetTextureBlendMode(command.texture.data, SDL_BLENDMODE_BLEND);
 
 			SDL_FRect src = { (float)command.src_rect.x, (float)command.src_rect.y, (float)command.src_rect.w, (float)command.src_rect.h };
-			SDL_FRect dest = { (float)command.dest_rect.x, (float)command.dest_rect.y, (float)command.dest_rect.w, (float)command.dest_rect.h };
+			SDL_FRect dest = { command.x, command.y, command.w, command.h };
 			SDL_RenderTextureRotated(renderer, command.texture.data,
-				(SDL_FRect*)&src, (SDL_FRect*)&dest, command.rotation_angle, 0, 0);
+				&src, &dest, command.rotation_angle, 0, 0);
 		}
 		else if (command.type == WZ_DRAW_COMMAND_TYPE_TEXT)
 		{
-			SDL_FRect rect =
-			{
-				command.dest_rect.x,
-				command.dest_rect.y,
-				command.dest_rect.w,
-				command.dest_rect.h,
-			};
-
 			render_text(renderer, &font,
-				command.str.str, command.dest_rect.x, command.dest_rect.y, font_height, command.str.len);
+				command.str.str, command.x, command.y, font_height, command.str.len);
 		}
 		else if (command.type == DrawCommandType_Line)
 		{
@@ -505,10 +489,11 @@ void WSDL_WzEnd(WSDL_Context* context)
 		{
 			SDL_SetRenderDrawColor(renderer, 125, 125, 125, 255);
 
-			int x = command.dest_rect.x;
-			int y = command.dest_rect.y;
-			int h = command.dest_rect.h;
-			for (int i = y; i < y + h; ++i) {
+			int x = command.x;
+			int y = command.y;
+			int h = command.h;
+			for (int i = y; i < y + h; ++i)
+			{
 				if (i % 2 == 1) continue;
 				SDL_RenderPoint(renderer, (float)x, (float)i);
 			}
@@ -516,17 +501,18 @@ void WSDL_WzEnd(WSDL_Context* context)
 		else if (command.type == DrawCommandType_HorizontalLine)
 		{
 			SDL_SetRenderDrawColor(renderer, 125, 125, 125, 255);
-			int x = command.dest_rect.x;
-			int y = command.dest_rect.y;
-			int w = command.dest_rect.w;
-			for (int i = x; i < x + w; ++i) {
+			int x = command.x;
+			int y = command.y;
+			int w = command.w;
+			for (int i = x; i < x + w; ++i)
+			{
 				if (i % 2 == 1) continue;
 				SDL_RenderPoint(renderer, (float)i, (float)y);
 			}
 		}
 		else if (command.type == DrawCommandType_Clip)
 		{
-			SDL_Rect rect = { (int)command.dest_rect.x, (int)command.dest_rect.y, (int)command.dest_rect.w, (int)command.dest_rect.h };
+			SDL_Rect rect = { (int)command.x, (int)command.y, (int)command.w, (int)command.h };
 			SDL_SetRenderClipRect(renderer, &rect);
 		}
 		else if (command.type == DrawCommandType_StopClip)
@@ -539,7 +525,6 @@ void WSDL_WzEnd(WSDL_Context* context)
 
 	SDL_RenderPresent(context->renderer);
 }
-
 void WSDL_HandleInput()
 {
 	for (unsigned i = 0; i < 512; ++i)
@@ -577,35 +562,6 @@ void WSDL_HandleInput()
 		}
 	}
 
-	// Mouse Input
-	{
-		float mouse_x, mouse_y;
-		Uint32 flags = SDL_GetMouseState(&mouse_x, &mouse_y);
-
-		if (left_mouse == WZ_ACTIVATING)
-		{
-			left_mouse = WZ_ACTIVE;
-		}
-		else if (left_mouse == WZ_DEACTIVATING)
-		{
-			left_mouse = WZ_INACTIVE;
-		}
-
-		if (flags & SDL_BUTTON_LMASK)
-		{
-			if (left_mouse == WZ_INACTIVE)
-			{
-				left_mouse = WZ_ACTIVATING;
-			}
-		}
-		else
-		{
-			if (left_mouse == WZ_ACTIVE)
-			{
-				left_mouse = WZ_DEACTIVATING;
-			}
-		}
-	}
 }
 
 static int WSDL_TranslateToWzKeycodes(SDL_Scancode scancode) {
@@ -621,6 +577,7 @@ static int WSDL_TranslateToWzKeycodes(SDL_Scancode scancode) {
 
 	if (scancode == SDL_SCANCODE_0) return '0';
 
+
 	// Special ASCII characters
 	switch (scancode) {
 	case SDL_SCANCODE_SPACE: return ' ';
@@ -629,7 +586,7 @@ static int WSDL_TranslateToWzKeycodes(SDL_Scancode scancode) {
 	case SDL_SCANCODE_BACKSPACE: return '\b';
 	case SDL_SCANCODE_ESCAPE: return 27;  // ESC
 
-		// Punctuation (you may need to adjust these based on your keyboard layout)
+	// Punctuation (you may need to adjust these based on your keyboard layout)
 	case SDL_SCANCODE_MINUS: return '-';
 	case SDL_SCANCODE_EQUALS: return '=';
 	case SDL_SCANCODE_LEFTBRACKET: return '[';
@@ -741,7 +698,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		unsigned wz_key = (unsigned)WSDL_TranslateToWzKeycodes(event->key.scancode);
 		if (wz_key != WZ_KEY_UNKNOWN) {
 			bool is_repeat = (event->key.repeat != 0);
-			wz_event.key = (WzKeyboardEvent){ .type = WZ_EVENT_TYPE_KEYBOARD, .key = wz_key, .down = true, .repeat = is_repeat };
+			wz_event.key = (WzKeyboardEvent)
+			{
+				.type = WZ_EVENT_TYPE_KEYBOARD,
+				.key = wz_key,
+				.down = true,
+				.repeat = is_repeat,
+				.mod = sdl_keymod_to_wz(event->key.mod),
+			};
 		}
 		break;
 	}
@@ -749,7 +713,11 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	case SDL_EVENT_KEY_UP: {
 		int wz_key = WSDL_TranslateToWzKeycodes(event->key.scancode);
 		if (wz_key != WZ_KEY_UNKNOWN) {
-			wz_event.key = (WzKeyboardEvent){ .type = WZ_EVENT_TYPE_KEYBOARD };
+			wz_event.key = (WzKeyboardEvent)
+			{
+				.type = WZ_EVENT_TYPE_KEYBOARD ,
+				.mod = sdl_keymod_to_wz(event->key.mod),
+			};
 		}
 		break;
 	}
@@ -926,20 +894,17 @@ void get_string_size(char* str, unsigned start, unsigned end, float* w, float* h
 {
 	float scale = stbtt_ScaleForPixelHeight(&font, font_height);
 	float width = 0;
-
 	for (int i = start; i < end; i++)
 	{
 		int advance, lsb;
 		stbtt_GetCodepointHMetrics(&font, str[i], &advance, &lsb);
 		width += advance * scale;
-
-		// Add kerning if there's a next character
-		if (str[i + 1]) {
+		// Add kerning if there's a next character WITHIN THE RANGE
+		if (i + 1 < end) {  // Changed from if (str[i + 1])
 			int kern = stbtt_GetCodepointKernAdvance(&font, str[i], str[i + 1]);
 			width += kern * scale;
 		}
 	}
-
 	*w = width;
 	*h = font_height;
 }
@@ -982,6 +947,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	wz_widget_set_border(window, WZ_BORDER_TYPE_NONE);	
 	
 	{
+		gui_window.gui.pasted_text = SDL_GetClipboardText();
 		WzWidget input_box = wz_input_box(window);
 	}
 	

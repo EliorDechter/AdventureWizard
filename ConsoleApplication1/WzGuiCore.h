@@ -221,14 +221,18 @@ typedef enum WzState {
 	WZ_INACTIVE, WZ_ACTIVATING, WZ_ACTIVE, WZ_DEACTIVATING
 } WzState;
 
-typedef struct wzrd_rect_struct {
-	int x, y;
-	unsigned int w, h;
+typedef struct WzRect {
+	float x, y;
+	float w, h;
 } WzRect;
 
 typedef struct wzrd_v2 {
 	int x, y;
 } wzrd_v2;
+
+typedef struct wzrd_v2f {
+	float x, y;
+} wzrd_v2f;
 
 typedef enum WzBorderType
 {
@@ -288,8 +292,8 @@ typedef struct Item {
 	} val;
 	bool scissor;
 	bool center_w, center_h;
-	unsigned w, h;
-	int x, y;
+	float x, y, w, h;
+	
 } WzWidgetItem;
 
 typedef enum ButtonType {
@@ -337,8 +341,9 @@ typedef struct EguiDrawCommand {
 	EguiDrawCommandType type;
 	char* source;
 	WzStr str;
+	float x, y, w, h;
 	union {
-		struct { WzRect dest_rect, src_rect; };
+		struct { WzRect src_rect; };
 		Line line;
 	};
 	unsigned int color;
@@ -525,6 +530,60 @@ typedef struct WzTree
 	WzWidget selected_row;
 } WzTree;
 
+enum
+{
+	WZ_EVENT_TYPE_NONE,
+	WZ_EVENT_TYPE_MOUSE,
+	WZ_EVENT_TYPE_KEYBOARD,
+};
+
+typedef struct WzKeyboardEvent
+{
+	unsigned type;
+	bool down;
+	bool repeat;
+	unsigned key;
+	unsigned short mod;
+} WzKeyboardEvent;
+
+typedef struct WzButtonEvent
+{
+	unsigned type;
+	unsigned char button;
+	bool down;
+	float x, y;
+} WzButtonEvent;
+
+typedef union WzEevent
+{
+	unsigned type;
+	WzKeyboardEvent key;
+	WzButtonEvent button;
+} WzEvent;
+
+enum
+{
+	WZ_KMOD_NONE = 0x0000,
+
+	WZ_KMOD_LSHIFT = 0x0001,
+	WZ_KMOD_RSHIFT = 0x0002,
+	WZ_KMOD_LCTRL = 0x0040,
+	WZ_KMOD_RCTRL = 0x0080,
+	WZ_KMOD_LALT = 0x0100,
+	WZ_KMOD_RALT = 0x0200,
+	WZ_KMOD_LGUI = 0x0400,
+	WZ_KMOD_RGUI = 0x0800,
+	
+	// Combined flags (convenience)
+	WZ_KMOD_CTRL = WZ_KMOD_LCTRL | WZ_KMOD_RCTRL,
+	WZ_KMOD_SHIFT = WZ_KMOD_LSHIFT | WZ_KMOD_RSHIFT,
+	WZ_KMOD_ALT = WZ_KMOD_LALT | WZ_KMOD_RALT,
+	WZ_KMOD_GUI = WZ_KMOD_LGUI | WZ_KMOD_RGUI,
+};
+
+
+
+
 typedef struct WzGui
 {
 	WzWidgetData persistent_widgets[MAX_NUM_PERSISTENT_WIDGETS];
@@ -546,13 +605,15 @@ typedef struct WzGui
 	bool clean;
 	void (*get_string_size)(char*, unsigned, unsigned, float*, float*);
 
-	wzrd_v2 mouse_pos, previous_mouse_pos, mouse_delta, screen_mouse_pos;
+	wzrd_v2f mouse_pos, previous_mouse_pos, mouse_delta, screen_mouse_pos;
 	WzKeyboard keyboard;
 	WzState mouse_left, mouse_right;
 
 	// Frame ?
 	WzWidgetData widgets[MAX_NUM_WIDGETS];
 	bool occupied[MAX_NUM_WIDGETS];
+
+	WzRect widget_rects[MAX_NUM_WIDGETS];
 
 	int boxes_in_stack_count, total_num_windows;
 
@@ -593,6 +654,12 @@ typedef struct WzGui
 	// NEW 14.02 from stb
 	WzInputState input_state;
 	WzWidget active_input;
+
+#define MAX_NUM_EVENTS 128
+	WzEvent events[MAX_NUM_EVENTS];
+	unsigned events_count;
+
+	char* pasted_text;
 
 } WzGui;
 
@@ -715,39 +782,6 @@ typedef struct WzLogMessage
 // FUNCTION DECLARATIONS
 //==============================================================================
 
-enum
-{
-	WZ_EVENT_TYPE_NONE,
-	WZ_EVENT_TYPE_MOUSE,
-	WZ_EVENT_TYPE_KEYBOARD,
-};
-
-typedef struct WzKeyboardEvent
-{
-	unsigned type;
-	bool down;
-	bool repeat;
-	unsigned key;
-} WzKeyboardEvent;
-
-typedef struct WzButtonEvent
-{
-	unsigned type;
-	unsigned char button;
-	bool down;
-	float x, y;
-} WzButtonEvent;
-
-typedef union WzEevent
-{
-	unsigned type;
-	WzKeyboardEvent key;
-	WzButtonEvent button;
-} WzEvent;
-
-#define MAX_NUM_EVENTS 128
-unsigned events_count;
-WzEvent events[MAX_NUM_EVENTS];
 
 // Core API
 void wz_set_string_size_callback(void (*get_string_size)(char*, unsigned, unsigned, float*, float*));
@@ -757,7 +791,7 @@ void wz_gui_init(WzGui* wz);
 void wz_gui_deinit(WzGui* wz);
 WzWidget wz_begin(
 	unsigned window_w, unsigned  window_h,
-	unsigned mouse_x, unsigned mouse_y,
+	float mouse_x, float mouse_y,
 	WzState left_mouse_state,
 	WzEvent* events,
 	unsigned events_count,
@@ -883,7 +917,7 @@ void wz_add_resize_widgets_maintain_aspect_ratio2(WzWidget parent, float* angle)
 void wz_widget_transform(WzWidget widget, float x, float y);
 
 // Layout Functions
-void wz_do_layout(unsigned int index,
+void wz_layout(unsigned int index,
 	WzWidgetData* widgets, WzLayoutRect* rects,
 	unsigned int count, unsigned int* failed);
 WzWidget wz_scene(WzScene scene, WzWidget parent, WzTexture texture, int x, int y, unsigned w, unsigned h);
