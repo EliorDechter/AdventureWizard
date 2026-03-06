@@ -873,6 +873,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 		gui.x_icon = (WzTexture){ .w = surface->w, .h = surface->h, .data = SDL_CreateTextureFromSurface(gui_window.renderer, surface) };
 	}
 
+	gui_window.gui.get_ticks = SDL_GetTicksNS;
+
 	if (!success)
 	{
 		SDL_ShowSimpleMessageBox(
@@ -974,4 +976,205 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	events_count = 0;
 
 	return SDL_APP_CONTINUE;
+}
+
+void wz_layout_new()
+{
+#if 0
+	chunks.available_width[0][0] = FLT_MAX;
+	chunks.available_height[0][0] = FLT_MAX;
+
+#if 0
+	// --- Init root ---
+	chunks.minimum_width[0][0] = 1000;
+	chunks.minimum_height[0][0] = 1000;
+	chunks.available_width[0][0] = 1000;
+	chunks.available_height[0][0] = 1000;
+	chunks.absolute_width[0][0] = 1000;
+	chunks.absolute_height[0][0] = 1000;
+
+	chunks.padding_left[0] = 5;
+	chunks.padding_right[0] = 5;
+	chunks.padding_top[0] = 5;
+	chunks.padding_bottom[0] = 5;
+	chunks.child_gap[0] = 20;
+	chunks.is_horizontal[0] = false;
+	chunks.children_count[0] = 0;
+	chunks.children_flex_total[0] = 0;
+	chunks.layout_cursor_x[0] = 5;
+	chunks.layout_cursor_y[0] = 5;
+
+	wz->widgets[0].actual_x = chunks.absolute_x[0][0];
+	wz->widgets[0].actual_y = chunks.absolute_y[0][0];
+	wz->widgets[0].actual_w = chunks.absolute_width[0][0];
+	wz->widgets[0].actual_h = chunks.absolute_height[0][0];
+
+	// --- Widget creation ---
+	WzWidgetNew parent = { .child_chunk = 1 };
+
+	WzWidgetNew w = create_widget(&parent);
+	chunks.minimum_width[w.chunk][w.index_in_chunk] = 50;
+	chunks.minimum_height[w.chunk][w.index_in_chunk] = 50;
+
+	for (unsigned i = 0; i < 2; ++i)
+	{
+		WzWidgetNew w = create_widget(&parent);
+		chunks.minimum_width[w.chunk][w.index_in_chunk] = 10;
+		chunks.minimum_height[w.chunk][w.index_in_chunk] = 10;
+		chunks.flex[w.chunk][w.index_in_chunk] = (float)(1 + i);
+	}
+#else
+
+#endif
+
+	// ----------------------------------------------------------------
+	// Pass 1: bottom-up minimum size
+	// ----------------------------------------------------------------
+	for (int i = MAX_NUM_CHUNKS - 1; i > 0; --i)
+	{
+		unsigned parent_chunk = chunks_data[i].parent_chunk;
+		unsigned parent_slot = chunks_data[i].parent_index_inside_chunk;
+
+		float total_width = 0, total_height = 0;
+		float biggest_width = 0, biggest_height = 0;
+		float total_flex = 0;
+
+		float* minimum_width = chunks.minimum_width[i];
+		float* minimum_height = chunks.minimum_height[i];
+		float* flex = chunks.flex[i];
+
+		for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+		{
+			total_width += minimum_width[j];
+			total_height += minimum_height[j];
+			biggest_width = fmaxf(biggest_width, minimum_width[j]);
+			biggest_height = fmaxf(biggest_height, minimum_height[j]);
+			total_flex += flex[j];
+		}
+
+		chunks.children_flex_total[parent_chunk] += (unsigned)total_flex;
+
+		total_width = fmaxf(total_width, chunks.minimum_width[parent_chunk][parent_slot]);
+		total_height = fmaxf(total_height, chunks.minimum_height[parent_chunk][parent_slot]);
+
+		chunks.minimum_width[parent_chunk][parent_slot] = chunks.is_horizontal[parent_chunk] ? total_width : biggest_width;
+		chunks.minimum_height[parent_chunk][parent_slot] = !chunks.is_horizontal[parent_chunk] ? total_height : biggest_height;
+	}
+
+	// ----------------------------------------------------------------
+	// Pass 2: top-down available space
+	// ----------------------------------------------------------------
+	for (int i = 0; i < MAX_NUM_CHUNKS; ++i)
+	{
+		unsigned parent_chunk = chunks_data[i].parent_chunk;
+		unsigned parent_slot = chunks_data[i].parent_index_inside_chunk;
+
+		float space_width = chunks.available_width[parent_chunk][parent_slot];
+		float space_height = chunks.available_height[parent_chunk][parent_slot];
+
+		space_width -= chunks.padding_left[parent_chunk] + chunks.padding_right[parent_chunk];
+		space_height -= chunks.padding_top[parent_chunk] + chunks.padding_bottom[parent_chunk];
+		space_width -= chunks.is_horizontal[parent_chunk] ? chunks.child_gap[parent_chunk] * (chunks.children_count[parent_chunk] - 1) : 0;
+		space_height -= chunks.is_horizontal[parent_chunk] ? 0 : chunks.child_gap[parent_chunk] * (chunks.children_count[parent_chunk] - 1);
+
+		float* minimum_width = chunks.minimum_width[i];
+		float* minimum_height = chunks.minimum_height[i];
+		float* available_width = chunks.available_width[i];
+		float* available_height = chunks.available_height[i];
+
+		for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+		{
+			space_width -= minimum_width[j];
+			space_height -= minimum_height[j];
+			available_width[j] += minimum_width[j];
+			available_height[j] += minimum_height[j];
+		}
+
+		float width_per_flex = chunks.children_flex_total[parent_chunk] > 0 ? space_width / chunks.children_flex_total[parent_chunk] : 0;
+		float height_per_flex = chunks.children_flex_total[parent_chunk] > 0 ? space_height / chunks.children_flex_total[parent_chunk] : 0;
+
+		float* flex = chunks.flex[i];
+		bool   is_horizontal = chunks.is_horizontal[parent_chunk];
+
+		for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+		{
+			available_width[j] += is_horizontal ? flex[j] * width_per_flex : 0;
+			available_height[j] += !is_horizontal ? flex[j] * height_per_flex : 0;
+		}
+	}
+
+	// ----------------------------------------------------------------
+	// Pass 3: available -> absolute
+	// ----------------------------------------------------------------
+	for (int i = 0; i < MAX_NUM_CHUNKS; ++i)
+	{
+		float* available_width = chunks.available_width[i];
+		float* available_height = chunks.available_height[i];
+		float* absolute_width = chunks.absolute_width[i];
+		float* absolute_height = chunks.absolute_height[i];
+
+		for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+		{
+			absolute_width[j] = available_width[j];
+			absolute_height[j] = available_height[j];
+		}
+	}
+
+	// ----------------------------------------------------------------
+	// Pass 4: assert parent space non-negative (debug only)
+	// ----------------------------------------------------------------
+	for (int i = 1; i < MAX_NUM_CHUNKS; ++i)
+	{
+		unsigned parent_chunk = chunks_data[i].parent_chunk;
+		unsigned parent_slot = chunks_data[i].parent_index_inside_chunk;
+		wz_assert(chunks.available_width[parent_chunk][parent_slot] >= 0);
+		wz_assert(chunks.available_height[parent_chunk][parent_slot] >= 0);
+	}
+
+	// ----------------------------------------------------------------
+	// Pass 5: write widget positions (serial)
+	// ----------------------------------------------------------------
+	for (unsigned i = 0; i < MAX_NUM_CHUNKS; ++i)
+	{
+		unsigned parent_chunk = chunks_data[i].parent_chunk;
+		unsigned parent_slot = chunks_data[i].parent_index_inside_chunk;
+
+		float parent_absolute_x = chunks.absolute_x[parent_chunk][parent_slot];
+		float parent_absolute_y = chunks.absolute_y[parent_chunk][parent_slot];
+		bool  is_horizontal = chunks.is_horizontal[parent_chunk];
+		float gap = chunks.child_gap[parent_chunk];
+		; \
+			for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+			{
+				float absolute_width = chunks.absolute_width[i][j];
+				float absolute_height = chunks.absolute_height[i][j];
+
+				chunks.absolute_x[i][j] = parent_absolute_x + chunks.layout_cursor_x[parent_chunk];
+				chunks.absolute_y[i][j] = parent_absolute_y + chunks.layout_cursor_y[parent_chunk];
+
+				chunks.layout_cursor_x[parent_chunk] += is_horizontal ? absolute_width + gap : 0;
+				chunks.layout_cursor_y[parent_chunk] += !is_horizontal ? absolute_height + gap : 0;
+			}
+	}
+
+	unsigned widgets_count = 0;
+
+	for (unsigned i = 0; i < MAX_NUM_CHUNKS; ++i)
+	{
+		for (unsigned j = 0; j < CHUNK_SIZE; ++j)
+		{
+			if (chunks.absolute_width[i][j])
+			{
+				wz->widgets[widgets_count].actual_w = chunks.absolute_width[i][j];
+				wz->widgets[widgets_count].actual_h = chunks.absolute_height[i][j];
+				wz->widgets[widgets_count].actual_x = chunks.absolute_x[i][j];
+				wz->widgets[widgets_count].actual_y = chunks.absolute_y[i][j];
+
+				widgets_count++;
+				widgets_count &= MAX_NUM_WIDGETS - 1;
+				wz_assert(widgets_count < MAX_NUM_WIDGETS);
+			}
+		}
+	}
+#endif
 }

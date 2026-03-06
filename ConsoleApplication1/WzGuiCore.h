@@ -661,6 +661,9 @@ typedef struct WzGui
 
 	char* pasted_text;
 
+	unsigned long (*get_ticks)(void);
+
+
 } WzGui;
 
 typedef struct HashTableElement {

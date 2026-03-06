@@ -2357,7 +2357,10 @@ void wz_do_layout_refactor_me()
 {
 	unsigned int layout_failed = 0;
 
+	unsigned long t0 = wz->get_ticks();
 	wz_layout(1, wz->widgets, wz->rects, MAX_NUM_WIDGETS, &layout_failed);
+	unsigned long t1 = wz->get_ticks();
+	printf("%f\n", (t1 - t0) / 1000000.0f);
 }
 
 void wz_widget_set_width(WzWidget widget, unsigned w)
